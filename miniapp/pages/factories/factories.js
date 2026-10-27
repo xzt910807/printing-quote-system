@@ -1,5 +1,17 @@
 const api = require('../../utils/api');
 const { getAvatarConfig } = require('../../utils/avatar');
+const REGIONS = require('../../utils/regions');
+
+// 030 地区二级列表：省 + 市（district 不参与筛选）
+function buildRegionRange() {
+  const provinces = ['全部'];
+  const cityMap = { '全部': ['全部'] };
+  for (const p of REGIONS) {
+    provinces.push(p.name);
+    cityMap[p.name] = ['全部', ...(p.children || []).map((c) => c.name)];
+  }
+  return { provinces, cityMap };
+}
 
 Page({
   data: {
@@ -7,7 +19,7 @@ Page({
     statusBarHeight: 20,
     navBarHeight: 44,
     // Stage12 默认选中「纸箱」：进页面即按纸箱能力过滤工厂与工艺
-    filter: { productType: 'carton', printMode: '', process: [] },
+    filter: { productType: 'carton', printMode: '', process: [], province: '', city: '' },
     // Stage9 品类联动配置（/api/c/config 下发；空对象=不联动，容错）
     linkConfig: {},
     // Stage11 筛选全量展开：产品 10 类 + 常用工艺（与后台能力配置同源）
@@ -81,6 +93,60 @@ Page({
     ],
     processOptions: [], // 由 applyLinkage 按当前品类填充（配置到达前为空）
     factories: [],
+    // 030 二级 picker 数据（省列 + 当前省对应的市列）
+    regionRange: [[], []],
+    regionIndex: [0, 0],
+  },
+
+  // 内部保存一份 provinces + cityMap，避免 setData 存储过多数据
+  _regionProvinces: null,
+  _regionCityMap: null,
+
+  initRegion() {
+    const { provinces, cityMap } = buildRegionRange();
+    this._regionProvinces = provinces;
+    this._regionCityMap = cityMap;
+    this.setData({
+      regionRange: [provinces, cityMap[provinces[0]]],
+      regionIndex: [0, 0],
+    });
+  },
+
+  onRegionColumnChange(e) {
+    const { column, value } = e.detail;
+    if (column !== 0) return;
+    const prov = this._regionProvinces[value] || '全部';
+    const cities = this._regionCityMap[prov] || ['全部'];
+    const idx = this.data.regionIndex.slice();
+    idx[0] = value;
+    idx[1] = 0;
+    this.setData({
+      'regionRange[1]': cities,
+      regionIndex: idx,
+    });
+  },
+
+  onRegionChange(e) {
+    const [pi, ci] = e.detail.value;
+    const prov = this._regionProvinces[pi] || '全部';
+    const cities = this._regionCityMap[prov] || ['全部'];
+    const city = cities[ci] || '全部';
+    this.setData({
+      'filter.province': prov === '全部' ? '' : prov,
+      'filter.city': city === '全部' ? '' : city,
+      regionIndex: [pi, ci],
+    });
+    this.loadFactories();
+  },
+
+  clearRegion() {
+    this.setData({
+      'filter.province': '',
+      'filter.city': '',
+      regionIndex: [0, 0],
+      'regionRange[1]': this._regionCityMap['全部'],
+    });
+    this.loadFactories();
   },
 
   onLoad() {
@@ -94,6 +160,7 @@ Page({
       this.setData({ statusBarHeight: 20, navBarHeight: 44 });
     }
     // Stage12 拉取品类联动配置（工艺白名单），到达后按当前品类（默认纸箱）收窄工艺展示
+    this.initRegion();
     api.request('/api/c/config').then((res) => {
       this.setData({ linkConfig: (res && res.data && res.data.productConfig) || {} });
       this.applyLinkage(this.data.filter.productType);
@@ -184,6 +251,9 @@ Page({
       params.push('keyword=' + encodeURIComponent(this.data.keyword.trim()));
     }
     if (this.data.sort) params.push('sort=' + this.data.sort);
+    // 030 地区筛选
+    if (f.province) params.push('province=' + encodeURIComponent(f.province));
+    if (f.city)     params.push('city=' + encodeURIComponent(f.city));
 
     this.setData({ factoriesLoading: true });
     try {

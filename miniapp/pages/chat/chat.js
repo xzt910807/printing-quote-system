@@ -27,6 +27,9 @@ Page({
     loading: true,
     keyboardHeight: 0,
     inputBarH: 56,     // 底部输入栏固定高度（px，与 wxss 同步）
+    // 026 协同文件（当前 inquiry 会话的相关文件）
+    files: [],
+    filesExpanded: false,
   },
 
   onLoad(options) {
@@ -101,6 +104,7 @@ Page({
         if (scrollToBottom) this.setData({ lastId: this._tailId });
       });
       this.startPoll();
+      this.loadFiles();
     } catch (err) {
       this.setData({ loading: false });
       if (!this.pollErrorShown) {
@@ -108,6 +112,100 @@ Page({
         wx.showToast({ title: err.message || '加载失败', icon: 'none' });
       }
     }
+  },
+
+  // 026 拉取当前询价会话的文件列表
+  async loadFiles() {
+    try {
+      const path = this.data.isFactory ? '/api/factory/file/list' : '/api/c/file/list';
+      const res = await api.request(path + '?refType=inquiry&refId=' + this.data.inquiryId,
+        { headers: this.authHeaders() });
+      const viewerType = this.data.isFactory ? 'factory' : 'user';
+      const list = ((res.data && res.data.list) || []).map((f) => ({
+        ...f,
+        fullUrl: api.BASE_URL + f.file_url,
+        senderText: f.sender_type === viewerType ? '我' : (f.sender_type === 'factory' ? '工厂' : '客户'),
+        sizeText: f.file_size > 1048576 ? (f.file_size / 1048576).toFixed(1) + 'MB' : Math.ceil(f.file_size / 1024) + 'KB',
+      }));
+      this.setData({ files: list });
+    } catch (e) { /* 静默 */ }
+  },
+
+  toggleFiles() {
+    this.setData({ filesExpanded: !this.data.filesExpanded });
+  },
+
+  openFile(e) {
+    const url = e.currentTarget.dataset.url;
+    if (!url) return;
+    wx.downloadFile({
+      url,
+      success: (r) => {
+        wx.openDocument({
+          filePath: r.tempFilePath,
+          showMenu: true,
+          fail: () => wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '链接已复制', icon: 'none' }) }),
+        });
+      },
+      fail: () => wx.showToast({ title: '下载失败', icon: 'none' }),
+    });
+  },
+
+  // 026 选择并上传文件（微信聊天文件选取）
+  chooseFile() {
+    wx.chooseMessageFile({
+      count: 1,
+      type: 'file',
+      success: (r) => {
+        const file = r.tempFiles[0];
+        if (!file) return;
+        const extMatch = /\.(\w+)$/.exec(file.name || '');
+        const ext = extMatch ? extMatch[1].toLowerCase() : '';
+        const ALLOWED = ['pdf','ai','cdr','psd','eps','zip','rar','7z','jpg','jpeg','png','tif','tiff','svg','dwg'];
+        if (!ALLOWED.includes(ext)) {
+          return wx.showToast({ title: '不支持的文件类型', icon: 'none' });
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          return wx.showToast({ title: '文件最大 20MB', icon: 'none' });
+        }
+        this.uploadFile(file);
+      },
+    });
+  },
+
+  uploadFile(file) {
+    const token = this.data.isFactory
+      ? (wx.getStorageSync('factoryAuth') || {}).token
+      : (wx.getStorageSync('userAuth') || {}).token;
+    const header = {};
+    if (this.data.isFactory) {
+      header['X-Factory-Id'] = String((wx.getStorageSync('factoryAuth') || {}).factoryId || '');
+      header['X-Factory-Token'] = token || '';
+    } else {
+      header['X-User-Token'] = token || '';
+    }
+    const url = api.BASE_URL + (this.data.isFactory ? '/api/factory/file/upload' : '/api/c/file/upload');
+    wx.showLoading({ title: '上传中', mask: true });
+    wx.uploadFile({
+      url,
+      filePath: file.path,
+      name: 'file',
+      formData: { refType: 'inquiry', refId: String(this.data.inquiryId) },
+      header,
+      success: (res) => {
+        wx.hideLoading();
+        let data = {};
+        try { data = JSON.parse(res.data); } catch (e) {}
+        if (data && data.code === 0) {
+          wx.showToast({ title: '文件已发送', icon: 'success' });
+          this.loadFiles();
+          this.setData({ filesExpanded: true });
+        } else {
+          wx.showToast({ title: (data && data.msg) || '上传失败', icon: 'none' });
+        }
+      },
+      fail: () => { wx.hideLoading(); wx.showToast({ title: '上传失败', icon: 'none' }); },
+    });
   },
 
   onInput(e) {

@@ -1,0 +1,33 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">行业资讯</view>
+  </view>
+</view>
+
+<view class="page">
+  <!-- 分类 Tab -->
+  <scroll-view class="cat-bar" scroll-x="{{true}}">
+    <view wx:for="{{categories}}" wx:key="key"
+          class="cat-item {{activeCat === item.key ? 'cat-active' : ''}}"
+          data-cat="{{item.key}}" bindtap="switchCat">{{item.label}}</view>
+  </scroll-view>
+
+  <!-- 列表 -->
+  <view wx:if="{{!list.length && !loading}}" class="empty">暂无资讯，稍后再来查看</view>
+
+  <view class="news-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+    <image wx:if="{{item.cover_image}}" class="news-cover" src="{{item.cover_image}}" mode="aspectFill"/>
+    <view class="news-body">
+      <view class="news-title">{{item.title}}</view>
+      <view class="news-sum" wx:if="{{item.summary}}">{{item.summary}}</view>
+      <view class="news-meta">
+        <text class="news-src">{{item.source_name || '来源'}}</text>
+        <text class="news-time">{{item.published_at}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="load-tip">加载中…</view>
+  <view wx:elif="{{list.length >= total && total > 0}}" class="load-tip">— 已加载全部 —</view>
+</view>

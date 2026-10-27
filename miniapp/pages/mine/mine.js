@@ -71,6 +71,10 @@ Page({
     displayList: [],
     displayOrders: [],
     displayMessages: [],
+    displaySuppliers: [],
+    // 026 供应商管理：历史合作工厂聚合（完成订单自动沉淀）
+    suppliers: [],
+    supplierLoading: false,
     searchKeyword: '',
     stats: { total: 0, active: 0, accepted: 0 },
     messages: [],
@@ -539,7 +543,39 @@ Page({
   },
 
   async loadAll() {
-    await Promise.all([this.loadInquiries(), this.loadMessages(), this.loadOrders(), this.loadChatUnread()]);
+    await Promise.all([this.loadInquiries(), this.loadMessages(), this.loadOrders(), this.loadChatUnread(), this.loadSuppliers()]);
+  },
+
+  // 026 我的供应商（合作次数 / 累计金额 / 最近订单 / 平均评分）
+  async loadSuppliers() {
+    this.setData({ supplierLoading: true });
+    try {
+      const res = await api.request('/api/c/user/suppliers');
+      const list = (res.data && res.data.list) || res.data || [];
+      const enriched = list.map((s) => ({
+        ...s,
+        total_amount: Number(s.total_amount || 0).toFixed(2),
+        avg_rating: s.avg_rating ? Number(s.avg_rating).toFixed(1) : '',
+        lastOrderText: formatTime(s.last_order_at),
+      }));
+      this.setData({ suppliers: enriched });
+      this.applyFilter();
+    } catch (err) {
+      // 接口未就绪时静默降级
+      this.setData({ suppliers: [] });
+    } finally {
+      this.setData({ supplierLoading: false });
+    }
+  },
+
+  // 027 售后工单入口
+  goIssue() {
+    wx.navigateTo({ url: '/pages/issue/issue' });
+  },
+
+  // 028 行业资讯入口
+  goNews() {
+    wx.navigateTo({ url: '/pages/news/news' });
   },
 
   // IM 会话未读数（轻量接口，失败静默：不影响询价/订单/站内信主链路）
@@ -588,6 +624,7 @@ Page({
       displayList: this.data.list.filter((x) => match(x.inquiry_no) || match(x.productText) || match(x.statusText)),
       displayOrders: this.data.orders.filter((x) => match(x.order_no) || match(x.factory_name) || match(x.productText)),
       displayMessages: this.data.messages.filter((x) => match(x.title) || match(x.content)),
+      displaySuppliers: (this.data.suppliers || []).filter((x) => match(x.name) || match(x.address)),
     });
   },
 

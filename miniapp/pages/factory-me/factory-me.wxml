@@ -16,6 +16,7 @@
 
   <!-- 分区导航：点击切换分区，只展示当前分区（选中项高亮） -->
   <view class="sec-nav">
+    <view class="sec-nav-item {{section === 'dashboard' ? 'sec-on' : ''}}" data-section="dashboard" bindtap="switchSection">经营</view>
     <view class="sec-nav-item {{section === 'profile' ? 'sec-on' : ''}}" data-section="profile" bindtap="switchSection">资料</view>
     <view class="sec-nav-item {{section === 'price' ? 'sec-on' : ''}}" data-section="price" bindtap="switchSection">价格</view>
     <view class="sec-nav-item {{section === 'cap' ? 'sec-on' : ''}}" data-section="cap" bindtap="switchSection">能力</view>
@@ -23,6 +24,44 @@
     <view class="sec-nav-item {{section === 'staff' ? 'sec-on' : ''}}" wx:if="{{canManageStaff}}" data-section="staff" bindtap="switchSection">员工</view>
     <view class="sec-nav-item {{section === 'account' ? 'sec-on' : ''}}" data-section="account" bindtap="switchSection">账号</view>
   </view>
+
+  <!-- ===== 029 经营概览分区 ===== -->
+  <block wx:if="{{section === 'dashboard'}}">
+    <view class="card">
+      <view class="card-title">本月经营</view>
+      <view class="dash-grid">
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.monthlyOrders || 0}}</text><text class="dash-lbl">本月接单</text></view>
+        <view class="dash-cell"><text class="dash-num dash-num-money">¥{{dashSummary.monthlyRevenue || 0}}</text><text class="dash-lbl">本月金额</text></view>
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.pendingOrders || 0}}</text><text class="dash-lbl">进行中订单</text></view>
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.inquiryReceived || 0}}</text><text class="dash-lbl">本月收到询价</text></view>
+      </view>
+      <view class="dash-grid">
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.rating || 0}}</text><text class="dash-lbl">评分（{{dashSummary.ratingCount || 0}}人）</text></view>
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.avgResponseHours || 0}}h</text><text class="dash-lbl">平均响应</text></view>
+        <view class="dash-cell"><text class="dash-num">{{dashSummary.totalAccepts || 0}}/{{dashSummary.totalPushes || 0}}</text><text class="dash-lbl">接单/推送</text></view>
+        <view class="dash-cell"><text class="dash-num {{dashSummary.activeIssues > 0 ? 'dash-num-warn' : ''}}">{{dashSummary.activeIssues || 0}}</text><text class="dash-lbl">待处理工单</text></view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{dashTrend.length}}">
+      <view class="card-title">近 6 月接单量</view>
+      <view class="bar-row" wx:for="{{dashTrend}}" wx:key="ym">
+        <text class="bar-lbl">{{item.ym}}</text>
+        <view class="bar-track"><view class="bar-fill" style="width: {{item.pct}}%"></view></view>
+        <text class="bar-val">{{item.cnt}}单 · ¥{{item.amtText}}</text>
+      </view>
+    </view>
+    <view class="card" wx:else><view class="card-title">近 6 月接单量</view><view class="empty">暂无订单数据</view></view>
+
+    <view class="card" wx:if="{{dashTopProducts.length}}">
+      <view class="card-title">品类分布</view>
+      <view class="bar-row" wx:for="{{dashTopProducts}}" wx:key="product_type">
+        <text class="bar-lbl">{{item.name || item.product_type}}</text>
+        <view class="bar-track"><view class="bar-fill bar-fill-alt" style="width: {{item.pct}}%"></view></view>
+        <text class="bar-val">{{item.cnt}}单</text>
+      </view>
+    </view>
+  </block>
 
   <!-- ===== 资料分区：基本资料 + 专属二维码 ===== -->
   <block wx:if="{{section === 'profile'}}">

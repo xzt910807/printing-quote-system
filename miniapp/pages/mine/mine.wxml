@@ -67,6 +67,22 @@
       </view>
       <view class="menu-arrow"></view>
     </view>
+    <!-- 027 售后工单入口 -->
+    <view class="menu-row" bindtap="goIssue">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-red"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+        <text class="menu-row-label">售后工单</text>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
+    <!-- 028 行业资讯入口 -->
+    <view class="menu-row" bindtap="goNews">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-blue"><view class="ic ic-quote"><view class="ic-a"></view></view></view>
+        <text class="menu-row-label">行业资讯</text>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
   </view>
 
   <!-- 029：仅纯 C 端用户（无接单会话也未绑定工厂）显示；与已入驻身份卡同构（灰调图标区分状态），两态版式统一 -->
@@ -116,6 +132,7 @@
     <view class="tab-item {{tab === 'message' ? 'tab-active' : ''}}" data-tab="message" bindtap="switchTab">
       消息<text class="tab-num" wx:if="{{unread}}">{{unread}}</text>
     </view>
+    <view class="tab-item {{tab === 'supplier' ? 'tab-active' : ''}}" data-tab="supplier" bindtap="switchTab">供应商</view>
   </view>
 
   <!-- 列表搜索（本地过滤当前 tab） -->
@@ -266,6 +283,29 @@
       </view>
       <view class="msg-content">{{item.content}}</view>
       <view class="msg-time">{{item.timeText}}</view>
+    </view>
+  </block>
+
+  <!-- 026 供应商管理：历史合作工厂聚合 -->
+  <block wx:if="{{tab === 'supplier'}}">
+    <view class="empty" wx:if="{{supplierLoading}}">
+      <text class="empty-icon">⏳</text>加载中...
+    </view>
+    <view class="empty" wx:elif="{{!displaySuppliers.length}}">
+      <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+      {{searchKeyword ? '没有匹配的供应商' : '暂无合作供应商，完成订单后自动沉淀'}}
+    </view>
+    <view class="inq-card" wx:for="{{displaySuppliers}}" wx:key="id"
+          data-id="{{item.id}}" bindtap="goFactoryDetail">
+      <view class="row">
+        <text class="inq-no">{{item.name}}</text>
+        <text class="badge badge-green" wx:if="{{item.order_count}}">合作 {{item.order_count}} 次</text>
+      </view>
+      <view class="row inq-main">
+        <text class="inq-desc">累计金额 ¥{{item.total_amount}}</text>
+        <text class="inq-price" wx:if="{{item.avg_rating}}">⭐ {{item.avg_rating}}</text>
+      </view>
+      <view class="inq-time" wx:if="{{item.last_order_at}}">最近合作 {{item.lastOrderText}}</view>
     </view>
   </block>
 </view>

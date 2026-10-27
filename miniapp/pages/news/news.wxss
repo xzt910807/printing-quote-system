@@ -1,0 +1,20 @@
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; position: relative; }
+.navbar-back { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #333; margin-left: 12rpx; }
+.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 600; margin-right: 56rpx; }
+
+.page { padding: 20rpx; padding-top: 200rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
+
+.cat-bar { white-space: nowrap; background: #fff; border-radius: 12rpx; padding: 12rpx; margin-bottom: 20rpx; }
+.cat-item { display: inline-block; padding: 12rpx 28rpx; margin-right: 12rpx; border-radius: 30rpx; background: #f2f3f5; color: #666; font-size: 26rpx; }
+.cat-active { background: #2563eb; color: #fff; }
+
+.news-card { background: #fff; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx; display: flex; align-items: flex-start; }
+.news-cover { width: 180rpx; height: 130rpx; border-radius: 8rpx; margin-right: 16rpx; flex-shrink: 0; background: #eee; }
+.news-body { flex: 1; min-width: 0; }
+.news-title { font-size: 30rpx; font-weight: 600; color: #222; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.news-sum { font-size: 24rpx; color: #666; margin-top: 8rpx; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.news-meta { display: flex; justify-content: space-between; margin-top: 12rpx; font-size: 22rpx; color: #999; }
+
+.empty { text-align: center; color: #999; padding: 100rpx 0; font-size: 26rpx; }
+.load-tip { text-align: center; color: #999; padding: 24rpx 0; font-size: 24rpx; }

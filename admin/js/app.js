@@ -144,6 +144,9 @@ const app = createApp({
       { key: 'accounts', title: '账户管理', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'account:manage' },
       { key: 'sessions', title: '在线设备', group: '系统', svg: NAV_ICONS.monitor, mode: 'admin', perm: 'session:view' },
       { key: 'fee-ledger', title: '服务费台账', group: '系统', svg: NAV_ICONS.banknote, mode: 'admin', perm: 'finance:view' },
+      // 027 工单管理 + 029 仲裁中心
+      { key: 'issues', title: '工单管理', factoryTitle: '售后工单', group: '业务', svg: NAV_ICONS.inbox, mode: 'both', perm: 'inquiry:view' },
+      { key: 'arbitration', title: '仲裁中心', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'order:view' },
     ];
 
     // F-165 权限判定：工厂端看 factoryAuth.permissions；管理端看 admin-me 的 perms（角色映射兜底）
@@ -199,12 +202,94 @@ const app = createApp({
       'fee-ledger': '服务费台账',
     })[state.page]);
 
-    const materialCount = computed(() =>
+      const materialCount = computed(() =>
       Object.keys(state.catalog.rawPaper).length +
       Object.keys(state.catalog.boardPaper).length +
       Object.keys(state.catalog.cardPaper).length +
       Object.keys(state.catalog.plasticFilm || {}).length
     );
+
+    // ===== 027 售后工单（管理端列表 + 推进状态 + 内容介入） =====
+    const ISSUE_STATUS_TEXT = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
+    const ISSUE_TYPE_TEXT = { quality: '质量问题', delay: '延期预警', reprint: '补印申请', other: '其他' };
+    const issueFilter = reactive({ status: '', type: '', keyword: '', page: 1 });
+    const issuesState = reactive({ list: [], total: 0, loading: false });
+
+    async function loadIssues(page) {
+      issuesState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (issueFilter.status) q.set('status', issueFilter.status);
+        if (issueFilter.type) q.set('type', issueFilter.type);
+        if (issueFilter.keyword) q.set('keyword', issueFilter.keyword);
+        q.set('page', page || issueFilter.page || 1);
+        q.set('pageSize', 20);
+        const res = await api.request('/api/admin/issue?' + q.toString());
+        issuesState.list = (res.data && res.data.list) || [];
+        issuesState.total = (res.data && res.data.total) || 0;
+        issueFilter.page = page || issueFilter.page || 1;
+      } catch (err) {
+        alert('工单加载失败：' + err.message);
+      } finally {
+        issuesState.loading = false;
+      }
+    }
+
+    async function adminUpdateIssue(issue, status) {
+      const tipMap = { processing: '确认接手该工单？', resolved: '确认标记为已解决？', closed: '确认关闭该工单？' };
+      if (status === 'processing') {
+        const note = prompt(tipMap[status] + '\n\n添加处理备注（可取消）：') || '';
+        try { await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status, adminNote: note } }); await loadIssues(); }
+        catch (err) { alert('失败：' + err.message); }
+        return;
+      }
+      if (!(await ui.confirm(tipMap[status] || '确认推进状态？'))) return;
+      try { await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status } }); await loadIssues(); }
+      catch (err) { alert('失败：' + err.message); }
+    }
+
+    // ===== 029 仲裁中心（争议中/冻结中的订单列表 + 仲裁处理） =====
+    const arbState = reactive({ list: [], total: 0, page: 1, status: 'frozen', loading: false });
+
+    async function loadArbitration(page) {
+      arbState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (arbState.status) q.set('escrowStatus', arbState.status);
+        q.set('page', page || arbState.page || 1);
+        q.set('pageSize', 20);
+        const res = await api.request('/api/c/order/list?' + q.toString());
+        arbState.list = (res.data && res.data.list) || [];
+        arbState.total = (res.data && res.data.total) || 0;
+        arbState.page = page || arbState.page || 1;
+      } catch (err) {
+        alert('仲裁列表加载失败：' + err.message);
+      } finally {
+        arbState.loading = false;
+      }
+    }
+
+    async function arbitrateOrder(order) {
+      const choice = prompt('仲裁处理【' + order.order_no + '】：\n  1 = 全额退款\n  2 = 放款给工厂\n  3 = 部分退款（输入百分比 1-99）\n请输入选项：');
+      if (!choice) return;
+      let decision = 'refund', refundPercent = 100;
+      if (choice === '2') { decision = 'release'; refundPercent = 0; }
+      else if (choice === '3') {
+        const pct = parseInt(prompt('退款百分比（1-99）：', '50'), 10);
+        if (!pct || pct < 1 || pct > 99) return alert('已取消');
+        refundPercent = pct;
+      } else if (choice !== '1') return alert('无效选项');
+      const reason = prompt('仲裁理由（必填）：') || '';
+      if (!reason) return alert('已取消');
+      try {
+        await api.request('/api/admin/order/' + order.id + '/arbitrate', {
+          method: 'POST',
+          body: { decision, refundPercent, reason },
+        });
+        alert('仲裁已提交');
+        await loadArbitration();
+      } catch (err) { alert('仲裁失败：' + err.message); }
+    }
 
     const recentQuotes = computed(() => state.quotes.slice(0, 8));
 
@@ -954,6 +1039,8 @@ const app = createApp({
       if (page === 'shipping') loadShippingTemplates();
       if (page === 'sessions') loadSessions();
       if (page === 'fee-ledger') loadFeeLedger();
+      if (page === 'issues') loadIssues(1);
+      if (page === 'arbitration') loadArbitration(1);
       if (page === 'pricing' && state.isFactoryMode) loadFactoryData();
       if (page === 'staff' && state.isFactoryMode) loadStaffs();
       if (page === 'dashboard' && state.isFactoryMode) { loadFactoryData(); loadFactoryStats(); }
@@ -1430,6 +1517,8 @@ const app = createApp({
       open: false,
       form: {
         id: null, code: '', name: '', contact: '', phone: '', address: '',
+        // 030 地区筛选（省/市），与 address 同步但结构化
+        province: '', city: '',
         defaultMarginPct: 15, cEndEnabled: 1,
         // 027 验真徽章：平台已核验资质（营业执照/印刷经营许可证），C 端展示「已核验」
         licenseVerified: 0,
@@ -1446,6 +1535,7 @@ const app = createApp({
         Object.assign(form, {
           id: f.id, code: f.code, name: f.name,
           contact: f.contact || '', phone: f.phone || '', address: f.address || '',
+          province: f.province || '', city: f.city || '',
           defaultMarginPct: Math.round((Number(f.default_margin) || 0) * 100),
           cEndEnabled: f.c_end_enabled ? 1 : 0,
           defaultTaxRate: Number(f.default_tax_rate) || 0.10,
@@ -1457,6 +1547,7 @@ const app = createApp({
       } else {
         Object.assign(form, {
           id: null, code: '', name: '', contact: '', phone: '', address: '',
+          province: '', city: '',
           defaultMarginPct: 15, cEndEnabled: 1,
           defaultTaxRate: 0.10, defaultWasteRate: 0.04, status: 1,
           licenseVerified: 0,
@@ -1473,6 +1564,7 @@ const app = createApp({
       if (!f.id && f.username && f.password && f.password.length < 6) return alert('密码至少 6 位，留空则用默认密码 000000');
       const body = {
         name: f.name, contact: f.contact, phone: f.phone, address: f.address,
+        province: f.province, city: f.city,
         defaultMargin: (f.defaultMarginPct || 0) / 100,
         defaultTaxRate: f.defaultTaxRate,
         defaultWasteRate: f.defaultWasteRate,
@@ -2336,6 +2428,9 @@ const app = createApp({
       LIST_PAGE_SIZE, loadQuotesPage, loadOrdersPage, loadInquiriesPage, loadCustomersPage,
       quotePages, orderPages, inquiryPages, customerPages, onOrderFilterChange,
       currentFactoryLabel, filteredFactoryOptions, toggleFactoryPicker, pickFactory, setCatalogTab,
+      // 027 售后工单 + 029 仲裁中心
+      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue,
+      arbState, loadArbitration, arbitrateOrder,
       // 021/022 设计稿展示
       designImgs, designBadge, openDesignImg, designPdf,
     };

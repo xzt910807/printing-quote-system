@@ -1,0 +1,79 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">售后工单</view>
+    <view class="navbar-action" bindtap="toggleForm">{{showForm ? '关闭' : '新建'}}</view>
+  </view>
+</view>
+
+<view class="page">
+
+  <!-- 新建表单（浮层） -->
+  <view class="form-mask" wx:if="{{showForm}}">
+    <view class="form-panel">
+      <view class="form-title">新建工单</view>
+
+      <view class="form-row">
+        <text class="form-label">订单号</text>
+        <input class="form-input" type="number" placeholder="填写要反馈的订单 ID"
+               value="{{formOrderId}}" bindinput="onInputOrderId"/>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">问题类型</text>
+        <view class="type-cells">
+          <view wx:for="{{formTypes}}" wx:key="key"
+                class="type-cell {{formType === item.key ? 'type-active' : ''}}"
+                data-k="{{item.key}}" bindtap="setFormType">{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">标题 *</text>
+        <input class="form-input" placeholder="简要描述问题"
+               value="{{formTitle}}" bindinput="onInputTitle"/>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">详细描述</text>
+        <textarea class="form-textarea" placeholder="补充细节、时间、批号等"
+                  value="{{formDesc}}" bindinput="onInputDesc"/>
+      </view>
+
+      <view class="form-row">
+        <text class="form-label">凭证图（最多 6 张）</text>
+        <view class="img-cells">
+          <view class="img-cell" wx:for="{{formImages}}" wx:key="*this" wx:for-index="i">
+            <image src="{{item}}" mode="aspectFill" class="img-prev"/>
+            <text class="img-del" data-i="{{i}}" catchtap="removeImage">×</text>
+          </view>
+          <view class="img-add" wx:if="{{formImages.length < 6}}" bindtap="chooseImages">+</view>
+        </view>
+      </view>
+
+      <view class="form-btns">
+        <view class="btn-ghost" bindtap="toggleForm">取消</view>
+        <view class="btn-primary {{submitting ? 'disabled' : ''}}" bindtap="submit">
+          {{submitting ? '提交中…' : '提交工单'}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 工单列表 -->
+  <view wx:if="{{!list.length && !loading}}" class="empty">暂无工单，点击右上角"新建"发起售后</view>
+
+  <view class="tk-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+    <view class="tk-head">
+      <text class="tk-no">{{item.ticket_no}}</text>
+      <text class="tk-status st-{{item.status}}">{{item.statusLabel}}</text>
+    </view>
+    <view class="tk-title">{{item.title}}</view>
+    <view class="tk-meta">
+      <text class="tk-type">{{item.type}}</text>
+      <text>订单 #{{item.order_id}}</text>
+      <text>{{item.created_at}}</text>
+    </view>
+  </view>
+
+</view>

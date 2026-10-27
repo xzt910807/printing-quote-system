@@ -1,0 +1,48 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">工单详情</view>
+  </view>
+</view>
+
+<view class="page" wx:if="{{ticket}}">
+  <view class="hd">
+    <view class="hd-no">{{ticket.ticket_no}}</view>
+    <view class="hd-status st-{{ticket.status}}">{{statusLabel}}</view>
+  </view>
+
+  <view class="row"><text class="lbl">类型</text><text>{{typeLabel}}</text></view>
+  <view class="row"><text class="lbl">订单</text><text>#{{ticket.order_id}}</text></view>
+  <view class="row"><text class="lbl">工厂</text><text>#{{ticket.factory_id}}</text></view>
+  <view class="row"><text class="lbl">创建</text><text>{{ticket.created_at}}</text></view>
+
+  <view class="card">
+    <view class="card-title">问题描述</view>
+    <view class="tk-title">{{ticket.title}}</view>
+    <view class="tk-desc" wx:if="{{ticket.description}}">{{ticket.description}}</view>
+  </view>
+
+  <view class="card" wx:if="{{ticket.images && ticket.images.length}}">
+    <view class="card-title">凭证</view>
+    <view class="imgs">
+      <image wx:for="{{ticket.images}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+             class="img-prev" data-url="{{item}}" bindtap="previewImage"/>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{ticket.factory_reply}}">
+    <view class="card-title">工厂回复</view>
+    <view class="reply">{{ticket.factory_reply}}</view>
+  </view>
+
+  <view class="card" wx:if="{{ticket.admin_note}}">
+    <view class="card-title">平台备注</view>
+    <view class="reply note">{{ticket.admin_note}}</view>
+  </view>
+
+  <view class="btn-primary" wx:if="{{ticket.status === 'resolved'}}" bindtap="close">
+    {{closing ? '处理中…' : '确认关闭工单'}}
+  </view>
+</view>
+
+<view wx:elif="{{!loading}}" class="empty">工单不存在</view>

@@ -151,6 +151,12 @@ async function tick() {
     const yest = fmtDate(new Date(now.getTime() - 86400000));
     await statDay(yest);
     await statDay(today);
+    // 027 工单升级：超过 48h 未响应的 open 工单自动 escalate 通知管理员
+    await escalateStaleTickets();
+    // 029 自动放款：发货后 N 天未确认的订单自动解冻
+    await autoReleaseEscrow();
+    // 028 资讯抓取：每 NEWS_CRAWL_INTERVAL_HOURS(默认 2) 小时一次，以 sys_kv 时间戳节流
+    await crawlNewsIfNeeded();
     // 心跳：成功也落库（含耗时），/health 据此判活
     await kvSet(HEARTBEAT_KEY, JSON.stringify({ ok: true, costMs: Date.now() - started }));
   } catch (e) {
@@ -158,6 +164,52 @@ async function tick() {
     // P1 告警：失败写失败心跳 + 推运维通道（同 key 30 分钟冷却，并同步发管理员站内消息）
     await kvSet(HEARTBEAT_KEY, JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 300) }));
     await alertService.send('cron_tick', '⚠️ 定时任务执行失败：' + String(e.message || e).slice(0, 200), { alertToAdmin: true });
+  }
+}
+
+// ===== 027 工单升级扫描 =====
+async function escalateStaleTickets() {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, ticket_no, order_id, user_id, factory_id, created_at FROM issue_ticket
+       WHERE status = 'open' AND created_at < DATE_SUB(NOW(), INTERVAL 48 HOUR) LIMIT 20`);
+    for (const t of rows) {
+      await pool.query(
+        `INSERT INTO c_message (user_id, type, title, content, ref_type, ref_id)
+         VALUES (0, 'issue_stale', ?, ?, 'issue', ?)`,
+        ['工单超时未响应', `工单 ${t.ticket_no}（订单 ${t.order_id}）已超 48h 无回复，请介入`, t.id]
+      ).catch(() => {});
+    }
+    if (rows.length) console.log('[cron] 工单升级提醒 ' + rows.length + ' 个');
+  } catch (e) {
+    if (e.code !== 'ER_NO_SUCH_TABLE') console.warn('[cron] 工单升级扫描失败:', e.message);
+  }
+}
+
+// ===== 029 自动放款 =====
+async function autoReleaseEscrow() {
+  try {
+    const escrow = require('./escrowService');
+    await escrow.autoReleaseExpired();
+  } catch (e) {
+    if (e.code !== 'ER_NO_SUCH_TABLE') console.warn('[cron] 自动放款失败:', e.message);
+  }
+}
+
+// ===== 028 资讯抓取 =====
+const NEWS_CRAWL_INTERVAL_HOURS = Number(process.env.NEWS_CRAWL_INTERVAL_HOURS) || 2;
+const NEWS_LAST_CRAWL_KEY = 'news_last_crawl_at';
+async function crawlNewsIfNeeded() {
+  try {
+    const rec = await kvGet(NEWS_LAST_CRAWL_KEY);
+    const ageH = rec ? (Date.now() - new Date(rec.updatedAt).getTime()) / 3600000 : Infinity;
+    if (ageH < NEWS_CRAWL_INTERVAL_HOURS) return;
+    const news = require('./newsService');
+    const ret = await news.crawlAll();
+    await kvSet(NEWS_LAST_CRAWL_KEY, JSON.stringify(ret || { ok: true }));
+    if (ret && ret.total) console.log('[cron] 资讯抓取新增 ' + ret.total + ' 条');
+  } catch (e) {
+    if (e.code !== 'ER_NO_SUCH_TABLE') console.warn('[cron] 资讯抓取失败:', e.message);
   }
 }
 

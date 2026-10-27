@@ -25,8 +25,13 @@ const adminLogisticsRoutes = require('./routes/adminLogistics');
 const voiceRoutes = require('./routes/voice');
 const opsRoutes = require('./routes/ops');
 const messagesRoutes = require('./routes/messages');
+const fileTransferRoutes = require('./routes/fileTransfer');
+const issuesRoutes = require('./routes/issues');
+const newsRoutes = require('./routes/news');
+const factoryDashboardRoutes = require('./routes/factoryDashboard');
+const suppliersRoutes = require('./routes/suppliers');
 const wxpay = require('./services/wxpay');
-const { requireAdmin, requireAdminOrFactory, requireUser } = require('./middlewares/auth');
+const { requireAdmin, requireAdminOrFactory, requireUser, requireFactory } = require('./middlewares/auth');
 const { ok, fail } = require('./utils/helpers');
 
 const app = express();
@@ -206,6 +211,41 @@ app.use('/api/factory', factoryPushRoutes);
 app.use('/api/factory', factoryQueryRoutes);
 app.use('/api/factory', factoryRegisterRoutes);
 app.use('/api/factory', factorySelfRoutes);
+
+// ===== 026-030 新七大功能后端路由 =====
+// 026 协同文件传输：/api/c/file（用户端 requireUser）与 /api/factory/file（工厂端 requireFactory）
+app.use('/api/c/file', requireUser, fileTransferRoutes);
+app.use('/api/factory/file', requireFactory, fileTransferRoutes); // 路由内部按头鉴权，工厂端自带 requireFactory
+// 027 异常工单：/api/c/issue 与 /api/factory/issue + /api/admin/issue
+app.use('/api/c/issue', requireUser, issuesRoutes);
+// 工厂/管理端子路由另需内部鉴权，当行入口在 routes/issues.js 内部注册
+app.use('/api/factory/issue', issuesRoutes.factoryRouter);
+app.use('/api/admin/issue', issuesRoutes.adminRouter);
+// 028 行业资讯：/api/c/news 与 /api/admin/news/crawl（管理端手动触发）
+app.use('/api/c/news', newsRoutes);
+const newsService = require('./services/newsService');
+const adminNews = express.Router();
+adminNews.use(requireAdmin);
+adminNews.post('/crawl', async (req, res) => {
+  try { res.json(ok(await newsService.crawlAll())); }
+  catch (err) { res.status(500).json(fail(err.message)); }
+});
+app.use('/api/admin/news', adminNews);
+// 029 仲裁接口（管理端）：/api/admin/order/:id/arbitrate
+const escrowService = require('./services/escrowService');
+const adminEscrow = express.Router();
+adminEscrow.use(requireAdmin);
+adminEscrow.post('/order/:id/arbitrate', async (req, res) => {
+  try {
+    const ret = await escrowService.arbitrate(parseInt(req.params.id, 10), req.body || {});
+    res.json(ok(ret || { arbitrated: true }));
+  } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
+});
+app.use('/api/admin', adminEscrow);
+// 030 工厂经营报表：/api/factory/dashboard（工厂内部看板，路由内部 requireFactory）
+app.use('/api/factory/dashboard', factoryDashboardRoutes);
+// 031 供应商管理（历史合作聚合）：/api/c/user/suppliers，已在 requireUser 后面挂接
+app.use('/api/c/user', requireUser, suppliersRoutes);
 
 // ===== 404 兜底：所有未匹配的 /api/* 请求返回 JSON（改动2，关键！）=====
 // 这个中间件必须放在所有路由之后、错误处理之前

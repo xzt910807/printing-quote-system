@@ -1,0 +1,25 @@
+-- 027: 异常反馈工单
+CREATE TABLE IF NOT EXISTS `issue_ticket` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `ticket_no` varchar(30) DEFAULT NULL COMMENT '工单编号 IT+日期+序列',
+  `order_id` bigint NOT NULL COMMENT '关联订单ID',
+  `user_id` bigint NOT NULL COMMENT '发起用户',
+  `factory_id` int NOT NULL COMMENT '被诉工厂',
+  `type` varchar(30) NOT NULL COMMENT '问题类型：quality|delay|reprint|other',
+  `title` varchar(200) NOT NULL COMMENT '标题',
+  `description` text COMMENT '详细描述',
+  `images` json DEFAULT NULL COMMENT '截图URL数组(最多6)',
+  `status` varchar(20) NOT NULL DEFAULT 'open' COMMENT '状态：open|processing|resolved|closed',
+  `factory_reply` text COMMENT '工厂回复',
+  `factory_reply_at` datetime DEFAULT NULL,
+  `admin_note` text COMMENT '管理员备注',
+  `resolved_at` datetime DEFAULT NULL COMMENT '解决时间',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_ticket_no` (`ticket_no`),
+  INDEX `idx_order` (`order_id`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_factory` (`factory_id`),
+  INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='异常反馈工单';

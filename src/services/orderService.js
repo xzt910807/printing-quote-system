@@ -70,10 +70,12 @@ async function listFactoryOrders(factoryId, status) {
 /**
  * 管理端：全部订单（分页）
  */
-async function listAllOrders({ page = 1, pageSize = 50, status, keyword } = {}) {
+async function listAllOrders({ page = 1, pageSize = 50, status, keyword, escrowStatus } = {}) {
   const conditions = [];
   const params = [];
   if (status) { conditions.push('o.status = ?'); params.push(status); }
+  // 029 仲裁：按 escrow_status 筛选（frozen/released/refunded/partial_refund/none）
+  if (escrowStatus) { conditions.push('o.escrow_status = ?'); params.push(String(escrowStatus)); }
   // stage14 列表搜索：订单号 / 联系人 / 联系电话 模糊匹配
   if (keyword && String(keyword).trim()) {
     const like = '%' + String(keyword).trim() + '%';
@@ -234,6 +236,14 @@ async function updateStatus({ orderId, action, actor, actorId, extra = {} }) {
     }
 
     await conn.commit();
+
+    // 029 交易担保：确认收货后如订单处于冻结，自动放款（失败不阻断主流程，定时任务兼子）
+    if (rule.to === 'completed' && order.escrow_status === 'frozen') {
+      try {
+        const escrow = require('./escrowService');
+        await escrow.confirmRelease(orderId, actor === 'admin' ? 'admin' : { id: order.user_id });
+      } catch (e) { console.warn('[escrow] confirmRelease 失败 orderId=' + orderId + ':', e.message); }
+    }
 
     // 订阅消息：发货通知（事务外发送；未配置微信/模板时静默跳过，失败不影响主流程）
     if (rule.to === 'shipped' && order.user_id) {
@@ -410,6 +420,13 @@ async function markPaidByTradeNo(orderNo, transactionId, paidFen) {
     console.log('[PAY] 微信回调落库 orderNo=' + orderNo + ' txn=' + (transactionId || '-'));
     // F-57：服务费台账（幂等；重复回调在前置分支已拦截）
     feeService.recordFee({ orderId: rows[0].id, payMethod: 'wechat' });
+    // 029 交易担保：微信支付回调后标记为冻结（需确认收货才解冻）
+    if (process.env.WXPAY_ESCROW_ENABLED === '1' && wxpay.isConfigured()) {
+      try {
+        const escrow = require('./escrowService');
+        await escrow.markFrozen(rows[0].id);
+      } catch (e) { console.warn('[escrow] markFrozen 失败 orderId=' + rows[0].id + ':', e.message); }
+    }
     return { matched: true };
   } catch (e) {
     await conn.rollback();

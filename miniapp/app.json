@@ -13,7 +13,11 @@
     "pages/address/address",
     "pages/logistics/logistics",
     "pages/design/design",
-    "pages/webview/webview"
+    "pages/webview/webview",
+    "pages/issue/issue",
+    "pages/issue-detail/issue-detail",
+    "pages/news/news",
+    "pages/news-detail/news-detail"
   ],
   "window": {
     "navigationBarTitleText": "印刷报价",

@@ -870,6 +870,15 @@
                 <label>地址</label>
                 <input v-model="factoryEditor.form.address" />
               </div>
+              <!-- 030 地区筛选（省/市），与 address 同存但结构化，小程序找厂页使用 -->
+              <div class="form-item">
+                <label title="与小程序地区筛选对齐，例如：浙江省">省份</label>
+                <input v-model.trim="factoryEditor.form.province" placeholder="如：浙江省" />
+              </div>
+              <div class="form-item">
+                <label title="与小程序地区筛选对齐，例如：温州市">城市</label>
+                <input v-model.trim="factoryEditor.form.city" placeholder="如：温州市" />
+              </div>
               <div class="form-item">
                 <label>默认毛利率（%）</label>
                 <input type="number" v-model.number="factoryEditor.form.defaultMarginPct" />
@@ -1477,6 +1486,91 @@
           </div>
         </div>
         
+        <!-- 027 工单管理 -->
+        <div v-show="page==='issues'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">售后工单（共 {{ issuesState.total }} 条）</div>
+              <div class="head-tools">
+                <select v-model="issueFilter.status" @change="loadIssues(1)">
+                  <option value="">全部状态</option>
+                  <option value="open">待处理</option>
+                  <option value="processing">处理中</option>
+                  <option value="resolved">已解决</option>
+                  <option value="closed">已关闭</option>
+                </select>
+                <select v-model="issueFilter.type" @change="loadIssues(1)">
+                  <option value="">全部类型</option>
+                  <option value="quality">质量问题</option>
+                  <option value="delay">延期预警</option>
+                  <option value="reprint">补印申请</option>
+                  <option value="other">其他</option>
+                </select>
+                <input v-model="issueFilter.keyword" placeholder="搜索工单号/标题" @keyup.enter="loadIssues(1)" style="width:200px" />
+                <button class="btn btn-secondary btn-sm" @click="loadIssues(1)">刷新</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>工单号</th><th>订单号</th><th>类型</th><th>标题</th><th>状态</th><th>创建时间</th><th style="width:240px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="it in issuesState.list" :key="it.id">
+                  <td>{{ it.ticket_no }}</td>
+                  <td>{{ it.order_no || ('#' + it.order_id) }}</td>
+                  <td><span class="badge" style="background:#eff6ff;color:#1d4ed8">{{ ISSUE_TYPE_TEXT[it.type] || it.type }}</span></td>
+                  <td>{{ it.title }}</td>
+                  <td><span class="badge">{{ ISSUE_STATUS_TEXT[it.status] || it.status }}</span></td>
+                  <td class="muted">{{ formatTime(it.created_at) }}</td>
+                  <td>
+                    <button v-if="it.status === 'open'" class="btn-link" @click="adminUpdateIssue(it, 'processing')">接手</button>
+                    <button v-if="it.status === 'processing'" class="btn-link" @click="adminUpdateIssue(it, 'resolved')">标记解决</button>
+                    <button v-if="it.status === 'resolved'" class="btn-link" @click="adminUpdateIssue(it, 'closed')">关闭</button>
+                  </td>
+                </tr>
+                <tr v-if="!issuesState.list.length"><td colspan="7" class="empty">{{ issuesState.loading ? '加载中…' : '暂无工单' }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 029 仲裁中心 -->
+        <div v-show="page==='arbitration'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">争议仲裁（{{ arbState.total }} 单）</div>
+              <div class="head-tools">
+                <select v-model="arbState.status" @change="loadArbitration(1)">
+                  <option value="frozen">冻结中</option>
+                  <option value="released">已放款</option>
+                  <option value="refunded">已退款</option>
+                  <option value="partial_refund">部分退款</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" @click="loadArbitration(1)">刷新</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>订单号</th><th>工厂</th><th>金额</th><th>担保状态</th><th>状态</th><th>创建时间</th><th style="width:180px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="o in arbState.list" :key="o.id">
+                  <td>{{ o.order_no }}</td>
+                  <td>{{ o.factory_name || factoryName(o.factory_id) }}</td>
+                  <td class="text-price">¥{{ formatMoney(o.total_price) }}</td>
+                  <td><span class="badge">{{ o.escrow_status }}</span></td>
+                  <td><span class="badge" :style="orderStatusStyle(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
+                  <td class="muted">{{ formatTime(o.created_at) }}</td>
+                  <td>
+                    <button v-if="o.escrow_status === 'frozen'" class="btn btn-sm" @click="arbitrateOrder(o)">仲裁</button>
+                  </td>
+                </tr>
+                <tr v-if="!arbState.list.length"><td colspan="7" class="empty">{{ arbState.loading ? '加载中…' : '暂无争议订单' }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="panel" v-if="capabilityEditor.factoryId">
           <div class="panel-title">{{ capabilityEditor.factoryName }} · 能力配置</div>
           <div v-for="(opts, type) in CAP_OPTIONS" :key="type" style="margin-bottom:20px">

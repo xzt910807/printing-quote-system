@@ -26,6 +26,20 @@
 
   <!-- 筛选栏 -->
   <view class="card filter-card">
+    <!-- 030 地区筛选：二级 picker (省 + 市)，选中后拼入 /api/factory/list?province=&city= -->
+    <view class="filter-row">
+      <text class="filter-label">地区</text>
+      <view class="filter-tags">
+        <picker class="region-picker" mode="multiSelector" range="{{regionRange}}" value="{{regionIndex}}"
+                bindcolumnchange="onRegionColumnChange" bindchange="onRegionChange">
+          <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}">
+            {{filter.province ? filter.province + ' · ' + filter.city : '全部地区 ›'}}
+          </view>
+        </picker>
+        <view class="tag tag-picker" wx:if="{{filter.province}}" bindtap="clearRegion">✕ 清除</view>
+      </view>
+    </view>
+
     <view class="filter-row">
       <text class="filter-label">产品</text>
       <view class="filter-tags">

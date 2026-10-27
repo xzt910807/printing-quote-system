@@ -72,10 +72,10 @@ async function wxApi(method, path, bodyObj) {
  * JSAPI 统一下单：返回小程序 wx.requestPayment 所需参数
  * @param {Object} p { orderNo, amountFen, openid }
  */
-async function createJsapiOrder({ orderNo, amountFen, openid }) {
+async function createJsapiOrder({ orderNo, amountFen, openid, escrowEnabled }) {
   if (!isConfigured()) throw new Error('微信支付尚未配置（需商户号/证书），请先用模拟支付或线下转账');
   const c = config();
-  const data = await wxApi('POST', '/v3/pay/transactions/jsapi', {
+  const payload = {
     appid: c.appid,
     mchid: c.mchid,
     description: ('印刷订单 ' + orderNo).slice(0, 60),
@@ -83,7 +83,10 @@ async function createJsapiOrder({ orderNo, amountFen, openid }) {
     notify_url: c.notifyUrl,
     amount: { total: amountFen, currency: 'CNY' },
     payer: { openid },
-  });
+  };
+  // 029 交易担保：标记分账订单，资金冻结在待分账账户，确认收货后 unsplit 解冻
+  if (escrowEnabled) payload.settle_info = { profit_sharing: true };
+  const data = await wxApi('POST', '/v3/pay/transactions/jsapi', payload);
   // 组装小程序支付参数（二次签名）
   const pkg = 'prepay_id=' + data.prepay_id;
   const payNonce = crypto.randomBytes(16).toString('hex');
@@ -111,7 +114,8 @@ async function createOrderPay(orderId, user) {
   }
   const payAmount = round(Number(order.total_price || 0) + Number(order.shipping_fee || 0) + Number(order.sample_fee || 0), 2);
   const amountFen = Math.round(payAmount * 100);
-  const wxPay = await createJsapiOrder({ orderNo: order.order_no, amountFen, openid });
+  const escrowEnabled = process.env.WXPAY_ESCROW_ENABLED === '1';
+  const wxPay = await createJsapiOrder({ orderNo: order.order_no, amountFen, openid, escrowEnabled });
   await pool.query("UPDATE order_main SET pay_method = 'wechat' WHERE id = ?", [orderId]);
   return { orderId, orderNo: order.order_no, payAmount, wxPay };
 }
@@ -249,7 +253,79 @@ async function refund({ refundNo, orderNo, refundFen, totalFen, reason }) {
   });
 }
 
+// ===== 分账相关 API（029 交易担保，单商户号模式） =====
+// 下单时传 profit_sharing=true 使资金处于待分账(冻结)状态，
+// 确认收货时调 profitSharingFinish 解冻剩余金额给平台商户，后续线下结算给工厂。
+
+/**
+ * 分账下单参数（为 createJsapiOrder 提供可选字段）
+ * 当 escrow_enabled=true 时，下单体需包含 profit_sharing=true
+ */
+function buildOrderExtra({ escrowEnabled } = {}) {
+  return escrowEnabled ? { profit_sharing: true } : {};
+}
+
+/**
+ * 添加分账接收方（将工厂微信商户号/个人 openid 加为接收方）
+ * @param {Object} p { account, type: 'MERCHANT_ID'|'PERSONAL_OPENID', name? }
+ */
+async function addReceiver({ account, type = 'MERCHANT_ID', name }) {
+  if (!isConfigured()) throw new Error('微信支付未配置');
+  const c = config();
+  return wxApi('POST', '/v3/profitsharing/receivers/add', {
+    appid: c.appid,
+    account,
+    relation_type: 'PARTNER',
+    type,
+    name: name ? encodeURIComponent(name) : undefined,
+    description: ('需分账接收方-' + (name || account)).slice(0, 80),
+  });
+}
+
+/**
+ * 发起分账（向多个接收方分金）
+ * @param {Object} p { orderNo, outOrderNo, receivers: [{account, type, amount, description?}], unfreeze } 
+ */
+async function profitSharing({ orderNo, outOrderNo, receivers = [], unfreeze = false }) {
+  if (!isConfigured()) throw new Error('微信支付未配置');
+  return wxApi('POST', '/v3/profitsharing/orders', {
+    out_order_no: outOrderNo,
+    transaction_id: orderNo,
+    receivers: receivers.map((r) => ({
+      type: r.type || 'MERCHANT_ID',
+      account: r.account,
+      amount: Math.round(Number(r.amount) * 100), // 元→分
+      description: (r.description || '平台分账').slice(0, 80),
+    })),
+    unfreeze_unsplit: !!unfreeze,
+  });
+}
+
+/**
+ * 分账完结（解冻剩余金额给平台商户号）——单商户号担保模式的主推动作：
+ * 将冻结资金释放到平台，平台线下月结给工厂。
+ */
+async function profitSharingFinish({ orderNo, outOrderNo, transactionId, description }) {
+  if (!isConfigured()) throw new Error('微信支付未配置');
+  return wxApi('POST', '/v3/profitsharing/orders/unsplit', {
+    out_order_no: outOrderNo,
+    order_no: orderNo,
+    transaction_id: transactionId || orderNo,
+    description: (description || '确认收货解冻').slice(0, 80),
+  });
+}
+
+/**
+ * 查询分账结果
+ */
+async function queryProfitSharing({ outOrderNo, orderNo }) {
+  if (!isConfigured()) throw new Error('微信支付未配置');
+  const c = config();
+  return wxApi('GET', `/v3/profitsharing/orders/${outOrderNo}?order_no=${orderNo || c.mchid}`);
+}
+
 module.exports = {
   isConfigured, verifyStatus, createJsapiOrder, createOrderPay,
   verifyNotify, assertNotifyMchid, decryptNotify, refund,
+  buildOrderExtra, addReceiver, profitSharing, profitSharingFinish, queryProfitSharing,
 };

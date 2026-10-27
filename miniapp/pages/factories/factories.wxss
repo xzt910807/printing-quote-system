@@ -140,3 +140,13 @@
 .empty { text-align: center; padding: 80rpx 40rpx; color: #94a3b8; font-size: 27rpx; line-height: 1.7; }
 
 .empty-icon { display: block; font-size: 70rpx; margin-bottom: 16rpx; }
+
+/* 030 地区 picker 行内样式 */
+.region-picker { display: inline-flex; }
+.tag-picker {
+  font-size: 24rpx;
+  padding: 8rpx 22rpx;
+  border-radius: 999rpx;
+  background: #f1f5f9;
+  color: #475569;
+}

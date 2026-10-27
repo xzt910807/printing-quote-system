@@ -1,0 +1,20 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">资讯详情</view>
+  </view>
+</view>
+
+<view class="page" wx:if="{{news}}">
+  <view class="news-title">{{news.title}}</view>
+  <view class="news-meta">
+    <text>{{news.source_name || '来源'}} · {{news.published_at}}</text>
+    <text class="cat-tag" wx:if="{{news.category}}">{{news.category}}</text>
+  </view>
+  <image wx:if="{{news.cover_image}}" class="cover" src="{{news.cover_image}}" mode="widthFix"/>
+  <view class="sum" wx:if="{{news.summary}}">{{news.summary}}</view>
+  <view class="content">{{news.content || news.summary || '（暂无正文，点击"阅读原文"查看完整内容）'}}</view>
+  <view class="btn-primary" wx:if="{{news.source_url}}" bindtap="openSource">复制原文链接</view>
+</view>
+
+<view wx:elif="{{!loading}}" class="empty">资讯不存在</view>

@@ -433,6 +433,7 @@ router.get('/order/list', requireAdmin, requirePermission('order:view'), async (
       pageSize: parseInt(req.query.pageSize, 10) || 50,
       status: req.query.status,
       keyword: req.query.keyword,
+      escrowStatus: req.query.escrowStatus,
     });
     res.json(ok(data));
   } catch (err) {

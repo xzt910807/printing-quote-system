@@ -22,7 +22,7 @@ const { hashPassword } = require('../utils/password');
  */
 router.get('/list', async (req, res) => {
   try {
-    const { productType, printMode, process, materialCode, keyword, sort } = req.query;
+    const { productType, printMode, process, materialCode, keyword, sort, province, city } = req.query;
 
     const filter = {
       productType: productType || null,
@@ -47,11 +47,18 @@ router.get('/list', async (req, res) => {
       response: 'avg_response_hours IS NULL, avg_response_hours ASC',
     };
     const orderBy = SORTS[sort] || 'total_accepts DESC, rating DESC';
+    // 030 地区筛选：province/city 精确匹配（写入时已规范化）
+    const regionConds = [];
+    const regionParams = [];
+    if (province && String(province).trim()) { regionConds.push('province = ?'); regionParams.push(String(province).trim()); }
+    if (city && String(city).trim()) { regionConds.push('city = ?'); regionParams.push(String(city).trim()); }
+    const regionSql = regionConds.length ? ' AND ' + regionConds.join(' AND ') : '';
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, intro, rating, rating_count, total_accepts, avg_response_hours, license_verified, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE status = 1 AND id IN (?)'
+      'SELECT id, code, name, contact, phone, address, province, city, intro, rating, rating_count, total_accepts, avg_response_hours, license_verified, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE status = 1 AND id IN (?)'
         + (kw ? ' AND (name LIKE ? OR address LIKE ?)' : '')
+        + regionSql
         + ' ORDER BY ' + orderBy,
-      kw ? [matchedIds, '%' + kw + '%', '%' + kw + '%'] : [matchedIds]
+      kw ? [matchedIds, '%' + kw + '%', '%' + kw + '%', ...regionParams] : [matchedIds, ...regionParams]
     );
 
     // 附上每家工厂的完整能力 + 产能/验真画像；F-30：找厂列表态工厂联系人脱敏（询价看价流程中才对归属者下发全文）
@@ -240,15 +247,18 @@ router.put('/:id', requireAdmin, requirePermission('factory:manage'), async (req
   try {
     const id = parseInt(req.params.id, 10);
     const { name, contact, phone, address,
-      defaultMargin, defaultTaxRate, defaultWasteRate, cEndEnabled, status, licenseVerified } = req.body;
+      defaultMargin, defaultTaxRate, defaultWasteRate, cEndEnabled, status, licenseVerified,
+      province, city } = req.body;
     if (!name) throw new Error('工厂名称不能为空');
     const [ret] = await pool.query(
       `UPDATE factory SET name=?, contact=?, phone=?, address=?, default_margin=?, default_tax_rate=?,
-              default_waste_rate=?, c_end_enabled=?, status=? WHERE id=?`,
+              default_waste_rate=?, c_end_enabled=?, status=?, province=?, city=? WHERE id=?`,
       [name, contact || null, phone || null, address || null,
         defaultMargin ?? 0.15, defaultTaxRate ?? 0.10, defaultWasteRate ?? 0.04,
         cEndEnabled === undefined ? 1 : (cEndEnabled ? 1 : 0),
-        status === undefined ? 1 : (status ? 1 : 0), id]
+        status === undefined ? 1 : (status ? 1 : 0),
+        province ? String(province).trim() : null,
+        city ? String(city).trim() : null, id]
     );
     if (!ret.affectedRows) throw new Error('工厂不存在');
     // 验真徽章开关（仅当显式传入时更新，不影响未携带该字段的旧编辑请求）

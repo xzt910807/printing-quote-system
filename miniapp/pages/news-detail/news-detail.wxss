@@ -1,0 +1,14 @@
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; position: relative; }
+.navbar-back { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #333; margin-left: 12rpx; }
+.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 600; margin-right: 56rpx; }
+
+.page { padding: 20rpx; padding-top: 200rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
+.news-title { font-size: 38rpx; font-weight: 700; color: #222; line-height: 1.4; padding: 20rpx; background: #fff; border-radius: 12rpx; }
+.news-meta { display: flex; justify-content: space-between; color: #999; font-size: 24rpx; padding: 12rpx 20rpx; }
+.cat-tag { background: #eef3ff; color: #2563eb; padding: 2rpx 12rpx; border-radius: 8rpx; }
+.cover { width: 100%; border-radius: 12rpx; margin: 20rpx 0; background: #eee; }
+.sum { background: #f7f8fa; border-left: 6rpx solid #2563eb; padding: 16rpx 20rpx; color: #555; font-size: 26rpx; border-radius: 6rpx; margin-bottom: 20rpx; }
+.content { background: #fff; padding: 24rpx; border-radius: 12rpx; color: #333; font-size: 28rpx; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+.btn-primary { margin: 32rpx 20rpx; background: #2563eb; color: #fff; text-align: center; padding: 24rpx; border-radius: 12rpx; font-size: 30rpx; }
+.empty { text-align: center; color: #999; padding-top: 400rpx; }

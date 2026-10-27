@@ -1,0 +1,30 @@
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; position: relative; }
+.navbar-back { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #333; margin-left: 12rpx; }
+.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 600; margin-right: 56rpx; }
+
+.page { padding: 20rpx; padding-top: 200rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; padding-bottom: 120rpx; }
+
+.hd { background: #fff; padding: 24rpx; border-radius: 12rpx; margin-bottom: 16rpx; display: flex; justify-content: space-between; align-items: center; }
+.hd-no { font-family: monospace; font-size: 30rpx; color: #333; }
+.hd-status { font-size: 24rpx; padding: 6rpx 16rpx; border-radius: 8rpx; }
+.st-open { background: #fef3cd; color: #856404; }
+.st-processing { background: #cfe2ff; color: #084298; }
+.st-resolved { background: #d1e7dd; color: #0f5132; }
+.st-closed { background: #e9ecef; color: #6c757d; }
+
+.row { background: #fff; padding: 20rpx 24rpx; display: flex; font-size: 26rpx; border-bottom: 1rpx solid #f0f0f0; }
+.row:last-of-type { border-bottom: none; border-radius: 0 0 12rpx 12rpx; margin-bottom: 16rpx; }
+.lbl { color: #666; width: 160rpx; }
+
+.card { background: #fff; padding: 24rpx; border-radius: 12rpx; margin-bottom: 16rpx; }
+.card-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 12rpx; }
+.tk-title { font-size: 30rpx; color: #222; margin-bottom: 12rpx; }
+.tk-desc { font-size: 26rpx; color: #555; line-height: 1.6; white-space: pre-wrap; }
+.imgs { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.img-prev { width: 200rpx; height: 200rpx; border-radius: 8rpx; background: #eee; }
+.reply { font-size: 28rpx; color: #333; line-height: 1.6; }
+.reply.note { color: #d97706; }
+
+.btn-primary { position: fixed; bottom: 20rpx; left: 20rpx; right: 20rpx; background: #2563eb; color: #fff; text-align: center; padding: 28rpx; border-radius: 12rpx; font-size: 30rpx; }
+.empty { text-align: center; color: #999; padding-top: 400rpx; }

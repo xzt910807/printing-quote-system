@@ -21,8 +21,23 @@
 </scroll-view>
 
 <view class="input-bar" style="bottom: {{keyboardHeight}}px;">
+  <view class="msg-attach" bindtap="chooseFile">📎</view>
   <input class="msg-input" value="{{inputText}}" placeholder="输入消息（最长 500 字）" placeholder-class="msg-ph"
          confirm-type="send" cursor-spacing="16" adjust-position="{{false}}"
          bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" bindconfirm="send" />
   <view class="msg-send {{!inputText || sending ? 'msg-send-off' : ''}}" bindtap="send">发送</view>
+</view>
+
+<!-- 026 协同文件列表（当前会话相关的设计源文件） -->
+<view class="file-panel" wx:if="{{files.length}}" style="bottom: {{keyboardHeight + inputBarH}}px;">
+  <view class="file-panel-hd" bindtap="toggleFiles">
+    <text>会话文件 ({{files.length}})</text>
+    <text class="file-toggle">{{filesExpanded ? '▲' : '▼'}}</text>
+  </view>
+  <view class="file-list" wx:if="{{filesExpanded}}">
+    <view class="file-row" wx:for="{{files}}" wx:key="id" data-url="{{item.fullUrl}}" data-name="{{item.file_name}}" bindtap="openFile">
+      <text class="file-name">{{item.file_name}}</text>
+      <text class="file-meta">{{item.senderText}} · {{item.sizeText}}</text>
+    </view>
+  </view>
 </view>

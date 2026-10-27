@@ -209,6 +209,11 @@ Page({
     qrcodeTip: '',
     // 分区切换：默认资料分区，只渲染当前分区
     section: 'profile',
+    // 029 经营概览数据（当前只在 section='dashboard' 时拉取）
+    dashSummary: {},
+    dashTrend: [],
+    dashTopProducts: [],
+    dashLoaded: false,
     // 027 闲置产能填报（印查查式撮合加权：空闲厂优先推单）
     capacityOptions: CAPACITY_OPTIONS,
     capacity: { status: '', note: '' },
@@ -262,6 +267,41 @@ Page({
     if (!s || s === this.data.section) return;
     this.setData({ section: s });
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    if (s === 'dashboard' && !this.data.dashLoaded) this.loadDashboard();
+  },
+
+  // 029 经营概览：汇总 / 趋势 / 品类（均拉失败不卡页面，汇总中默认 0）
+  async loadDashboard() {
+    try {
+      const [summaryRes, trendRes, topRes] = await Promise.all([
+        api.request('/api/factory/dashboard/summary', { headers: this.authHeaders() }).catch(() => ({ data: {} })),
+        api.request('/api/factory/dashboard/trend?months=6', { headers: this.authHeaders() }).catch(() => ({ data: { list: [] } })),
+        api.request('/api/factory/dashboard/top-products', { headers: this.authHeaders() }).catch(() => ({ data: { list: [] } })),
+      ]);
+      const s = summaryRes.data || {};
+      s.monthlyRevenue = Number(s.monthlyRevenue || 0).toFixed(2);
+      s.rating = s.rating ? Number(s.rating).toFixed(1) : 0;
+      s.avgResponseHours = s.avgResponseHours ? Number(s.avgResponseHours).toFixed(1) : 0;
+      const trend = (trendRes.data && trendRes.data.list) || [];
+      const maxCnt = trend.reduce((m, x) => Math.max(m, Number(x.cnt) || 0), 0) || 1;
+      const trendView = trend.map((x) => ({
+        ...x,
+        amtText: Number(x.amt || 0).toFixed(0),
+        pct: Math.round(((Number(x.cnt) || 0) / maxCnt) * 100),
+      }));
+      const top = (topRes.data && topRes.data.list) || [];
+      const maxTop = top.reduce((m, x) => Math.max(m, Number(x.cnt) || 0), 0) || 1;
+      const topView = top.map((x) => ({
+        ...x,
+        pct: Math.round(((Number(x.cnt) || 0) / maxTop) * 100),
+      }));
+      this.setData({
+        dashSummary: s,
+        dashTrend: trendView,
+        dashTopProducts: topView,
+        dashLoaded: true,
+      });
+    } catch (e) { /* 静默 */ }
   },
 
   async loadAll() {
