@@ -8,6 +8,16 @@ const TYPES = [
 ];
 const STATUS_LABEL = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
 
+// 后端返回 UTC ISO 串，new Date 自动转本地时区
+function formatTime(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return String(t).slice(0, 16).replace('T', ' ');
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
 Page({
   data: {
     statusBarHeight: 20,
@@ -50,7 +60,12 @@ Page({
       const res = await api.request('/api/c/issue');
       const rows = (res.data && res.data.list) || [];
       this.setData({
-        list: rows.map((r) => ({ ...r, statusLabel: STATUS_LABEL[r.status] || r.status })),
+        list: rows.map((r) => ({
+          ...r,
+          statusLabel: STATUS_LABEL[r.status] || r.status,
+          typeLabel: (TYPES.find((t) => t.key === r.type) || {}).label || r.type,
+          timeText: formatTime(r.created_at),
+        })),
       });
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });

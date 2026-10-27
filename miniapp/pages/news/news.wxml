@@ -32,7 +32,7 @@
       <view class="feat-item">
         <image wx:if="{{item.cover_image}}" class="feat-cover" src="{{item.cover_image}}" mode="aspectFill"/>
         <view class="feat-body">
-          <view class="feat-tag">★ 编辑精选 · {{item.category}}</view>
+          <view class="feat-tag">★ 编辑精选 · {{item.catLabel || item.category}}</view>
           <view class="feat-title">{{item.title}}</view>
           <view class="feat-note" wx:if="{{item.editor_note}}">{{item.editor_note}}</view>
         </view>
@@ -53,7 +53,7 @@
       <view class="news-editor" wx:if="{{item.editor_note}}">{{item.editor_note}}</view>
       <view class="news-meta">
         <text class="news-src">{{item.source_name || '来源'}}</text>
-        <text class="news-time">{{item.published_at}}</text>
+        <text class="news-time">{{item.timeText}}</text>
       </view>
     </view>
   </view>

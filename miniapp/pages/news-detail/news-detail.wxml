@@ -8,7 +8,7 @@
 <view class="page" wx:if="{{news}}">
   <view class="news-title">{{news.title}}</view>
   <view class="news-meta">
-    <text>{{news.source_name || '来源'}} · {{news.published_at}}</text>
+    <text>{{news.source_name || '来源'}} · {{news.timeText || news.published_at}}</text>
     <text class="cat-tag" wx:if="{{news.category}}">{{news.category}}</text>
   </view>
   <image wx:if="{{news.cover_image}}" class="cover" src="{{news.cover_image}}" mode="widthFix"/>

@@ -8,6 +8,21 @@ const CATEGORIES = [
   { key: 'material', label: '材料' },
 ];
 
+// 资讯时间友好展示（后端返回 UTC ISO 串，new Date 自动转本地时区）：
+// 1小时内“刚刚” / 24小时内“N小时前” / 7天内“N天前” / 更早给本地日期
+function formatNewsTime(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return String(t).slice(0, 16).replace('T', ' ');
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  const diff = Date.now() - d.getTime();
+  if (diff >= 0 && diff < 3600e3) return '刚刚';
+  if (diff >= 0 && diff < 86400e3) return Math.floor(diff / 3600e3) + '小时前';
+  if (diff >= 0 && diff < 7 * 86400e3) return Math.floor(diff / 86400e3) + '天前';
+  const md = p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '-' + md;
+}
+
 Page({
   data: {
     statusBarHeight: 20,
@@ -56,7 +71,7 @@ Page({
       const qs = `?page=${page}&size=${this.data.size}${this.data.activeCat ? '&category=' + this.data.activeCat : ''}`;
       const res = await api.request('/api/c/news' + qs);
       const d = res.data || {};
-      const newList = d.list || [];
+      const newList = (d.list || []).map((x) => ({ ...x, timeText: formatNewsTime(x.published_at) }));
       this.setData({
         list: reset ? newList : this.data.list.concat(newList),
         page: page + 1,
@@ -77,7 +92,8 @@ Page({
   async loadFeatured() {
     try {
       const res = await api.request('/api/c/news/featured');
-      this.setData({ featured: (res.data && res.data.list) || [] });
+      const list = ((res.data && res.data.list) || []).map((x) => ({ ...x, catLabel: this._catLabel(x.category) }));
+      this.setData({ featured: list });
     } catch (e) { /* 静默 */ }
   },
 

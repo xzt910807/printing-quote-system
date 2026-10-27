@@ -70,9 +70,9 @@
     </view>
     <view class="tk-title">{{item.title}}</view>
     <view class="tk-meta">
-      <text class="tk-type">{{item.type}}</text>
+      <text class="tk-type">{{item.typeLabel}}</text>
       <text>订单 #{{item.order_id}}</text>
-      <text>{{item.created_at}}</text>
+      <text>{{item.timeText}}</text>
     </view>
   </view>
 

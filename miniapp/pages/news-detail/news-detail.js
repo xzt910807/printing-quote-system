@@ -26,7 +26,17 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await api.request('/api/c/news/' + this.data.id);
-      this.setData({ news: res.data || null });
+      const news = res.data || null;
+      // 后端返回 UTC ISO 串，转本地时间展示
+      if (news && news.published_at) {
+        const d = new Date(news.published_at);
+        if (!isNaN(d.getTime())) {
+          const p = (n) => (n < 10 ? '0' + n : '' + n);
+          news.timeText = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+            + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+      }
+      this.setData({ news });
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally { this.setData({ loading: false }); }

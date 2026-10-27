@@ -61,6 +61,15 @@ Page({
         : '/api/c/issue/' + this.data.id;
       const res = await api.request(url, this.isFactory() ? { headers: this.facHeaders() } : {});
       const t = res.data || null;
+      // 后端返回 UTC ISO 串，转本地时间展示
+      if (t && t.created_at) {
+        const d = new Date(t.created_at);
+        if (!isNaN(d.getTime())) {
+          const p = (n) => (n < 10 ? '0' + n : '' + n);
+          t.timeText = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+            + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+      }
       this.setData({
         ticket: t,
         typeLabel: t ? (TYPE_LABEL[t.type] || t.type) : '',
