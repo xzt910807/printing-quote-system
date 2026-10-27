@@ -1515,7 +1515,7 @@
                   <option value="reprint">补印申请</option>
                   <option value="other">其他</option>
                 </select>
-                <input v-model="issueFilter.keyword" placeholder="搜索工单号/标题" @keyup.enter="loadIssues(1)" style="width:200px" />
+                <input class="search-input" v-model.trim="issueFilter.keyword" placeholder="搜索工单号 / 标题" @keyup.enter="loadIssues(1)" />
                 <button class="btn btn-secondary btn-sm" @click="loadIssues(1)">刷新</button>
               </div>
             </div>
