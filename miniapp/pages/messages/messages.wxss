@@ -1,0 +1,87 @@
+/* 沟通会话列表（印查查式 IM 入口） */
+page { background: #f5f5f5; }
+
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+.navbar-inner { position: relative; display: flex; align-items: center; justify-content: center; }
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(241, 245, 249, 0.9);
+}
+.navbar-title { font-size: 32rpx; font-weight: 600; color: #0f172a; }
+.navbar-sub { margin-left: 12rpx; font-size: 22rpx; color: #dc2626; font-weight: 400; }
+
+.page { padding: 20rpx 24rpx 40rpx; }
+.empty { text-align: center; color: #94a3b8; font-size: 26rpx; padding: 100rpx 40rpx; }
+.empty-icon { display: block; margin-bottom: 12rpx; }
+.empty-ic { display: flex; justify-content: center; margin-bottom: 16rpx; }
+
+.th-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.th-avatar {
+  flex: none;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+.th-main { flex: 1; min-width: 0; }
+.th-row { display: flex; align-items: center; }
+.th-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0f172a;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.th-badge {
+  margin-left: 12rpx;
+  min-width: 34rpx;
+  height: 34rpx;
+  line-height: 34rpx;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  background: #dc2626;
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+}
+.th-time { margin-left: auto; font-size: 22rpx; color: #94a3b8; }
+.th-sub { margin-top: 6rpx; font-size: 22rpx; color: #94a3b8; }
+.th-last {
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

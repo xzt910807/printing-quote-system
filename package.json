@@ -1,0 +1,29 @@
+{
+  "name": "printing-quote-system",
+  "version": "2.0.0",
+  "description": "龙港印刷智能报价系统（B端多租户 + C端引流）",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "node --test",
+    "migrate": "node scripts/migrate.js",
+    "migrate:apply": "node scripts/migrate.js apply",
+    "pay:selftest": "node scripts/pay-notify-selftest.js"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "axios": "^1.20.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "fluent-ffmpeg": "^2.1.3",
+    "md5": "^2.3.0",
+    "multer": "^2.4.0",
+    "mysql2": "^3.11.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
+    "ws": "^8.21.3"
+  }
+}

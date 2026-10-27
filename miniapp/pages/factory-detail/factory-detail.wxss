@@ -1,0 +1,159 @@
+/* 返回按钮 */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* 头部卡片 */
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44rpx 28rpx 36rpx;
+}
+
+.fd-avatar {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 64rpx;
+  font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.15);
+}
+
+.fd-title {
+  margin-top: 24rpx;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.fd-code {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.fd-addr {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  background: #f8fafc;
+  border-radius: 999rpx;
+  padding: 10rpx 28rpx;
+}
+
+.fd-copy { color: #2563eb; margin-left: 10rpx; font-size: 24rpx; }
+
+/* 印查查式信任位：徽章 + 产能胶囊 */
+.fd-badges { display: flex; flex-wrap: wrap; gap: 14rpx; margin-top: 16rpx; justify-content: center; }
+.fd-verified {
+  font-size: 22rpx; color: #1677ff; background: #e8f4ff;
+  border-radius: 999rpx; padding: 6rpx 20rpx;
+}
+.fd-cap { font-size: 22rpx; border-radius: 999rpx; padding: 6rpx 20rpx; }
+.fd-cap-idle { color: #16a34a; background: #e7f7ee; }
+.fd-cap-normal { color: #2563eb; background: #eff6ff; }
+.fd-cap-busy { color: #dc2626; background: #fef2f2; }
+.fd-cap-note { margin-top: 12rpx; font-size: 24rpx; color: #64748b; text-align: center; }
+
+/* 设备/车间图文图集 */
+.fd-media-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.fd-media-item { width: calc((100% - 32rpx) / 3); }
+.fd-media-img { width: 100%; height: 200rpx; border-radius: 12rpx; background: #f1f5f9; display: block; }
+.fd-media-cap { font-size: 20rpx; color: #94a3b8; margin-top: 6rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 卡片标题 */
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 20rpx;
+}
+
+/* 简介 */
+.fd-intro {
+  font-size: 27rpx;
+  color: #475569;
+  line-height: 1.75;
+}
+
+/* 联系行 */
+.fd-row {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+}
+
+.fd-label {
+  width: 130rpx;
+  font-size: 26rpx;
+  color: #94a3b8;
+  flex: none;
+}
+
+.fd-value { flex: 1; font-size: 28rpx; color: #0f172a; }
+
+.fd-call {
+  font-size: 24rpx;
+  color: #fff;
+  background: #16a34a;
+  border-radius: 999rpx;
+  padding: 8rpx 28rpx;
+}
+
+/* 能力块 */
+.fd-cap-block { margin-bottom: 24rpx; }
+.fd-cap-block:last-child { margin-bottom: 0; }
+
+.fd-cap-label {
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-bottom: 14rpx;
+}
+
+.fd-tags { display: flex; flex-wrap: wrap; gap: 14rpx; }
+
+.fd-tag {
+  font-size: 24rpx;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999rpx;
+  padding: 8rpx 24rpx;
+}
+
+.fd-tag-blue { color: #2563eb; background: #eff6ff; }
+.fd-tag-green { color: #16a34a; background: #f0fdf4; }
+
+.fd-empty-cap { font-size: 26rpx; color: #94a3b8; text-align: center; padding: 20rpx 0; }
+
+/* 底部询价按钮（避让 tabBar 由 page-tab 的 padding-bottom 承担） */
+.fd-footer {
+  margin-top: 8rpx;
+  padding-bottom: 20rpx;
+}
+
+.fd-quote-btn {
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 24rpx 0;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.3);
+}

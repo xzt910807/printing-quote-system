@@ -1,0 +1,142 @@
+.filter-card { padding: 24rpx 28rpx 8rpx; }
+
+/* ---------- 名称搜索框 ---------- */
+.search-bar { padding: 24rpx 0 8rpx; }
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 0 28rpx;
+  height: 76rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.search-icon {
+  display: flex;
+  align-items: center;
+  margin-right: 14rpx;
+  color: #94a3b8;
+}
+
+.search-input { flex: 1; font-size: 28rpx; color: #0f172a; height: 76rpx; }
+
+.search-ph { color: #94a3b8; font-size: 28rpx; }
+
+.search-clear {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 22rpx;
+  flex: none;
+}
+
+.filter-row {
+  display: flex;
+  align-items: flex-start;
+  padding-bottom: 20rpx;
+}
+
+.filter-label {
+  width: 80rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  padding-top: 10rpx;
+}
+
+.filter-tags { flex: 1; display: flex; flex-wrap: wrap; gap: 14rpx; }
+
+/* ---------- 工厂卡片 ---------- */
+.factory-item {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.fi-head { display: flex; align-items: center; }
+
+/* 首字头像：按工厂名 hash 固定配色 */
+.fi-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 38rpx;
+  font-weight: 600;
+  flex: none;
+  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.12);
+}
+
+.fi-info { margin-left: 20rpx; flex: 1; min-width: 0; }
+
+.fi-more {
+  flex: none;
+  margin-left: 12rpx;
+  width: 14rpx;
+  height: 14rpx;
+  border-top: 3rpx solid #cbd5e1;
+  border-right: 3rpx solid #cbd5e1;
+  transform: rotate(45deg);
+}
+
+.factory-name { font-size: 31rpx; font-weight: 600; color: #0f172a; }
+
+.factory-addr { font-size: 24rpx; color: #94a3b8; margin-top: 6rpx; }
+
+.cap-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 20rpx; }
+
+.cap-tag {
+  font-size: 22rpx;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 999rpx;
+  padding: 6rpx 20rpx;
+}
+
+.fi-btn { margin-top: 22rpx; font-size: 26rpx; padding: 14rpx 0; }
+
+/* ---------- F-100 排序条 ---------- */
+.sort-bar { white-space: nowrap; padding: 14rpx 0 22rpx; }
+
+.sort-chip {
+  display: inline-block;
+  font-size: 25rpx;
+  color: #475569;
+  background: #fff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  padding: 10rpx 30rpx;
+  margin-right: 14rpx;
+}
+
+.sort-on { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+
+/* F-100：评分/接单量徽标 */
+.fi-stats { display: flex; gap: 14rpx; margin-top: 10rpx; }
+
+.fi-stat { font-size: 22rpx; color: #64748b; background: #f1f5f9; border-radius: 999rpx; padding: 4rpx 18rpx; }
+
+.fi-star { color: #d97706; background: #fffbeb; }
+
+/* 印查查式：已核验 + 产能徽章 */
+.fi-trust { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 10rpx; }
+.fi-verified { font-size: 20rpx; color: #1677ff; background: #e8f4ff; border-radius: 999rpx; padding: 4rpx 16rpx; }
+.fi-cap { font-size: 20rpx; border-radius: 999rpx; padding: 4rpx 16rpx; }
+.fi-cap-idle { color: #16a34a; background: #e7f7ee; }
+.fi-cap-normal { color: #2563eb; background: #eff6ff; }
+.fi-cap-busy { color: #dc2626; background: #fef2f2; }
+
+/* F-97/98：加载态与空状态（空文案在 wxml） */
+.empty { text-align: center; padding: 80rpx 40rpx; color: #94a3b8; font-size: 27rpx; line-height: 1.7; }
+
+.empty-icon { display: block; font-size: 70rpx; margin-bottom: 16rpx; }

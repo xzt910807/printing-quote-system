@@ -1,0 +1,217 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">报价结果</view>
+  </view>
+</view>
+
+<view class="container" wx:if="{{result}}">
+
+  <!-- 报价大卡 + 进度（系统参考价） -->
+  <view class="hero price-hero">
+    <view class="price-label">预估单价（系统参考价）</view>
+    <view class="price-main">
+      <text class="unit">¥</text>
+      <text class="num">{{result.systemQuote.unitPrice}}</text>
+      <text class="suffix">/个</text>
+    </view>
+    <view class="price-total">总价 ¥{{result.systemQuote.totalPrice}} · 含税 ¥{{result.systemQuote.finalPrice}}</view>
+    <view class="price-notice" wx:if="{{result.systemQuote.notice}}">ℹ️ {{result.systemQuote.notice}}</view>
+    <view class="price-valid {{statusData && statusData.expired ? 'price-valid-expired' : ''}}">
+      {{statusData && statusData.expired ? '⚠️ 报价已失效（超过 7 天有效期），可重新询价获取新报价' : '⏰ 报价 7 天内有效，逾期请重新询价'}}
+    </view>
+
+    <!-- 进度时间线 -->
+    <view class="steps" wx:if="{{!rejected}}">
+      <view class="step {{currentStep >= index + 1 ? 'step-on' : ''}}"
+            wx:for="{{steps}}" wx:key="label">
+        <view class="step-dot">{{currentStep >= index + 1 ? item.icon : ''}}</view>
+        <view class="step-label">{{item.label}}</view>
+        <view class="step-line" wx:if="{{index < steps.length - 1}}"></view>
+      </view>
+    </view>
+    <view class="rejected-tip" wx:if="{{rejected}}">⚠️ {{statusText}}</view>
+  </view>
+
+  <!-- F-12：拒单后引导重新选厂 -->
+  <view class="reselect-tip" wx:if="{{rejected && result.matches.length}}">
+    👇 可点击下方「查看报价」，重新选择其他工厂推送
+  </view>
+
+  <!-- 状态提示 -->
+  <view class="status-banner badge-blue" wx:if="{{statusText && !statusData.factory}}">
+    {{statusText}}
+  </view>
+  <view class="status-banner badge-green" wx:if="{{statusData.factory}}">
+    ✅ {{statusData.factory.name}} 已接单
+  </view>
+
+  <!-- 017 工厂正式报价：金额 + 说明 + 有效期 + 确认下单（订单金额以工厂报价为准） -->
+  <view class="card fq-card" wx:if="{{statusData.status === 'factory_quoted' && !statusData.factoryQuoteExpired}}">
+    <view class="card-title">工厂正式报价</view>
+    <view class="fq-price">¥{{statusData.factoryQuotedPrice}}</view>
+    <view class="fq-designfee" wx:if="{{statusData.designFee > 0}}">含设计费 ¥{{statusData.designFee}}，已计入总价</view>
+    <view class="fq-remark" wx:if="{{statusData.factoryQuoteRemark}}">工厂说明：{{statusData.factoryQuoteRemark}}</view>
+    <view class="fq-valid">⏰ 有效期至 {{statusData.factoryQuoteExpiresAtText}}，逾期需重新询价</view>
+    <view class="fq-confirm-tip">确认后按此价格生成订单，可前往「我的 → 订单」支付</view>
+    <view class="btn-primary fq-confirm" bindtap="confirmFactoryQuote">确认报价并下单</view>
+  </view>
+  <view class="status-banner badge-orange" wx:elif="{{statusData.status === 'factory_quoted' && statusData.factoryQuoteExpired}}">
+    ⚠️ 工厂报价已过期，请重新询价获取新报价
+  </view>
+
+  <!-- 021 设计需求：need=描述+参考图（工厂报价含设计费）/ none=客户自带稿（展示稿图）/ public=用工厂公版 -->
+  <view class="card design-card" wx:if="{{statusData.designStatus === 'need' || statusData.designImages.length || statusData.designStatus === 'public'}}">
+    <view class="card-title">{{statusData.designStatus === 'need' ? '设计需求' : (statusData.designStatus === 'public' ? '工厂公版' : '设计稿')}}</view>
+    <view class="rq-design-note" wx:if="{{statusData.designNote}}">{{statusData.designNote}}</view>
+    <view class="rq-design-empty" wx:elif="{{statusData.designStatus === 'need'}}">未填写文字描述</view>
+    <view class="rq-design-empty" wx:elif="{{statusData.designStatus === 'public'}}">使用工厂现成版式，工厂确认要印的内容后报价</view>
+    <view class="rq-design-imgs" wx:if="{{statusData.designImages.length}}">
+      <image class="rq-design-thumb" wx:for="{{statusData.designImages}}" wx:key="*this"
+            src="{{apiBase + item}}" mode="aspectFill"
+            data-url="{{apiBase + item}}" bindtap="previewDesignImg" />
+    </view>
+  </view>
+
+  <!-- 成本拆解（系统参考价构成） -->
+  <view class="card">
+    <view class="card-title">成本构成（参考价）</view>
+    <view class="breakdown-item" wx:for="{{breakdownList}}" wx:key="key">
+      <view class="row">
+        <text class="bd-name">{{item.name}}</text>
+        <text class="bd-cost">¥{{item.cost}}</text>
+      </view>
+      <view class="bd-detail">{{item.detail}}</view>
+    </view>
+  </view>
+
+  <!-- 指定工厂能力不满足：后端拒绝推送，回落普通匹配 -->
+  <view class="prefer-reject-tip" wx:if="{{preferredRejected}}">
+    ⚠️ 指定工厂暂不支持该需求，已为您按能力匹配以下工厂
+  </view>
+
+  <!-- 匹配工厂（F-07：评分/接单率/响应时长/能力标签，无价格） -->
+  <view class="card">
+    <view class="card-title">为你匹配到 {{result.matches.length}} 家工厂 · 选定后实时推送</view>
+    <view class="factory-card" wx:for="{{result.matches}}" wx:key="factoryId">
+      <view class="fc-head">
+        <image class="fc-logo" wx:if="{{item.logoUrl}}" src="{{item.logoUrl}}" mode="aspectFill" />
+        <view class="fc-avatar" wx:else style="background: {{item.avatarColor}}">{{item.avatarText}}</view>
+        <view class="fc-info">
+          <view class="fc-name-wrap">
+            <text class="factory-name">{{item.factoryName}}</text>
+            <text class="badge badge-orange" wx:if="{{index === 0 && !statusData.factory}}">推荐</text>
+            <text class="badge badge-blue" wx:if="{{item.isPreferred}}">✓ 已推送</text>
+          </view>
+          <view class="fc-addr"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{item.address}}</view>
+          <view class="fc-stats">
+            <text class="fc-star">★ {{item.ratingText}}</text>
+            <text class="fc-stat-item" wx:if="{{item.ratingCount}}">({{item.ratingCount}}人评价)</text>
+            <text class="fc-stat-item">接单率 {{item.acceptRateText}}%</text>
+            <text class="fc-stat-item">响应 {{item.avgResponseText}}</text>
+          </view>
+          <view class="fc-tags" wx:if="{{item.capabilityTags.length}}">
+            <text class="tag" wx:for="{{item.capabilityTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="fc-actions">
+        <view class="btn-outline fc-btn" wx:if="{{canSelect}}"
+              data-factory="{{item.factoryId}}" data-name="{{item.factoryName}}"
+              bindtap="viewQuote">查看报价</view>
+        <view class="fc-done" wx:if="{{!canSelect && statusData.factory && statusData.factory.name === item.factoryName}}">✓ 当前对接工厂</view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!result.matches.length}}">
+      <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+      暂无匹配工厂，可调整材料/工艺后重新报价
+    </view>
+  </view>
+
+  <!-- 接单后的工厂联系方式 -->
+  <view class="card" wx:if="{{statusData.factory}}">
+    <view class="card-title">工厂联系方式</view>
+    <view class="fc-item"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{statusData.factory.name}}</view>
+    <view class="fc-item" bindtap="callFactory" data-phone="{{statusData.factory.phone}}"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>{{statusData.factory.contact || '-'}} {{statusData.factory.phone || ''}}（点击拨打）</view>
+    <view class="fc-item"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{statusData.factory.address || '-'}}</view>
+    <view class="btn-ghost refresh-btn" bindtap="refreshStatus">刷新状态</view>
+  </view>
+
+  <view class="footnote">查看报价仅展示给询价本人；选定后需求将实时推送给该工厂</view>
+
+</view>
+
+<!-- 报价弹窗（F-08）：厂价 + 参考价对比 + 成本构成 + 联系方式 + 有效期 -->
+<view class="modal-mask" wx:if="{{quoteModal.visible}}" bindtap="closeQuoteModal">
+  <view class="modal-panel" catchtap="noop">
+    <view class="qm-head">
+      <text class="qm-title">{{quoteModal.factoryName}} · 实时报价</text>
+      <text class="qm-close" bindtap="closeQuoteModal">✕</text>
+    </view>
+
+    <view class="qm-loading" wx:if="{{quoteModal.loading}}">⏳ 报价计算中...</view>
+
+    <view class="qm-error-box" wx:elif="{{quoteModal.error}}">
+      <view class="qm-error-text">{{quoteModal.error}}</view>
+      <view class="qm-error-tip" wx:if="{{quoteModal.expired}}">报价超过有效期已失效，请返回重新询价获取最新报价</view>
+      <view class="btn-ghost qm-error-btn" bindtap="closeQuoteModal">知道了</view>
+    </view>
+
+    <block wx:else>
+      <view class="qm-price">
+        <view class="qm-unit">单价 ¥{{quoteModal.factoryQuote.unitPrice}} /个</view>
+        <view class="qm-total">¥{{quoteModal.factoryQuote.totalPrice}}</view>
+        <view class="qm-tax">含税 ¥{{quoteModal.factoryQuote.finalPrice}}</view>
+        <view class="qm-diff {{quoteModal.diffPercent > 0 ? 'diff-up' : (quoteModal.diffPercent < 0 ? 'diff-down' : 'diff-flat')}}">
+          {{quoteModal.diffLabel}}（参考价 ¥{{quoteModal.systemQuote.totalPrice}}）
+        </view>
+        <view class="qm-valid" wx:if="{{quoteModal.remainDays >= 0 && !quoteModal.expired}}">⏳ 有效期剩余 {{quoteModal.countdown}}，逾期请重新询价</view>
+      </view>
+
+      <!-- 成本构成折叠 -->
+      <view class="qm-bd-toggle" bindtap="toggleQuoteBreakdown">
+        <text>成本构成</text>
+        <text>{{quoteModal.breakdownOpen ? '▾' : '▸'}}</text>
+      </view>
+      <view class="qm-bd" wx:if="{{quoteModal.breakdownOpen}}">
+        <view class="breakdown-item" wx:for="{{quoteModal.breakdownList}}" wx:key="key">
+          <view class="row">
+            <text class="bd-name">{{item.name}}</text>
+            <text class="bd-cost">¥{{item.cost}}</text>
+          </view>
+          <view class="bd-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+        </view>
+      </view>
+
+      <!-- 联系方式 -->
+      <view class="qm-contact" wx:if="{{quoteModal.contact}}">
+        <view class="fc-item" bindtap="callFactory" data-phone="{{quoteModal.contact.phone}}"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>{{quoteModal.contact.phone || '-'}}（点击拨打）</view>
+        <view class="fc-item"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{quoteModal.contact.address || '-'}}</view>
+      </view>
+
+      <view class="qm-actions" wx:if="{{canSelect}}">
+        <view class="btn-ghost qm-cancel" bindtap="closeQuoteModal">再想想</view>
+        <view class="btn-primary qm-confirm" bindtap="confirmSelect">确认选此工厂</view>
+      </view>
+      <view class="qm-actions-done" wx:else>当前询价已锁定工厂，如需更换请联系平台客服</view>
+    </block>
+  </view>
+</view>
+
+<!-- 手机号授权弹窗（F-11）：微信一键授权为主，手动输入为次；顶部图标 + 分隔线层级 -->
+<view class="modal-mask" wx:if="{{phoneModal.visible}}">
+  <view class="modal-panel phone-panel">
+    <view class="pm-ic"><view class="ic ic-phone"><view class="ic-a"></view></view></view>
+    <view class="pm-title">授权手机号</view>
+    <view class="pm-tip">工厂接单后需要电话联系你，授权微信手机号或手动填写</view>
+    <button class="pm-wxbtn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber"
+            wx:if="{{phoneModal.mode === 'bind'}}">微信手机号一键授权</button>
+    <view class="pm-divider">或手动输入</view>
+    <input class="pm-input" type="number" maxlength="11" placeholder="请输入11位手机号"
+           value="{{phoneModal.phone}}" bindinput="onPhoneInput" />
+    <view class="btn-primary pm-confirm {{phoneModal.submitting ? 'btn-disabled' : ''}}"
+          bindtap="submitPhoneModal">{{phoneModal.submitting ? '提交中...' : '确认推送'}}</view>
+    <view class="pm-cancel" bindtap="closePhoneModal">暂不授权</view>
+  </view>
+</view>

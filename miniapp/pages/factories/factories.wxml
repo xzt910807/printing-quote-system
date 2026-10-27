@@ -1,0 +1,84 @@
+<!-- Stage11 自定义导航栏 -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-title">找厂</view>
+  </view>
+</view>
+
+<view class="container page-tab">
+
+  <!-- 名称搜索框（与下方筛选叠加生效；支持名称/地址关键词） -->
+  <view class="search-bar">
+    <view class="search-box">
+      <view class="search-icon"><view class="ic ic-search"><view class="ic-a"></view></view></view>
+      <input class="search-input" value="{{keyword}}" placeholder="搜索工厂名称 / 地址"
+             placeholder-class="search-ph" confirm-type="search" bindinput="onKeywordInput" />
+      <text class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">✕</text>
+    </view>
+  </view>
+
+  <!-- F-100 排序：综合 / 评分高 / 接单多 / 响应快 -->
+  <scroll-view scroll-x class="sort-bar" enhanced show-scrollbar="{{false}}">
+    <view class="sort-chip {{sort === item.code ? 'sort-on' : ''}}"
+          wx:for="{{sortOptions}}" wx:key="code"
+          data-code="{{item.code}}" bindtap="setSort">{{item.name}}</view>
+  </scroll-view>
+
+  <!-- 筛选栏 -->
+  <view class="card filter-card">
+    <view class="filter-row">
+      <text class="filter-label">产品</text>
+      <view class="filter-tags">
+        <view class="tag {{filter.productType === item.code ? 'tag-active' : ''}}"
+              wx:for="{{productOptions}}" wx:key="code"
+              data-type="productType" data-code="{{item.code}}" bindtap="setFilter">{{item.name}}</view>
+      </view>
+    </view>
+
+    <view class="filter-row">
+      <text class="filter-label">工艺</text>
+      <view class="filter-tags">
+        <view class="tag {{item.selected ? 'tag-active' : ''}}"
+              wx:for="{{processOptions}}" wx:key="code"
+              data-type="process" data-code="{{item.code}}" bindtap="setFilter">
+          {{item.name}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 工厂列表 -->
+  <view class="empty" wx:if="{{factoriesLoading && !factories.length}}">
+    <text class="empty-icon">⏳</text>加载中...
+  </view>
+  <view class="factory-item" wx:for="{{factories}}" wx:key="id">
+    <view class="fi-head" bindtap="goFactoryDetail" data-id="{{item.id}}">
+      <!-- 首字头像：按工厂名 hash 固定配色（utils/avatar） -->
+      <view class="fi-avatar" style="background: {{item.avatarColor}}">{{item.avatarText}}</view>
+      <view class="fi-info">
+        <view class="factory-name">{{item.name}}</view>
+        <view class="factory-addr"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{item.address || '龙港'}}</view>
+        <!-- 印查查式信任/产能徽章 -->
+        <view class="fi-trust" wx:if="{{item.verified || item.capacityLabel}}">
+          <text class="fi-verified" wx:if="{{item.verified}}">✓ 已核验</text>
+          <text class="fi-cap fi-cap-{{item.capacityStatus}}" wx:if="{{item.capacityLabel}}">⚡ {{item.capacityLabel}}</text>
+        </view>
+        <!-- F-100：评分 / 接单量徽标（后端排序已按此加权） -->
+        <view class="fi-stats" wx:if="{{item.ratingText || item.acceptsText}}">
+          <text class="fi-stat fi-star" wx:if="{{item.ratingText}}">★ {{item.ratingText}}</text>
+          <text class="fi-stat" wx:if="{{item.acceptsText}}">已接 {{item.acceptsText}}</text>
+        </view>
+      </view>
+      <view class="fi-more"></view>
+    </view>
+    <view class="cap-row">
+      <text class="cap-tag" wx:for="{{item.capNameList}}" wx:key="*this">{{item}}</text>
+    </view>
+    <view class="btn-outline fi-btn" catchtap="quickQuote" data-id="{{item.id}}">报价 →</view>
+  </view>
+
+  <view wx:if="{{factories.length === 0}}" class="empty">
+    <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+    没有符合条件的工厂，换个筛选条件试试
+  </view>
+</view>

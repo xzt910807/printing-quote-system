@@ -1,0 +1,31 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">沟通消息<text class="navbar-sub" wx:if="{{unread}}">{{unread}} 条未读</text></view>
+  </view>
+</view>
+
+<view class="page page-tab" style="padding-top: {{statusBarHeight + navBarHeight + 10}}px;">
+  <view class="empty" wx:if="{{loading}}">
+    <text class="empty-icon">⏳</text>加载中...
+  </view>
+  <view class="empty" wx:elif="{{!list.length}}">
+    <view class="empty-ic"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+    {{isFactory ? '暂无会话，处理询价时可与客户在线沟通' : '暂无会话，在「我的询价」里点在线沟通即可发起'}}
+  </view>
+
+  <view class="th-card" wx:for="{{list}}" wx:key="inquiryId"
+        data-inquiry-id="{{item.inquiryId}}" data-factory-id="{{item.factoryId}}"
+        data-name="{{item.showName}}" data-no="{{item.inquiryNo}}" bindtap="openThread">
+    <view class="th-avatar">{{item.showName[0] || '对'}}</view>
+    <view class="th-main">
+      <view class="th-row">
+        <text class="th-name">{{item.showName}}</text>
+        <text class="th-badge" wx:if="{{item.unread}}">{{item.unread}}</text>
+        <text class="th-time">{{item.lastTimeText}}</text>
+      </view>
+      <view class="th-sub">{{item.inquiryNo}}{{isFactory && item.quantity ? ' · ' + item.quantity + ' 个' : ''}}</view>
+      <view class="th-last">{{item.lastMessage || '暂无消息'}}</view>
+    </view>
+  </view>
+</view>

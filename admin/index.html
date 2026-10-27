@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>印刷报价系统 · 管理后台</title>
+  <!-- 关键防闪现规则内联：不依赖外部 CSS 是否命中缓存，Vue 挂载前 #app 必然隐藏
+       （仅加 v-cloak 属性 + 外部样式曾被旧缓存绕过，导致首屏闪现未编译模板/弹窗） -->
+  <style>[v-cloak] { display: none !important; }</style>
+  <link rel="stylesheet" href="./css/style.css?v=28">
+</head>
+<body>
+  <div id="app" v-cloak>
+    <!-- 侧边栏（stage15：可收起，状态记忆在 localStorage；点击 logo 区也可收起） -->
+    <aside class="sidebar" :class="{collapsed: sidebarCollapsed}">
+      <div class="logo" @click="toggleSidebar" title="收起菜单">
+        <div class="logo-icon">印</div>
+        <div class="logo-text">
+          <div class="logo-title">印刷报价</div>
+          <div class="logo-sub">管理后台 v2.0</div>
+        </div>
+        <!-- stage15b：左上角行内收起图标（点 logo 行任意处也能收起） -->
+        <span class="logo-collapse" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 6l-6 6 6 6"/>
+          </svg>
+        </span>
+      </div>
+      <nav class="nav">
+        <!-- F-167/168：配置驱动菜单，按权限点渲染（visibleMenu = NAV_MENU 过滤后）；stage15c：分组标题可点击折叠/展开（箭头旋转），折叠状态记忆在 localStorage -->
+        <div class="nav-group" v-for="g in menuGroups" :key="g.label">
+          <div class="nav-group-label" @click="toggleGroup(g.label)"
+               :class="{collapsed: isGroupCollapsed(g.label)}">
+            <span>{{ g.label }}</span>
+            <svg class="nav-group-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="nav-group-items" v-show="!isGroupCollapsed(g.label)">
+            <div class="nav-item" v-for="item in g.items" :key="item.key"
+                 :class="{active: page===item.key, 'nav-soon': item.soon}"
+                 @click="goto(item.key)">
+              <span class="nav-icon" v-html="item.svg"></span>{{ menuTitle(item) }}
+            </div>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <!-- stage15：左上角收起/展开菜单按钮 -->
+          <button type="button" class="sidebar-toggle" @click="toggleSidebar"
+                  :title="sidebarCollapsed ? '展开菜单' : '收起菜单'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M9 4v16"/>
+              <path v-if="!sidebarCollapsed" d="M17 10l-2 2 2 2"/>
+              <path v-else d="M13 10l2 2-2 2"/>
+            </svg>
+          </button>
+          <div class="topbar-title">{{ pageTitle }}</div>
+        </div>
+        <div class="topbar-actions">
+          <div class="account-box">
+            <span class="role-badge" :class="isFactoryMode ? 'role-factory' : 'role-admin'">{{ roleBadge }}</span>
+            <span class="account-name">{{ displayName }}</span>
+            <button class="btn-link" @click="changeMyPassword">修改密码</button>
+            <button class="btn-link" @click="logoutAllDevices">登出所有设备</button>
+            <button class="btn-link" style="color:#dc2626" @click="logoutAdmin">退出</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- stage15c：多标签页工作区（点菜单开标签、可切换/关闭；已打开页面 DOM 常驻，切回不丢状态） -->
+      <div class="tabbar" v-if="tabs.length">
+        <div class="tab" v-for="k in tabs" :key="k" :class="{active: page===k}" @click="goto(k)">
+          <span class="tab-title">{{ tabTitle(k) }}</span>
+          <span class="tab-close" v-if="tabs.length > 1" title="关闭" @click.stop="closeTab(k)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- 数据概览（管理端） -->
+        <div v-show="page==='dashboard' && !isFactoryMode" class="dashboard">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <!-- 029：绑定统计接口的 factoryTotal（仅在用厂）——此前绑 factories.length 把停用厂也算进去 -->
+              <div class="stat-label">工厂总数</div>
+              <div class="stat-value">{{ stats.factoryTotal || 0 }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">报价单总数</div>
+              <div class="stat-value">{{ stats.quoteTotal || 0 }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">C端询价</div>
+              <div class="stat-value">{{ stats.inquiryTotal || 0 }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">订单总数</div>
+              <div class="stat-value">{{ stats.orderTotal || 0 }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">订单金额（未含取消）</div>
+              <div class="stat-value">¥{{ formatMoney(stats.orderAmountTotal) }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">已支付金额</div>
+              <div class="stat-value">¥{{ formatMoney(stats.orderAmountPaid) }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">材料条目</div>
+              <div class="stat-value">{{ materialCount }}</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">近 7 天趋势</div>
+              <div class="trend-legend">
+                <span><span class="legend-dot dot-inquiry"></span>C端询价</span>
+                <span><span class="legend-dot dot-order"></span>订单</span>
+              </div>
+            </div>
+            <div class="trend-chart">
+              <div class="trend-col" v-for="d in (stats.trend || [])" :key="d.date">
+                <div class="trend-bars">
+                  <div class="trend-bar trend-inquiry" :style="{ height: barHeight(d.inquiries) }" :title="'询价 ' + d.inquiries + ' 条'"></div>
+                  <div class="trend-bar trend-order" :style="{ height: barHeight(d.orders) }" :title="'订单 ' + d.orders + ' 单'"></div>
+                </div>
+                <div class="trend-x">{{ d.date.slice(5) }}</div>
+              </div>
+              <div v-if="!stats.trend || !stats.trend.length" class="empty">暂无数据</div>
+            </div>
+          </div>
+
+          <div class="dash-cols">
+            <div class="panel">
+              <div class="panel-title">订单状态分布</div>
+              <div class="dist-list">
+                <div class="dist-row" v-for="s in ORDER_STATUS_KEYS" :key="s">
+                  <span class="dist-label">{{ orderStatusLabel(s) }}</span>
+                  <div class="dist-track">
+                    <div class="dist-bar" :style="{ width: distPct(s), background: distColor(s) }"></div>
+                  </div>
+                  <span class="dist-count">{{ (stats.orderStatus || {})[s] || 0 }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-title">最近订单</div>
+              <table class="table">
+                <thead>
+                  <tr><th>订单号</th><th>工厂</th><th>金额</th><th>状态</th><th>时间</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="o in recentOrders" :key="o.id">
+                    <td>{{ o.order_no }}</td>
+                    <td>{{ o.factory_name || '-' }}</td>
+                    <td class="text-price">¥{{ o.total_price }}</td>
+                    <td><span class="badge" :style="orderStatusStyle(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
+                    <td class="muted">{{ formatTime(o.created_at) }}</td>
+                  </tr>
+                  <tr v-if="!recentOrders.length"><td colspan="5" class="empty">暂无数据</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">最近报价单</div>
+            <table class="table">
+              <thead>
+                <tr><th>单号</th><th>工厂</th><th>数量</th><th>单价</th><th>总价</th><th>时间</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="q in recentQuotes" :key="q.id">
+                  <td>{{ q.quote_no }}</td>
+                  <td>{{ q.factory_name || '默认' }}</td>
+                  <td>{{ q.quantity }}</td>
+                  <td>¥{{ q.unit_price }}</td>
+                  <td>¥{{ q.final_price }}</td>
+                  <td class="muted">{{ formatTime(q.created_at) }}</td>
+                </tr>
+                <tr v-if="!recentQuotes.length"><td colspan="6" class="empty">暂无数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 报价计算器 -->
+        <div v-show="page==='calculator'" class="calculator">
+          <div class="panel">
+            <div class="panel-title">报价参数</div>
+            <div class="form-grid">
+              <!-- stage15b/16：计价工厂（价格来源）并入参数网格，与其他字段同版式；
+                   价格来源只作用于本次计算/保存，不占全局顶栏 -->
+              <div class="form-item" v-if="!isFactoryMode">
+                <label>计价工厂</label>
+                <div class="factory-picker">
+                  <button type="button" class="factory-picker-btn" @click.stop="toggleFactoryPicker"
+                          title="选择工厂后，本次计算与保存的报价按该工厂的专属价格配置出价">
+                    <span class="factory-picker-label">{{ currentFactoryLabel }}</span>
+                    <svg class="factory-picker-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  <div class="factory-picker-drop" v-show="factoryPickerOpen" @click.stop>
+                    <input class="factory-picker-search" v-model="factoryKeyword" placeholder="输入工厂名称 / 编码搜索…" />
+                    <div class="factory-picker-list">
+                      <div class="factory-picker-item" :class="{active: currentFactoryId === 0}" @click="pickFactory(0)">系统默认价（平台统一价格）</div>
+                      <div class="factory-picker-item" v-for="f in filteredFactoryOptions" :key="f.id"
+                           :class="{active: currentFactoryId === f.id}" @click="pickFactory(f.id)">{{ f.name }}</div>
+                      <div class="factory-picker-empty" v-if="!filteredFactoryOptions.length">无匹配工厂</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- 025 客户折扣：选客户后按客户档案里的折扣比例计价（预览与保存一致）；026 起工厂端也可用 -->
+              <div class="form-item">
+                <label>客户</label>
+                <select v-model.number="calcForm.customerId" @change="onCalcCustomerChange">
+                  <option :value="0">不关联客户（按牌价）</option>
+                  <option v-for="c in calcCustomers" :key="c.id" :value="c.id">{{ c.name }}（{{ Math.round((Number(c.discount) || 1) * 100) }}%）</option>
+                </select>
+                <div class="form-hint" v-if="currentFactoryId && calcCustomers.length !== customers.length">
+                  仅显示「{{ currentFactoryLabel }}」的客户及平台公共客户
+                </div>
+                <div class="form-hint" v-else-if="calcCustomer && Number(calcCustomer.discount) < 1">
+                  该客户按 {{ Math.round(Number(calcCustomer.discount) * 100) }}% 计价，已自动打折
+                </div>
+              </div>
+              <div class="form-item">
+                <label>产品类型</label>
+                <select v-model="calcForm.productType">
+                  <option value="carton">纸箱</option>
+                  <option value="cardBox">彩盒</option>
+                  <option value="card">卡片</option>
+                  <option value="paperBag">纸袋</option>
+                  <option value="sticker">不干胶</option>
+                  <option value="flexiblePackaging">软包装</option>
+                  <option value="nonWovenBag">无纺布袋</option>
+                  <option value="antiCounterfeitLabel">防伪标签</option>
+                  <option value="heatTransfer">热转印</option>
+                  <option value="paperContainer">纸容器</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label>印刷方式</label>
+                <select v-model="calcForm.printMode">
+                  <option value="offset" :disabled="!isPrintModeAllowed('offset')">胶印</option>
+                  <option value="flexo" :disabled="!isPrintModeAllowed('flexo')">柔印</option>
+                  <option value="gravure" :disabled="!isPrintModeAllowed('gravure')">凹印</option>
+                  <option value="digital" :disabled="!isPrintModeAllowed('digital')">数码印</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label>长 (mm)</label>
+                <input type="number" v-model.number="calcForm.lengthMm">
+              </div>
+              <div class="form-item">
+                <label>长 (mm)</label>
+                <input type="number" v-model.number="calcForm.widthMm">
+              </div>
+              <div class="form-item">
+                <label>长 (mm)</label>
+                <input type="number" v-model.number="calcForm.heightMm">
+              </div>
+              <div class="form-item">
+                <label>数量</label>
+                <input type="number" v-model.number="calcForm.quantity">
+              </div>
+              <div class="form-item">
+                <label>材料</label>
+                <select v-model="calcForm.materialCode">
+                  <optgroup v-for="g in materialGroups" :key="g.label" :label="g.label">
+                    <option v-for="(m,c) in g.items" :key="c" :value="c" :disabled="!isMaterialAllowed(c)">{{ m.name }}</option>
+                  </optgroup>
+                </select>
+              </div>
+              <!-- 020 印刷配置：色数与专色合并单选（与小程序同口径：四色=4色0专色 / 四色+专色 / 纯专色=N色0专色） -->
+              <div class="form-item">
+                <label>印刷配置</label>
+                <select v-model="calcForm.printConfig">
+                  <option value="cmyk">四色印刷（CMYK）</option>
+                  <option value="cmyk+spot">四色+专色</option>
+                  <option value="spot">纯专色印刷</option>
+                </select>
+              </div>
+              <div class="form-item" v-if="calcForm.printConfig !== 'cmyk'">
+                <label>{{ calcForm.printConfig === 'spot' ? '专色色数' : '加印专色' }}</label>
+                <input type="number" min="1" max="6" v-model.number="calcForm.spotColors">
+              </div>
+              <!-- 016 印刷参数：图案覆盖率/油墨类型 -->
+              <div class="form-item">
+                <label>图案覆盖率</label>
+                <select v-model="calcForm.patternCover">
+                  <option value="low">少量（文字/logo为主）</option>
+                  <option value="mid">中等（图案+文字）</option>
+                  <option value="high">满版（整面都是图）</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label>油墨类型</label>
+                <select v-model="calcForm.inkType">
+                  <option value="NORMAL">普通油墨</option>
+                  <option value="UV">UV油墨（+30%）</option>
+                  <option value="METALLIC">金属油墨（+50%）</option>
+                  <option value="FLUOR">荧光油墨（+80%）</option>
+                  <option value="SOY">大豆油墨（+15%）</option>
+                </select>
+              </div>
+              <div class="form-item" v-if="calcForm.productType === 'cardBox'">
+                <label>盒型</label>
+                <select v-model="calcForm.boxType">
+                  <option value="normal">普通折叠盒</option>
+                  <option value="lidBase">天地盖</option>
+                  <option value="drawer">抽屉盒</option>
+                </select>
+              </div>
+              <div class="form-item" v-if="calcForm.productType === 'cardBox'">
+                <label>拼版（个/张）</label>
+                <input type="number" min="1" v-model.number="calcForm.nUp">
+              </div>
+              <div class="form-item" v-if="calcForm.productType === 'flexiblePackaging'">
+                <label>复合层数</label>
+                <select v-model.number="calcForm.filmLayers">
+                  <option :value="1">单层</option>
+                  <option :value="2">双层</option>
+                  <option :value="3">三层</option>
+                </select>
+              </div>
+              <div class="form-item" v-if="calcForm.productType === 'flexiblePackaging'">
+                <label>模具费（元）</label>
+                <input type="number" min="0" v-model.number="calcForm.moldFee">
+              </div>
+              <div class="form-item" v-if="calcForm.productType === 'flexiblePackaging'">
+                <label>刀模费（元）</label>
+                <input type="number" min="0" v-model.number="calcForm.knifeFee">
+              </div>
+            </div>
+
+            <div class="form-item full">
+              <label>后道工艺</label>
+              <div class="check-group">
+                <label v-for="(p,c) in calcCatalog.finishing" :key="c" class="check-item" :class="{ disabled: !isProcessAllowed(c) }">
+                  <input type="checkbox" :value="c" v-model="calcForm.processes" :disabled="!isProcessAllowed(c)">
+                  <span>{{ p.name }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="doQuote" :disabled="calculating">
+                {{ calculating ? '计算中...' : '立即计算' }}
+              </button>
+              <button class="btn btn-secondary" @click="saveQuote" v-if="calcResult">
+                保存为报价单
+              </button>
+            </div>
+          </div>
+
+          <div class="panel" v-if="calcResult">
+            <div class="panel-title">报价结果</div>
+            <div class="result-header">
+              <div class="result-price">
+                <span class="unit">¥</span>{{ calcResult.unitPrice }}
+                <span class="suffix">/个</span>
+              </div>
+              <div class="result-total">总价 ¥{{ calcResult.totalPrice }} · 含税 ¥{{ calcResult.finalPrice }}</div>
+              <div class="result-discount" v-if="calcResult.discountRate && calcResult.discountRate < 1">
+                客户折扣 {{ Math.round(calcResult.discountRate * 100) }}% · 已优惠 ¥{{ calcResult.discountAmount }}
+                <span class="result-discount-orig">（未折前含税 ¥{{ (calcResult.finalPrice + calcResult.discountAmount).toFixed(2) }}）</span>
+              </div>
+            </div>
+            <div class="breakdown">
+              <div class="bd-item" v-for="(item, key) in calcResult.breakdown" :key="key">
+                <div class="bd-head">
+                  <span class="bd-name">{{ item.name }}</span>
+                  <span class="bd-cost">¥{{ item.cost }}</span>
+                </div>
+                <div class="bd-detail">{{ item.detail || (item.items && item.items.map(i => i.detail).join(' / ')) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 我的数据（工厂视角：评分/接单统计 + 待响应询价；ECharts 看板为阶段四 F-19） -->
+        <div v-show="page==='dashboard' && isFactoryMode" class="dashboard">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">综合评分</div>
+              <div class="stat-value">★ {{ Number(factoryStats.rating || 5).toFixed(2) }}<span class="stat-sub">（{{ factoryStats.ratingCount }}人评价）</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">接单率</div>
+              <div class="stat-value">{{ factoryAcceptRate }}%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">平均响应时长</div>
+              <div class="stat-value">{{ factoryAvgResponse }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">累计推送</div>
+              <div class="stat-value">{{ factoryStats.totalPushes }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">累计接单</div>
+              <div class="stat-value">{{ factoryStats.totalAccepts }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">我的订单</div>
+              <div class="stat-value">{{ orders.length }}</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">待响应询价（{{ factoryPendingInquiries.length }}）</div>
+              <div class="head-tools"><button class="btn btn-secondary btn-sm" @click="goto('inquiries')">全部询价</button></div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>询价号</th><th>产品</th><th>数量</th><th>系统报价</th><th>推送时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="i in factoryPendingInquiries.slice(0, 5)" :key="i.push_id">
+                  <td>{{ i.inquiry_no }}</td>
+                  <td>{{ productTypeLabel(i.product_type) }}</td>
+                  <td>{{ i.quantity }}</td>
+                  <td>¥{{ extractTotal(i.system_quote) }}</td>
+                  <td class="muted">{{ formatTime(i.push_time) }}</td>
+                  <td><button class="btn btn-sm" @click="goto('inquiries')">去响应</button></td>
+                </tr>
+                <tr v-if="!factoryPendingInquiries.length"><td colspan="6" class="empty">暂无待响应询价</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 报价单列表 -->
+        <div v-show="page==='quotes'" class="panel">
+          <div class="panel-head">
+            <div class="panel-title">报价单列表</div>
+            <div class="head-tools">
+              <input class="search-input" v-model.trim="quoteKeyword" placeholder="搜索单号 / 客户 / 工厂" @input="onQuoteSearch" />
+              <button class="btn btn-secondary btn-sm" @click="exportQuotes">导出 CSV</button>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>单号</th><th>工厂</th><th>客户</th><th>产品</th><th>数量</th><th>单价</th><th>含税总价</th><th>状态</th><th>时间</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="q in quotes" :key="q.id">
+                <td>{{ q.quote_no }}</td>
+                <td>{{ q.factory_name || '默认' }}</td>
+                <td>{{ q.customer_name || '-' }}</td>
+                <td>{{ productTypeLabel(q.product_type) }}</td>
+                <td>{{ q.quantity }}</td>
+                <td>¥{{ q.unit_price }}</td>
+                <td class="text-price">¥{{ q.final_price }}
+                  <span v-if="Number(q.discount_rate) < 1" class="badge" style="background:#fce7f3;color:#be185d"
+                        :title="'客户折扣 ' + Math.round(Number(q.discount_rate) * 100) + '%'">{{ Math.round(Number(q.discount_rate) * 100) }}%</span>
+                </td>
+                <td><span class="badge">{{ statusLabel(q.status) }}</span></td>
+                <td class="muted">{{ q.created_at }}</td>
+                <td><button class="btn btn-sm btn-danger" @click="removeQuote(q)">删除</button></td>
+              </tr>
+              <tr v-if="!quotes.length"><td colspan="10" class="empty">暂无数据</td></tr>
+            </tbody>
+          </table>
+          <!-- stage16 分页：每页 20 条，总量来自后端 -->
+          <div class="pager" v-if="quoteTotal > 0">
+            <span class="pager-info">共 {{ quoteTotal }} 条 · 第 {{ quotePage }} / {{ quotePages }} 页</span>
+            <button class="btn btn-sm" :disabled="quotePage <= 1" @click="loadQuotesPage(quotePage - 1)">上一页</button>
+            <button class="btn btn-sm" :disabled="quotePage >= quotePages" @click="loadQuotesPage(quotePage + 1)">下一页</button>
+          </div>
+        </div>
+
+        <!-- C端询价 -->
+        <div v-show="page==='inquiries'" class="panel">
+          <div class="panel-head">
+            <div class="panel-title">{{ isFactoryMode ? '我的询价' : 'C端询价记录' }}</div>
+            <div class="head-tools" v-if="!isFactoryMode">
+              <input class="search-input" v-model.trim="inquiryKeyword" placeholder="搜索询价号 / 联系人 / 电话" @input="onInquirySearch" />
+              <button class="btn btn-secondary btn-sm" @click="exportInquiries">导出 CSV</button>
+            </div>
+          </div>
+          <!-- stage14 SaaS：工厂视角的询价（本厂推送记录，联系方式仅接单后可见） -->
+          <table class="table" v-if="isFactoryMode">
+            <thead>
+              <tr><th>询价号</th><th>产品</th><th>数量</th><th>系统报价</th><th>我的报价</th><th>状态</th><th>客户</th><th>设计稿</th><th>推送时间</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in inquiries" :key="i.push_id">
+                <td>{{ i.inquiry_no }}</td>
+                <td>{{ productTypeLabel(i.product_type) }}</td>
+                <td>{{ i.quantity }}</td>
+                <td>¥{{ extractTotal(i.system_quote) }}</td>
+                <td class="text-price">{{ i.factory_quote ? '¥' + i.factory_quote : '-' }}</td>
+                <td><span class="badge">{{ { pending: '待响应', accept: '已接单', decline: '已拒绝' }[i.response] || i.response }}</span></td>
+                <td>{{ i.contact_name ? i.contact_name + ' ' + (i.contact_phone || '') : '接单后可见' }}</td>
+                <!-- 021/022 设计稿：接单前即可看图与需求（与小程序工厂端一致）；024 PDF 制版文件随单下发 -->
+                <td>
+                  <template v-if="designImgs(i).length">
+                    <img v-for="(img, idx) in designImgs(i)" :key="idx" :src="img" class="design-thumb"
+                         title="点击放大原图，可右键另存" @click="openDesignImg(img)" />
+                    <span v-if="designBadge(i)" class="badge" :style="designBadge(i).style" style="margin-left:6px">{{ designBadge(i).text }}</span>
+                  </template>
+                  <template v-else-if="designBadge(i)">
+                    <span class="badge" :style="designBadge(i).style">{{ designBadge(i).text }}</span>
+                  </template>
+                  <span v-else-if="!designPdf(i)" class="muted">-</span>
+                  <div v-if="i.design_note" class="design-note-line" :title="i.design_note">{{ i.design_note }}</div>
+                  <div v-if="designPdf(i)" class="design-pdf-line">
+                    <a :href="designPdf(i)" target="_blank" title="排版工具产出的矢量制版文件：矢量文字/CMYK/裁切角线，可直接送印制版">⬇ 印刷文件(PDF)</a>
+                  </div>
+                </td>
+                <td class="muted">{{ formatTime(i.push_time) }}</td>
+              </tr>
+              <tr v-if="!inquiries.length"><td colspan="9" class="empty">暂无数据</td></tr>
+            </tbody>
+          </table>
+          <table class="table" v-else>
+            <thead>
+              <tr><th>询价号</th><th>产品</th><th>数量</th><th>系统报价</th><th>状态</th><th>匹配工厂</th><th>时间</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in inquiries" :key="i.id">
+                <td>{{ i.inquiry_no }}</td>
+                <td>{{ productTypeLabel(i.product_type) }}</td>
+                <td>{{ i.quantity }}</td>
+                <td>¥{{ extractTotal(i.system_quote) }}</td>
+                <td><span class="badge">{{ statusLabel(i.status) }}</span></td>
+                <td>{{ factoryName(i.matched_factory_id) }}</td>
+                <td class="muted">{{ formatTime(i.created_at) }}</td>
+                <td><button class="btn btn-sm btn-danger" @click="removeInquiry(i)">删除</button></td>
+              </tr>
+              <tr v-if="!inquiries.length"><td colspan="8" class="empty">暂无数据</td></tr>
+            </tbody>
+          </table>
+          <!-- stage16 分页：每页 20 条（管理端列表；工厂视角走本厂推送接口不分页） -->
+          <div class="pager" v-if="inquiryTotal > 0">
+            <span class="pager-info">共 {{ inquiryTotal }} 条 · 第 {{ inquiryPage }} / {{ inquiryPages }} 页</span>
+            <button class="btn btn-sm" :disabled="inquiryPage <= 1" @click="loadInquiriesPage(inquiryPage - 1)">上一页</button>
+            <button class="btn btn-sm" :disabled="inquiryPage >= inquiryPages" @click="loadInquiriesPage(inquiryPage + 1)">下一页</button>
+          </div>
+        </div>
+
+        <!-- 订单管理 -->
+        <div v-show="page==='orders'" class="panel">
+          <div class="panel-head">
+            <div class="panel-title">{{ isFactoryMode ? '我的订单' : '订单列表' }}</div>
+            <div class="head-tools">
+              <input class="search-input" v-model.trim="orderKeyword" placeholder="搜索订单号 / 联系人 / 电话" @input="onOrderSearch" />
+              <select v-model="orderFilter" class="btn btn-secondary btn-sm" v-if="!isFactoryMode" @change="onOrderFilterChange">
+                <option value="">全部状态</option>
+                <option v-for="(label, s) in ORDER_STATUS_TEXT" :key="s" :value="s">{{ label }}</option>
+              </select>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>订单号</th><th>产品</th><th>数量</th><th>金额</th><th>状态</th><th>支付</th><th>工厂</th><th>客户</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="o in filteredOrders" :key="o.id">
+                <td>{{ o.order_no }}</td>
+                <td>{{ productTypeLabel(o.product_type) }}</td>
+                <td>{{ o.quantity }}</td>
+                <td class="text-price">¥{{ o.total_price }}<span v-if="Number(o.shipping_fee) > 0" class="muted" style="display:block;font-size:12px">运费 ¥{{ o.shipping_fee }}</span><span v-if="Number(o.sample_fee) > 0" class="muted" style="display:block;font-size:12px">打样费 ¥{{ o.sample_fee }}</span></td>
+                <td><span class="badge" :style="orderStatusStyle(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
+                <td>{{ { paid: '已支付', unpaid: '未支付', refunding: '退款中', refunded: '已退款' }[o.pay_status] || o.pay_status }}</td>
+                <td>{{ o.factory_name || '-' }}</td>
+                <td>{{ o.user_nickname || '-' }}</td>
+                <!-- 021/022 设计稿：缩略图点击新标签开原图（浏览器可另存=取图通道），徽标区分需设计/工厂公版；024 PDF 制版文件 -->
+                <td>
+                  <template v-if="designImgs(o).length">
+                    <img v-for="(img, idx) in designImgs(o)" :key="idx" :src="img" class="design-thumb"
+                         title="点击放大原图，可右键另存" @click="openDesignImg(img)" />
+                    <span v-if="designBadge(o)" class="badge" :style="designBadge(o).style" style="margin-left:6px">{{ designBadge(o).text }}</span>
+                  </template>
+                  <template v-else-if="designBadge(o)">
+                    <span class="badge" :style="designBadge(o).style">{{ designBadge(o).text }}</span>
+                  </template>
+                  <span v-else-if="!designPdf(o)" class="muted">-</span>
+                  <div v-if="o.design_note" class="design-note-line" :title="o.design_note">{{ o.design_note }}</div>
+                  <div v-if="designPdf(o)" class="design-pdf-line">
+                    <a :href="designPdf(o)" target="_blank" title="排版工具产出的矢量制版文件：矢量文字/CMYK/裁切角线，可直接送印制版">⬇ 印刷文件(PDF)</a>
+                  </div>
+                </td>
+                <td class="muted">{{ formatTime(o.created_at) }}</td>
+                <td>
+                  <button v-for="a in orderActions(o)" :key="a.action" class="btn btn-sm"
+                          :class="a.action === 'cancel' ? 'btn-danger' : ''"
+                          @click="doOrderAction(o, a.action)">{{ a.label }}</button>
+                  <!-- P1-10/F-56：待退款订单（含已取消待退款）一律展示确认退款，平台与工厂模式都可见 -->
+                  <button v-if="o.pay_status === 'refunding'" class="btn btn-sm btn-danger"
+                          @click="adminConfirmRefund(o)">确认退款</button>
+                  <!-- P1 双轨支付：客户选线下转账的订单，工厂确认到账后标记已支付 -->
+                  <button v-if="isFactoryMode && o.pay_method === 'offline' && o.pay_status === 'unpaid'" class="btn btn-sm"
+                          @click="factoryMarkOfflinePaid(o)">标记收款</button>
+                  <button v-if="['shipped','completed'].includes(o.status)" class="btn btn-sm" @click="openLogisticsViewer(o)">物流</button>
+                </td>
+              </tr>
+              <tr v-if="!filteredOrders.length"><td colspan="11" class="empty">暂无数据</td></tr>
+            </tbody>
+          </table>
+          <!-- stage16 分页：每页 20 条，状态筛选已走后端（工厂视角走本厂接口不分页） -->
+          <div class="pager" v-if="!isFactoryMode && orderTotal > 0">
+            <span class="pager-info">共 {{ orderTotal }} 条 · 第 {{ orderPage }} / {{ orderPages }} 页</span>
+            <button class="btn btn-sm" :disabled="orderPage <= 1" @click="loadOrdersPage(orderPage - 1)">上一页</button>
+            <button class="btn btn-sm" :disabled="orderPage >= orderPages" @click="loadOrdersPage(orderPage + 1)">下一页</button>
+          </div>
+
+          <!-- Stage13 发货弹窗：选快递公司 + 填单号 -->
+          <div class="modal-mask" v-if="shipModal.open" @click.self="shipModal.open = false">
+            <div class="modal-box">
+              <div class="panel-title">订单发货 · {{ shipModal.orderNo }}</div>
+              <div class="form-grid">
+                <div class="form-item">
+                  <label>快递公司</label>
+                  <select v-model="shipModal.form.expressCompany">
+                    <option value="" disabled>请选择</option>
+                    <option v-for="c in EXPRESS_COMPANIES" :key="c.code" :value="c.code">{{ c.name }}</option>
+                  </select>
+                </div>
+                <div class="form-item">
+                  <label>快递单号</label>
+                  <input v-model.trim="shipModal.form.expressNo" placeholder="请输入快递单号" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" @click="submitShip">确认发货</button>
+                <button class="btn btn-secondary" @click="shipModal.open = false">取消</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage13 物流查看弹窗：发货信息 + 轨迹 -->
+          <div class="modal-mask" v-if="logisticsViewer.open" @click.self="logisticsViewer.open = false">
+            <div class="modal-box" style="max-width:560px">
+              <div class="panel-title">物流详情 · {{ logisticsViewer.orderNo }}</div>
+              <div v-if="logisticsViewer.loading" class="empty">查询中…</div>
+              <template v-else>
+                <div v-if="logisticsViewer.logistics" style="margin-bottom:16px;font-size:14px;line-height:1.9">
+                  <div>快递公司：{{ logisticsViewer.logistics.expressCompanyName || '-' }}</div>
+                  <div>快递单号：{{ logisticsViewer.logistics.express_no || '-' }}</div>
+                  <div>发件人：{{ logisticsViewer.logistics.sender_name || '-' }}</div>
+                  <div>收件人：{{ logisticsViewer.logistics.receiver_name || '-' }} {{ logisticsViewer.logistics.receiver_phone || '' }}</div>
+                  <div>收件地址：{{ logisticsViewer.logistics.receiver_address || '-' }}</div>
+                  <div>物流状态：{{ { pending: '已录入', shipped: '已揽件', delivering: '运输中', signed: '已签收' }[logisticsViewer.logistics.status] || logisticsViewer.logistics.status }}</div>
+                </div>
+                <div v-else class="empty" style="margin-bottom:12px">尚未录入物流信息</div>
+                <div v-if="!logisticsViewer.configured" class="empty" style="color:#b45309;margin-bottom:12px">物流轨迹查询未配置（快递100 KEY），仅展示发货信息</div>
+                <div v-if="logisticsViewer.traces && logisticsViewer.traces.length" style="max-height:320px;overflow:auto;border-top:1px solid #eef2f7;padding-top:10px">
+                  <div v-for="(t, i) in logisticsViewer.traces" :key="i" style="font-size:13px;padding:6px 0;border-bottom:1px dashed #f1f5f9">
+                    <div class="muted">{{ t.time }}</div>
+                    <div>{{ t.context }}</div>
+                  </div>
+                </div>
+                <div v-else-if="logisticsViewer.configured" class="empty">暂无物流轨迹</div>
+              </template>
+              <div class="form-actions">
+                <button class="btn btn-secondary" @click="logisticsViewer.open = false">关闭</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- stage14 SaaS：工厂价格设置（定价比例 + 价格覆盖，数据隔离到本厂） -->
+        <div v-show="page==='pricing'" class="panel">
+          <div class="panel-head">
+            <div class="panel-title">价格设置
+              <span class="panel-sub">仅本厂生效，覆盖平台目录价后实时参与报价</span>
+            </div>
+          </div>
+
+          <div class="panel-title" style="font-size:14px">定价参数</div>
+          <div class="form-grid" style="max-width:640px">
+            <div class="form-item">
+              <label>毛利率 (0 ~ 0.9)</label>
+              <input type="number" step="0.01" min="0" max="0.9" v-model.number="pricingForm.defaultMargin" />
+            </div>
+            <div class="form-item">
+              <label>税率 (0 ~ 0.5)</label>
+              <input type="number" step="0.01" min="0" max="0.5" v-model.number="pricingForm.defaultTaxRate" />
+            </div>
+            <div class="form-item">
+              <label>损耗率 (0 ~ 0.5)</label>
+              <input type="number" step="0.01" min="0" max="0.5" v-model.number="pricingForm.defaultWasteRate" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveFactoryPricing">保存定价参数</button>
+          </div>
+
+          <div class="panel-title" style="font-size:14px;margin-top:28px">价格覆盖（对目录材料/工艺单独定价）</div>
+          <div class="override-form">
+            <select v-model="factoryNewOverride.targetType">
+              <option value="rawPaper">原纸</option>
+              <option value="boardPaper">纸板</option>
+              <option value="cardPaper">卡纸</option>
+              <option value="plasticFilm">塑料薄膜</option>
+              <option value="plateType">版材</option>
+              <option value="printingRate">印工费率</option>
+              <option value="finishing">后道工艺</option>
+              <option value="inkType">油墨类型</option>
+            </select>
+            <select v-model="factoryNewOverride.targetCode">
+              <option value="" disabled>选择目录项</option>
+              <option v-for="o in (factoryCatalogOpts[factoryNewOverride.targetType] || [])" :key="o.code" :value="o.code">{{ o.name }}</option>
+            </select>
+            <select v-model="factoryNewOverride.fieldName">
+              <option v-for="f in factoryOverrideFields" :key="f.value" :value="f.value">{{ f.label }}</option>
+            </select>
+            <input type="number" step="0.01" min="0" v-model.number="factoryNewOverride.fieldValue" placeholder="价格" style="width:110px" />
+            <button class="btn btn-primary btn-sm" @click="addFactoryOverride">新增覆盖</button>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>类型</th><th>目录项</th><th>字段</th><th>我的价格</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <template v-for="(codes, type) in (factoryPricing.overrides || {})" :key="type">
+                <template v-for="(fields, code) in codes" :key="type + '-' + code">
+                  <tr v-for="(value, field) in fields" :key="type + '-' + code + '-' + field">
+                    <td>{{ targetTypeLabel(type) }}</td>
+                    <td>{{ overrideItemName(type, code) }}</td>
+                    <td>{{ fieldNameLabel(field) }}</td>
+                    <td class="text-price">{{ value }}</td>
+                    <td><button class="btn btn-sm btn-danger" @click="removeFactoryOverride(type, code, field)">删除</button></td>
+                  </tr>
+                </template>
+              </template>
+              <tr v-if="!overrideRowCount"><td colspan="5" class="empty">暂无覆盖，按目录默认价执行</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 工厂管理 -->
+        <div v-show="page==='factories'" class="factories-page">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">工厂列表
+                <span v-if="pendingCount" style="color:#b45309;font-size:13px;font-weight:500;margin-left:8px">{{ pendingCount }} 家待审核</span>
+              </div>
+              <button class="btn btn-primary btn-sm" @click="openFactoryEditor(null)">新增工厂</button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>ID</th><th>编码</th><th>名称</th><th>账号</th><th>联系人</th><th>电话</th><th>毛利率</th><th>C端接单</th><th>审核</th><th>状态</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="f in factories" :key="f.id">
+                  <td>{{ f.id }}</td>
+                  <td>{{ f.code }}</td>
+                  <td>{{ f.name }}</td>
+                  <td>{{ f.username || '-' }}</td>
+                  <td>{{ f.contact }}</td>
+                  <td>{{ f.phone }}</td>
+                  <td>{{ (f.default_margin * 100).toFixed(0) }}%</td>
+                  <td>{{ f.c_end_enabled ? '✅' : '❌' }}</td>
+                  <td>
+                    <span class="badge" :style="auditStatusStyle(f.audit_status)">{{ auditStatusLabel(f.audit_status) }}</span>
+                  </td>
+                  <td>
+                    <span class="badge" :style="f.status ? '' : 'background:#fee2e2;color:#dc2626'">
+                      {{ f.status ? '正常' : '已停用' }}
+                    </span>
+                  </td>
+                  <td>
+                    <template v-if="f.audit_status === 'pending'">
+                      <button class="btn btn-sm btn-primary" @click="factoryAudit(f, 'approve')">通过</button>
+                      <button class="btn btn-sm btn-danger" @click="factoryAudit(f, 'reject')">驳回</button>
+                    </template>
+                    <button class="btn btn-sm" @click="openInviteCodes(f)">邀请码</button>
+                    <button class="btn btn-sm" @click="openFactoryMedia(f)">图文</button>
+                    <button class="btn btn-sm" @click="openFactoryOpLogs(f)">日志</button>
+                    <button class="btn btn-sm" @click="viewOverrides(f.id)">价格覆盖</button>
+                    <button class="btn btn-sm" @click="editCapability(f.id)">能力</button>
+                    <button class="btn btn-sm" @click="openFactoryEditor(f)">编辑</button>
+                    <button class="btn btn-sm" :class="f.status ? 'btn-danger' : ''" @click="toggleFactoryStatus(f)">
+                      {{ f.status ? '停用' : '启用' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel" v-if="activeFactory">
+            <div class="panel-title">{{ activeFactory.name }} · 价格覆盖明细</div>
+            <div class="override-form">
+              <select v-model="newOverride.targetType">
+                <option value="rawPaper">原纸</option>
+                <option value="boardPaper">纸板</option>
+                <option value="cardPaper">卡纸</option>
+                <option value="plasticFilm">塑料薄膜</option>
+                <option value="plateType">版材</option>
+                <option value="printingRate">印工费率</option>
+                <option value="finishing">后道工艺</option>
+                <option value="inkType">油墨类型</option>
+              </select>
+              <input v-model="newOverride.targetCode" placeholder="编码，如 B_BC5" />
+              <select v-model="newOverride.fieldName">                          <!-- ← 关键 -->
+                <option value="" disabled>请选择字段</option>
+                <option v-for="f in currentOverrideFields" :key="f.value" :value="f.value">
+                  {{ f.label }}
+                </option>
+              </select>
+              <input v-model.number="newOverride.fieldValue" type="number" placeholder="值" />
+              <button class="btn btn-primary btn-sm" @click="addOverride">新增</button>
+            </div>
+            <table class="table">
+              <thead><tr><th>类型</th><th>编码</th><th>字段</th><th>值</th><th>备注</th><th>操作</th></tr></thead>
+              <tbody>
+                <template v-for="(group, tType) in activeOverrides" :key="tType">
+                  <tr v-for="(fields, tCode) in group" :key="tType+tCode">
+                    <template v-for="(val, fName) in fields" :key="fName">
+                      <td>{{ targetTypeLabel(tType) }}</td>
+                      <td>{{ tCode }}</td>
+                      <td>{{ fieldNameLabel(fName) }}</td>
+                      <td>{{ val }}</td>
+                      <td>-</td>
+                      <td>
+                        <button class="btn btn-sm btn-danger"
+                                @click="removeOverride(tType, tCode, fName)">删除</button>
+                      </td>
+                    </template>
+                  </tr>
+                </template>
+                <tr v-if="!hasOverrides"><td colspan="6" class="empty">暂无覆盖，使用系统默认价</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 工厂编辑面板 -->
+          <div class="panel" v-if="factoryEditor.open">
+            <div class="panel-title">{{ factoryEditor.form.id ? '编辑工厂' : '新增工厂' }}</div>
+            <div class="form-grid">
+              <div class="form-item">
+                <label>工厂编码</label>
+                <input v-model="factoryEditor.form.code" placeholder="如 F004" :disabled="!!factoryEditor.form.id" />
+              </div>
+              <div class="form-item">
+                <label>工厂名称</label>
+                <input v-model="factoryEditor.form.name" />
+              </div>
+              <div class="form-item">
+                <label>联系人</label>
+                <input v-model="factoryEditor.form.contact" />
+              </div>
+              <div class="form-item">
+                <label>电话</label>
+                <input v-model="factoryEditor.form.phone" />
+              </div>
+              <div class="form-item">
+                <label>登录账号{{ factoryEditor.form.id ? '' : '（可选，开户）' }}</label>
+                <input v-model.trim="factoryEditor.form.username" :disabled="!!factoryEditor.form.id" placeholder="字母/数字/下划线，4-50 位" />
+              </div>
+              <div class="form-item" v-if="!factoryEditor.form.id">
+                <label>初始密码</label>
+                <input type="password" v-model="factoryEditor.form.password" placeholder="留空默认 000000" />
+              </div>
+              <div class="form-item full">
+                <label>地址</label>
+                <input v-model="factoryEditor.form.address" />
+              </div>
+              <div class="form-item">
+                <label>默认毛利率（%）</label>
+                <input type="number" v-model.number="factoryEditor.form.defaultMarginPct" />
+              </div>
+              <div class="form-item">
+                <label>C端接单</label>
+                <select v-model.number="factoryEditor.form.cEndEnabled">
+                  <option :value="1">开启</option>
+                  <option :value="0">关闭</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label title="平台已核验营业执照/印刷经营许可证，C 端工厂页展示「已核验」徽章">验真徽章</label>
+                <select v-model.number="factoryEditor.form.licenseVerified">
+                  <option :value="1">已核验</option>
+                  <option :value="0">未核验</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="saveFactory">保存</button>
+              <button class="btn btn-secondary" @click="factoryEditor.open = false">取消</button>
+            </div>
+          </div>
+
+          <!-- stage14 邀请码弹窗：该厂邀请码列表（码/状态/创建时间）+ 生成 -->
+          <div class="modal-mask" v-if="inviteCodeModal.open" @click.self="inviteCodeModal.open = false">
+            <div class="modal-box">
+              <div class="panel-title">{{ inviteCodeModal.factoryName }} · 邀请码</div>
+              <div class="panel-sub" style="margin:-8px 0 12px">微信用户在小程序「我的 → 我是工厂」输入邀请码，即可绑定该厂身份进入接单视图</div>
+              <table class="table">
+                <thead><tr><th>邀请码</th><th>状态</th><th>创建时间</th></tr></thead>
+                <tbody>
+                  <tr v-for="c in inviteCodeModal.list" :key="c.id">
+                    <td style="font-family:monospace;font-weight:600;letter-spacing:1px">{{ c.code }}</td>
+                    <td>
+                      <span class="badge" :style="c.used ? 'background:#fee2e2;color:#dc2626' : 'background:#dcfce7;color:#16a34a'">
+                        {{ c.used ? '已使用' : '未使用' }}
+                      </span>
+                    </td>
+                    <td class="muted">{{ formatTime(c.created_at) }}</td>
+                  </tr>
+                  <tr v-if="!inviteCodeModal.list.length"><td colspan="3" class="empty">暂无邀请码，点击下方生成</td></tr>
+                </tbody>
+              </table>
+              <div class="form-actions">
+                <button class="btn btn-primary" @click="createInviteCode">生成邀请码</button>
+                <button class="btn btn-secondary" @click="inviteCodeModal.open = false">关闭</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- F-158 员工操作日志弹窗：管理端查看指定工厂的关键操作（接单/推进/改价/员工/退款） -->
+          <div class="modal-mask" v-if="opLogModal.open" @click.self="closeFactoryOpLogs">
+            <div class="modal-box" style="max-width:840px">
+              <div class="panel-title">{{ opLogModal.factoryName }} · 员工操作日志</div>
+              <div class="head-tools" style="margin:10px 0 14px">
+                <input class="search-input" v-model.trim="opLogModal.username" placeholder="按账号筛选" @input="onOpLogSearch" />
+                <select v-model="opLogModal.action" @change="loadFactoryOpLogs">
+                  <option value="">全部动作</option>
+                  <option v-for="a in OP_LOG_ACTIONS" :key="a.code" :value="a.code">{{ a.name }}</option>
+                </select>
+              </div>
+              <table class="table">
+                <thead>
+                  <tr><th>时间</th><th>账号</th><th>动作</th><th>详情</th><th>IP</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="l in opLogModal.list" :key="l.id">
+                    <td class="muted" style="white-space:nowrap">{{ formatTime(l.created_at) }}</td>
+                    <td>{{ l.username || '系统' }}</td>
+                    <td><span class="badge" style="background:#f1f5f9;color:#475569">{{ opLogActionLabel(l.action) }}</span></td>
+                    <td style="max-width:360px;word-break:break-all">{{ l.detail || '-' }}</td>
+                    <td class="muted">{{ l.ip || '-' }}</td>
+                  </tr>
+                  <tr v-if="!opLogModal.list.length"><td colspan="5" class="empty">{{ opLogModal.loading ? '加载中…' : '暂无日志' }}</td></tr>
+                </tbody>
+              </table>
+              <div class="form-actions">
+                <button class="btn btn-secondary" @click="closeFactoryOpLogs">关闭</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 027 设备图文审核弹窗：该厂全部图文（含待审/驳回），逐张通过/驳回 -->
+          <div class="modal-mask" v-if="mediaModal.open" @click.self="closeFactoryMedia">
+            <div class="modal-box" style="max-width:840px">
+              <div class="panel-title">{{ mediaModal.factoryName }} · 设备图文</div>
+              <div class="panel-sub" style="margin:-8px 0 12px">工厂自助上传的设备/车间/样品实拍。上传即展示（approved），此处可驳回违规图（驳回连带删除文件）。</div>
+              <div v-if="mediaModal.loading" class="empty">加载中…</div>
+              <div v-else-if="!mediaModal.list.length" class="empty">该厂暂无图文</div>
+              <div class="media-grid" v-else>
+                <div class="media-cell" v-for="m in mediaModal.list" :key="m.id">
+                  <img :src="m.url" class="design-thumb" title="点击放大原图" @click="openDesignImg(m.url)" />
+                  <div class="media-meta">
+                    <span class="badge" style="background:#e0f2fe;color:#0369a1">{{ mediaTypeLabel(m.media_type) }}</span>
+                    <span class="badge"
+                          :style="m.audit_status==='approved' ? 'background:#dcfce7;color:#15803d' : (m.audit_status==='rejected' ? 'background:#fee2e2;color:#dc2626' : 'background:#fef3c7;color:#b45309')">
+                      {{ m.audit_status==='approved' ? '已通过' : (m.audit_status==='rejected' ? '已驳回' : '待审核') }}
+                    </span>
+                  </div>
+                  <div class="media-cap" v-if="m.caption">{{ m.caption }}</div>
+                  <div class="media-acts">
+                    <button class="btn btn-sm btn-primary" v-if="m.audit_status!=='approved'" @click="auditMedia(m, 'approve')">通过</button>
+                    <button class="btn btn-sm btn-danger" @click="auditMedia(m, 'reject')">驳回</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-secondary" @click="closeFactoryMedia">关闭</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 客户管理 -->
+        <div v-show="page==='customers'" class="customers-page">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">客户列表</div>
+              <div class="panel-actions">
+                <input class="search-input" v-model.trim="customerKeyword" placeholder="搜索客户 / 联系人 / 电话" @input="onCustomerSearch" />
+                <button class="btn btn-primary btn-sm" @click="openCustomerEditor(null)">新增客户</button>
+                <button class="btn btn-secondary btn-sm" @click="exportCustomers">导出 CSV</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>ID</th><th>客户名称</th><th>联系人</th><th>电话</th><th v-if="!isFactoryMode">所属工厂</th><th>等级</th><th>折扣</th><th>地址</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in customers" :key="c.id">
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.name }}</td>
+                  <td>{{ c.contact || '-' }}</td>
+                  <td>{{ c.phone || '-' }}</td>
+                  <td v-if="!isFactoryMode" class="muted">{{ c.factory_id ? factoryName(c.factory_id) : '平台' }}</td>
+                  <td>{{ c.level === 'vip' ? 'VIP' : '普通' }}</td>
+                  <td>{{ (c.discount * 100).toFixed(0) }}%</td>
+                  <td class="muted">{{ c.address || '-' }}</td>
+                  <td>
+                    <button class="btn btn-sm" @click="openCustomerEditor(c)">编辑</button>
+                    <button class="btn btn-sm btn-danger" @click="removeCustomer(c)">删除</button>
+                  </td>
+                </tr>
+                <tr v-if="!customers.length"><td :colspan="isFactoryMode ? 8 : 9" class="empty">暂无客户</td></tr>
+              </tbody>
+            </table>
+            <!-- stage16 分页：每页 20 条 -->
+            <div class="pager" v-if="customerTotal > 0">
+              <span class="pager-info">共 {{ customerTotal }} 条 · 第 {{ customerPage }} / {{ customerPages }} 页</span>
+              <button class="btn btn-sm" :disabled="customerPage <= 1" @click="loadCustomersPage(customerPage - 1)">上一页</button>
+              <button class="btn btn-sm" :disabled="customerPage >= customerPages" @click="loadCustomersPage(customerPage + 1)">下一页</button>
+            </div>
+          </div>
+
+          <div class="panel" v-if="customerEditor.open">
+            <div class="panel-title">{{ customerEditor.form.id ? '编辑客户' : '新增客户' }}</div>
+            <div class="form-grid">
+              <div class="form-item">
+                <label>客户名称</label>
+                <input v-model="customerEditor.form.name" />
+              </div>
+              <div class="form-item">
+                <label>联系人</label>
+                <input v-model="customerEditor.form.contact" />
+              </div>
+              <div class="form-item">
+                <label>电话</label>
+                <input v-model="customerEditor.form.phone" />
+              </div>
+              <div class="form-item">
+                <label>等级</label>
+                <select v-model="customerEditor.form.level" @change="onCustomerLevelChange">
+                  <option value="normal">普通</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label>折扣（%）</label>
+                <input type="number" v-model.number="customerEditor.form.discountPct" />
+              </div>
+              <!-- 025b：客户按工厂隔离——归属工厂的客户只在该工厂计价时出现，0=平台公共客户；026：工厂端锁定本厂，隐藏该选择 -->
+              <div class="form-item" v-if="!isFactoryMode">
+                <label>所属工厂</label>
+                <select v-model.number="customerEditor.form.factoryId">
+                  <option :value="0">平台公共客户</option>
+                  <option v-for="f in activeFactories" :key="f.id" :value="f.id">{{ f.name }}</option>
+                </select>
+              </div>
+              <div class="form-item full">
+                <label>地址</label>
+                <input v-model="customerEditor.form.address" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="saveCustomer">保存</button>
+              <button class="btn btn-secondary" @click="customerEditor.open = false">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 目录数据（Stage10：行编辑 / 新增 / 启停，数据源含停用行 catalogAll） -->
+        <div v-show="page==='catalog'" class="catalog-page">
+          <!-- stage16 顶部分组标签：点标签只看该组目录，不用一路下划 -->
+          <div class="cat-tabs">
+            <div class="cat-tab" :class="{active: catalogTab === 'all'}" @click="setCatalogTab('all')">全部</div>
+            <div class="cat-tab" v-for="g in catalogGroups" :key="g.key"
+                 :class="{active: catalogTab === g.key}" @click="setCatalogTab(g.key)">{{ g.label }}</div>
+          </div>
+          <div class="panel" v-for="(group, key) in catalogGroups" :key="key"
+               v-show="catalogTab === 'all' || catalogTab === group.key">
+            <div class="panel-head">
+              <div class="panel-title">{{ group.label }}（{{ Object.keys(catalogAll[group.key] || {}).length }}）</div>
+              <button class="btn btn-primary btn-sm" @click="openCatalogEditor(group, null)">+ 新增</button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th v-for="col in group.columns" :key="col.key">{{ col.label }}</th>
+                  <th style="width:130px">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, code) in catalogAll[group.key]" :key="code" :style="row.is_active === 0 ? 'opacity:.45' : ''">
+                  <td v-for="col in group.columns" :key="col.key">
+                    <template v-if="col.key === 'mode' && group.key === 'finishing'">
+                      {{ finishingModeLabel(row.mode) }}
+                    </template>
+                    <template v-else-if="col.key === 'mode' && group.key === 'printingRate'">
+                      {{ rateModeLabel(row.mode) }}
+                    </template>
+                    <template v-else-if="col.key === 'print_mode'">
+                      {{ printModeLabel(row.print_mode) }}
+                    </template>
+                    <template v-else-if="col.key === 'is_active'">
+                      <span class="badge" :style="row.is_active ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'">{{ row.is_active ? '启用' : '停用' }}</span>
+                    </template>
+                    <template v-else-if="col.key === 'is_local'">
+                      {{ row.is_local ? '是' : '否' }}
+                    </template>
+                    <template v-else>
+                      {{ getCell(row, col.key) }}
+                    </template>
+                  </td>
+                  <td>
+                    <button class="btn-link" @click="openCatalogEditor(group, row)">编辑</button>
+                    <button v-if="group.key !== 'printingRate'" class="btn-link" :style="row.is_active ? 'color:#dc2626' : ''" @click="toggleCatalogItem(group, row)">{{ row.is_active ? '停用' : '启用' }}</button>
+                    <button v-else class="btn-link" style="color:#dc2626" @click="toggleCatalogItem(group, row)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 目录行编辑弹窗（Stage11：fixed 居中弹出，不再压在页面最底部） -->
+          <div class="modal-mask" v-if="catalogEditor.open" @click.self="catalogEditor.open = false">
+            <div class="modal-box">
+              <div class="panel-title">{{ catalogEditor.isNew ? '新增' : '编辑' }}{{ catalogEditor.groupLabel }}</div>
+              <div class="form-grid">
+                <div class="form-item" v-for="col in catalogEditorColumns" :key="col.key">
+                  <label>{{ col.label }}</label>
+                  <select v-if="col.options" v-model="catalogEditor.form[col.key]" :disabled="!catalogEditor.isNew && col.key === catalogEditorKeyCol">
+                    <option v-for="opt in col.options" :key="String(opt[0])" :value="opt[0]">{{ opt[1] }}</option>
+                  </select>
+                  <input v-else v-model="catalogEditor.form[col.key]" :disabled="!catalogEditor.isNew && col.key === catalogEditorKeyCol" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" @click="saveCatalogItem">保存</button>
+                <button class="btn btn-secondary" @click="catalogEditor.open = false">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 账户管理 -->
+        <div v-show="page==='accounts'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">管理员账户</div>
+              <button v-if="isSuper" class="btn btn-primary btn-sm" @click="openUserEditor()">+ 新增账户</button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>用户名</th><th>昵称</th><th>角色</th><th>状态</th><th>最后登录</th><th style="width:220px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="u in adminUsers" :key="u.id">
+                  <td>{{ u.username }}</td>
+                  <td>{{ u.nickname || '-' }}</td>
+                  <td>
+                    <span class="badge" :style="u.role==='super' ? 'background:#e0e7ff;color:#4338ca' : 'background:#f1f5f9;color:#475569'">
+                      {{ u.role==='super' ? '超级管理员' : '管理员' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" :style="u.status ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'">
+                      {{ u.status ? '启用' : '禁用' }}
+                    </span>
+                  </td>
+                  <td class="muted">{{ u.last_login_at ? formatTime(u.last_login_at) : '从未登录' }}</td>
+                  <td>
+                    <template v-if="isSuper && (!currentUser || u.id !== currentUser.id)">
+                      <button class="btn-link" @click="openUserEditor(u)">编辑</button>
+                      <button class="btn-link" @click="resetUserPassword(u)">重置密码</button>
+                      <button class="btn-link" :style="u.status ? 'color:#dc2626' : ''" @click="toggleUserStatus(u)">{{ u.status ? '禁用' : '启用' }}</button>
+                    </template>
+                    <span v-else-if="currentUser && u.id === currentUser.id" class="muted">当前账户</span>
+                    <span v-else class="muted">-</span>
+                  </td>
+                </tr>
+                <tr v-if="!adminUsers.length"><td colspan="6" class="empty">暂无账户</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel" v-if="userEditor.open">
+            <div class="panel-title">{{ userEditor.form.id ? '编辑账户' : '新增账户' }}</div>
+            <div class="form-grid">
+              <div class="form-item">
+                <label>用户名</label>
+                <input v-model.trim="userEditor.form.username" :disabled="!!userEditor.form.id" placeholder="登录用户名" />
+              </div>
+              <div class="form-item" v-if="!userEditor.form.id">
+                <label>初始密码</label>
+                <input type="password" v-model="userEditor.form.password" placeholder="至少 6 位" />
+              </div>
+              <div class="form-item">
+                <label>昵称</label>
+                <input v-model.trim="userEditor.form.nickname" placeholder="显示名（可选）" />
+              </div>
+              <div class="form-item">
+                <label>角色</label>
+                <select v-model="userEditor.form.role">
+                  <option value="admin">管理员</option>
+                  <option value="super">超级管理员</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="saveUser">保存</button>
+              <button class="btn btn-secondary" @click="userEditor.open = false">取消</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 员工管理（工厂多账号，owner 专属 staff:manage） -->
+        <div v-show="page==='staff'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">员工账号（每人最多 5 台设备同时在线）</div>
+              <button class="btn btn-primary btn-sm" @click="openStaffEditor()">+ 新增员工</button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>登录账号</th><th>姓名</th><th>手机</th><th>角色</th><th>状态</th><th>最后登录</th><th style="width:280px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="u in staffEditor.list" :key="u.id">
+                  <td>{{ u.username }}</td>
+                  <td>{{ u.real_name || '-' }}</td>
+                  <td>{{ u.phone || '-' }}</td>
+                  <td>
+                    <span class="badge" :style="u.role==='owner' ? 'background:#e0e7ff;color:#4338ca' : 'background:#f1f5f9;color:#475569'">
+                      {{ FACTORY_ROLE_TEXT[u.role] || u.role }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" :style="u.status ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'">
+                      {{ u.status ? '启用' : '禁用' }}
+                    </span>
+                  </td>
+                  <td class="muted">{{ u.last_login_at ? formatTime(u.last_login_at) : '从未登录' }}</td>
+                  <td>
+                    <template v-if="u.role !== 'owner'">
+                      <button class="btn-link" @click="openStaffEditor(u)">编辑</button>
+                      <button class="btn-link" @click="resetStaffPwd(u)">重置密码</button>
+                      <button class="btn-link" :style="u.status ? 'color:#dc2626' : ''" @click="toggleStaffStatus(u)">{{ u.status ? '禁用' : '启用' }}</button>
+                      <button class="btn-link" style="color:#dc2626" @click="removeStaff(u)">删除</button>
+                    </template>
+                    <span v-else class="muted">老板账号</span>
+                  </td>
+                </tr>
+                <tr v-if="!staffEditor.list.length"><td colspan="7" class="empty">暂无员工</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel" v-if="staffEditor.open">
+            <div class="panel-title">{{ staffEditor.form.id ? '编辑员工' : '新增员工' }}</div>
+            <div class="form-grid">
+              <div class="form-item">
+                <label>登录账号</label>
+                <input v-model.trim="staffEditor.form.username" :disabled="!!staffEditor.form.id" placeholder="4-50 位字母、数字或下划线" />
+              </div>
+              <div class="form-item" v-if="!staffEditor.form.id">
+                <label>初始密码</label>
+                <input type="password" v-model="staffEditor.form.password" placeholder="至少 6 位" />
+              </div>
+              <div class="form-item">
+                <label>姓名</label>
+                <input v-model.trim="staffEditor.form.realName" placeholder="真实姓名（可选）" />
+              </div>
+              <div class="form-item">
+                <label>手机</label>
+                <input v-model.trim="staffEditor.form.phone" placeholder="联系手机（可选）" />
+              </div>
+              <div class="form-item">
+                <label>角色</label>
+                <select v-model="staffEditor.form.role">
+                  <option value="manager">主管（除员工管理外全部权限）</option>
+                  <option value="sales">业务员（询价/接单/发货）</option>
+                  <option value="finance">财务（对账/提现）</option>
+                  <option value="designer">设计（看单）</option>
+                  <option value="viewer">查看者（只读）</option>
+                </select>
+              </div>
+              <div class="form-item" v-if="staffEditor.form.id">
+                <label>重置密码（留空则不修改）</label>
+                <input type="password" v-model="staffEditor.form.newPassword" placeholder="至少 6 位" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="saveStaff">保存</button>
+              <button class="btn btn-secondary" @click="staffEditor.open = false">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- F-148/150 在线设备：全部未过期会话，支持筛选与强制下线 -->
+        <div v-show="page==='sessions'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">在线设备（{{ sessions.length }}）</div>
+              <div class="head-tools">
+                <select v-model="sessionUserType" @change="loadSessions">
+                  <option value="">全部身份</option>
+                  <option value="admin">管理员</option>
+                  <option value="factory">工厂</option>
+                  <option value="customer">客户</option>
+                </select>
+                <input class="search-input" v-model.trim="sessionKeyword" placeholder="搜索账号 / 昵称" @input="onSessionSearch" />
+                <button class="btn btn-secondary btn-sm" @click="loadSessions">刷新</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>身份</th><th>账号</th><th>姓名/昵称</th><th>设备</th><th>IP</th><th>最近活跃</th><th>登录时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in sessions" :key="s.id">
+                  <td>{{ SESSION_TYPE_TEXT[s.user_type] || s.user_type }}</td>
+                  <td>{{ s.admin_username || s.factory_username || '-' }}</td>
+                  <td>{{ s.factory_real_name || s.customer_name || '-' }}</td>
+                  <td class="muted" :title="s.device_info || ''">{{ formatDevice(s.device_info) }}</td>
+                  <td class="muted" :title="s.ip || ''">{{ formatIp(s.ip) }}</td>
+                  <td class="muted">{{ formatTime(s.last_active_at) }}</td>
+                  <td class="muted">{{ formatTime(s.created_at) }}</td>
+                  <td><button class="btn btn-sm btn-danger" @click="revokeSession(s)">强制下线</button></td>
+                </tr>
+                <tr v-if="!sessions.length"><td colspan="8" class="empty">{{ sessionsLoading ? '加载中…' : '暂无在线设备' }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- F-57 服务费台账：平台按成交订单计提的服务费（pending → settled） -->
+        <div v-show="page==='fee-ledger'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">服务费台账（{{ feeLedgerTotal }} 笔 · 合计 ¥{{ formatMoney(feeLedgerSum) }}）</div>
+              <div class="head-tools">
+                <select v-model="feeLedgerStatus" @change="loadFeeLedger">
+                  <option value="">全部状态</option>
+                  <option value="pending">待结算</option>
+                  <option value="settled">已结算</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" @click="loadFeeLedger">刷新</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>订单号</th><th>询价号</th><th>订单金额</th><th>费率</th><th>服务费</th><th>支付</th><th>状态</th><th>生成时间</th><th>结算时间</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="l in feeLedger" :key="l.id">
+                  <td>{{ l.order_no }}</td>
+                  <td>{{ l.inquiry_no || '-' }}</td>
+                  <td class="text-price">¥{{ formatMoney(l.order_amount) }}</td>
+                  <td>{{ (Number(l.fee_rate) * 100).toFixed(1) }}%</td>
+                  <td class="text-price">¥{{ formatMoney(l.fee_amount) }}</td>
+                  <td>{{ { wechat: '微信支付', offline: '线下转账', mock: '模拟支付' }[l.pay_method] || l.pay_method }}</td>
+                  <td>
+                    <span class="badge" :style="l.status === 'pending' ? 'background:#fef3c7;color:#b45309' : 'background:#dcfce7;color:#15803d'">
+                      {{ l.status === 'pending' ? '待结算' : '已结算' }}
+                    </span>
+                  </td>
+                  <td class="muted">{{ formatTime(l.created_at) }}</td>
+                  <td class="muted">{{ l.settled_at ? formatTime(l.settled_at) : '-' }}</td>
+                  <td>
+                    <button v-if="l.status === 'pending'" class="btn btn-sm" @click="settleLedgerItem(l)">标记结算</button>
+                    <span v-else class="muted">-</span>
+                  </td>
+                </tr>
+                <tr v-if="!feeLedger.length"><td colspan="10" class="empty">{{ feeLedgerLoading ? '加载中…' : '暂无台账记录' }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 运费模板 -->
+        <div v-show="page==='shipping'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">运费模板（工厂确认订单时按默认模板计算运费）</div>
+              <button class="btn btn-primary btn-sm" @click="openShippingEditor()">+ 新增模板</button>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>名称</th><th>计费方式</th><th>规则</th><th>满额包邮</th><th>默认</th><th>状态</th><th style="width:220px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in shippingTemplates" :key="t.id">
+                  <td>{{ t.name }}</td>
+                  <td><span class="badge" style="background:#f1f5f9;color:#475569">{{ SHIPPING_MODE_TEXT[t.mode] || t.mode }}</span></td>
+                  <td>{{ shippingRuleText(t) }}</td>
+                  <td>{{ Number(t.free_threshold) > 0 ? '满 ¥' + t.free_threshold + ' 包邮' : '-' }}</td>
+                  <td>
+                    <span v-if="t.is_default" class="badge" style="background:#dcfce7;color:#15803d">默认</span>
+                    <button v-else class="btn-link" @click="setDefaultShipping(t)">设为默认</button>
+                  </td>
+                  <td>
+                    <span class="badge" :style="t.is_active ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'">
+                      {{ t.is_active ? '启用' : '停用' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn-link" @click="openShippingEditor(t)">编辑</button>
+                    <button class="btn-link" :style="t.is_active ? 'color:#dc2626' : ''" @click="toggleShipping(t)">{{ t.is_active ? '停用' : '启用' }}</button>
+                  </td>
+                </tr>
+                <tr v-if="!shippingTemplates.length"><td colspan="7" class="empty">暂无模板</td></tr>
+              </tbody>
+            </table>
+          </div>
+        
+          <div class="panel" v-if="shippingEditor.open">
+            <div class="panel-title">{{ shippingEditor.form.id ? '编辑模板' : '新增模板' }}</div>
+            <div class="form-grid">
+              <div class="form-item">
+                <label>模板名称</label>
+                <input v-model.trim="shippingEditor.form.name" placeholder="如：全国默认运费" />
+              </div>
+              <div class="form-item">
+                <label>计费方式</label>
+                <select v-model="shippingEditor.form.mode">
+                  <option value="fixed">固定运费</option>
+                  <option value="weight">按重量（首重+续重）</option>
+                  <option value="piece">按件数</option>
+                </select>
+              </div>
+              <template v-if="shippingEditor.form.mode==='weight'">
+                <div class="form-item">
+                  <label>首重 (kg)</label>
+                  <input type="number" step="0.1" v-model.number="shippingEditor.form.firstWeightKg" />
+                </div>
+                <div class="form-item">
+                  <label>首重费用 (¥)</label>
+                  <input type="number" step="0.1" v-model.number="shippingEditor.form.firstFee" />
+                </div>
+                <div class="form-item">
+                  <label>续重单位 (kg)</label>
+                  <input type="number" step="0.1" v-model.number="shippingEditor.form.extraWeightKg" />
+                </div>
+                <div class="form-item">
+                  <label>续重费用 (¥)</label>
+                  <input type="number" step="0.1" v-model.number="shippingEditor.form.extraFee" />
+                </div>
+              </template>
+              <div class="form-item" v-if="shippingEditor.form.mode==='piece'">
+                <label>每件运费 (¥)</label>
+                <input type="number" step="0.1" v-model.number="shippingEditor.form.pieceFee" />
+              </div>
+              <div class="form-item" v-if="shippingEditor.form.mode==='fixed'">
+                <label>固定运费 (¥)</label>
+                <input type="number" step="0.1" v-model.number="shippingEditor.form.fixedFee" />
+              </div>
+              <div class="form-item">
+                <label>满额包邮 (¥，0=不包邮)</label>
+                <input type="number" step="1" v-model.number="shippingEditor.form.freeThreshold" />
+              </div>
+              <div class="form-item">
+                <label>设为默认模板</label>
+                <select v-model="shippingEditor.form.isDefault">
+                  <option :value="true">是</option>
+                  <option :value="false">否</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" @click="saveShipping">保存</button>
+              <button class="btn btn-secondary" @click="shippingEditor.open = false">取消</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="panel" v-if="capabilityEditor.factoryId">
+          <div class="panel-title">{{ capabilityEditor.factoryName }} · 能力配置</div>
+          <div v-for="(opts, type) in CAP_OPTIONS" :key="type" style="margin-bottom:20px">
+            <div style="font-weight:600;margin-bottom:10px">
+              {{ {productType:'产品类型',printMode:'印刷方式',process:'后道工艺',material:'常备材料'}[type] }}
+            </div>
+            <div class="check-group">
+              <label v-for="o in opts" :key="o.code" class="check-item">
+                <input type="checkbox"
+                      :checked="capabilityEditor.capabilities[type].includes(o.code)"
+                      @change="toggleCapability(type, o.code)" />
+                <span>{{ o.name }}</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveCapability">保存</button>
+            <button class="btn btn-secondary" @click="capabilityEditor.factoryId = null">取消</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 登录遮罩（F-154 统一登录：账号密码一处输入，服务端自动识别管理员 / 工厂身份） -->
+  <div id="login-mask">
+    <div class="login-box">
+      <div class="login-title">印刷报价系统 · 管理后台</div>
+      <input id="login-username" type="text" placeholder="账号" autocomplete="username" />
+      <input id="login-password" type="password" placeholder="密码" autocomplete="current-password" />
+      <div id="login-error" class="login-error"></div>
+      <button id="login-btn" class="btn btn-primary">登 录</button>
+      <!-- F-81/82：登录页展示协议链接（后端托管静态页，运营可改文件更新） -->
+      <div class="login-legal">
+        登录即代表同意 <a href="/legal/user-agreement.html" target="_blank" rel="noopener">《用户协议》</a> 和 <a href="/legal/privacy.html" target="_blank" rel="noopener">《隐私政策》</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- stage14：Vue 本地化（admin/js/vendor），彻底排除外部 CDN 不可达导致白屏 -->
+  <script src="./js/vendor/vue.global.prod.js?v=16"></script>
+  <script src="./js/api.js?v=20"></script>
+  <script src="./js/dialog.js?v=16"></script>
+  <script src="./js/login.js?v=17"></script>
+  <script src="./js/app.js?v=29"></script>
+  <noscript>请启用 JavaScript 后使用管理后台</noscript>
+</body>
+</html>

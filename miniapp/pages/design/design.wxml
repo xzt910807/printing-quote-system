@@ -1,0 +1,120 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">智能排版</view>
+  </view>
+</view>
+
+<!-- 021 智能排版工具：模板排版（文字类）/ AI 参考图（图案类）二选一，产出高清稿/参考图回传报价页 -->
+<view class="page">
+
+  <!-- 方式选择：两种方式同屏并列会让用户误以为「填文字就能 AI 出图」，改成顶部互斥分段 -->
+  <view class="seg">
+    <view class="seg-item {{designTab === 'tpl' ? 'seg-on' : ''}}" data-tab="tpl" bindtap="switchDesignTab">模板排版</view>
+    <view class="seg-item {{designTab === 'ai' ? 'seg-on' : ''}}" data-tab="ai" bindtap="switchDesignTab">AI 画参考图</view>
+  </view>
+  <view class="seg-desc" wx:if="{{designTab === 'tpl'}}">选模板、填文字，生成可直接印刷的高清稿（含出血 + 制版 PDF）</view>
+  <view class="seg-desc" wx:else>只出「参考稿」：帮工厂设计师理解你要的风格，不是直接印刷的图</view>
+
+  <!-- AI 生成参考图：描述感觉 → AI 出图案参考稿（独立于模板，有没有模板都能用）-->
+  <view class="card ai-card" wx:if="{{designTab === 'ai'}}">
+    <view class="card-title ai-title">
+      <text>AI 画参考图</text>
+      <text class="ai-tag">图案/插画类</text>
+    </view>
+    <view class="ai-desc">不知道图案长什么样？描述感觉（风格、主体、颜色），AI 生成参考稿附给工厂设计师深化</view>
+    <!-- 描述输入框：右下角内嵌话筒（按住说话），下方小字行给录音状态与字数 -->
+    <view class="ai-input-wrap">
+      <textarea class="ai-textarea" placeholder="例：奶茶杯套图案，国潮风，主色朱红+米白，有祥云和奶茶插画" value="{{aiPrompt}}"
+                bindinput="onAiInput" maxlength="200" />
+      <view class="ai-mic {{voiceRecording ? 'ai-mic-on' : ''}}"
+            catchtouchstart="startVoice" catchtouchend="stopVoice" catchtouchcancel="stopVoice">
+        <view class="ic ic-mic"><view class="ic-a"></view></view>
+      </view>
+    </view>
+    <view class="ai-input-meta">
+      <text class="ai-meta-hint {{voiceRecording ? 'recording' : ''}}">{{voiceRecording ? '正在录音，松开结束' : '点右下角话筒，说话描述图案'}}</text>
+      <text class="ai-meta-count">{{aiPrompt.length || 0}}/200</text>
+    </view>
+    <view class="ai-actions">
+      <view class="btn-primary ai-gen-btn {{aiGenerating ? 'disabled' : ''}}" bindtap="genAi">
+        {{aiGenerating ? 'AI 作画中（约30秒）...' : '生成参考图'}}
+      </view>
+    </view>
+    <block wx:if="{{aiResultUrl}}">
+      <image class="ai-result-img" src="{{aiResultUrl}}" mode="widthFix" bindtap="previewAi" />
+      <view class="result-note">AI 参考稿：印刷前工厂设计师会按此深化 · 点图片可放大</view>
+      <view class="result-actions">
+        <view class="btn-ghost" bindtap="aiAgain">重新生成</view>
+        <view class="btn-primary" bindtap="useAiDesign">使用此设计</view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 模板排版（该品类无模板时走空态） -->
+  <block wx:elif="{{templates.length}}">
+    <!-- 模板选择：横滑缩略图 -->
+    <scroll-view scroll-x class="tpl-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="tpl-row">
+        <view class="tpl-card {{templateIndex === index ? 'tpl-on' : ''}}"
+              wx:for="{{templateThumbs}}" wx:key="id"
+              data-index="{{index}}" bindtap="onTemplateTap">
+          <view class="tpl-thumb" style="width:{{item.w}}rpx;height:{{item.h}}rpx;background:{{item.bg}};">
+            <text class="tpl-thumb-slot" style="{{s.style}}" wx:for="{{item.slots}}" wx:for-item="s" wx:key="key">{{s.label}}</text>
+            <view class="tpl-thumb-line" style="{{l.style}}" wx:for="{{item.lines}}" wx:for-item="l" wx:key="key"></view>
+          </view>
+          <view class="tpl-name">{{item.name}}</view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 实时预览：画布等比缩放 620rpx，文字位置实时反映 -->
+    <view class="card preview-card">
+      <view class="card-title">效果预览</view>
+      <view class="preview-wrap" style="height:{{previewH}}rpx;background:{{previewBg}};">
+        <view class="preview-slot" style="{{item.style}}" wx:for="{{previewSlots}}" wx:key="key">{{item.value}}</view>
+        <view class="preview-line" style="{{item.style}}" wx:for="{{previewLines}}" wx:for-item="item" wx:key="key"></view>
+        <view class="preview-placeholder" wx:if="{{!previewSlots.length}}">模板布局异常，请换一个模板</view>
+      </view>
+      <view class="preview-hint">文字位置实时预览 · 点下方按钮生成印刷级清晰图</view>
+    </view>
+
+    <!-- 文字表单 -->
+    <view class="card form-card">
+      <view class="card-title">填写文字</view>
+      <view class="slot-item" wx:for="{{currentSlots}}" wx:key="key">
+        <view class="slot-head">
+          <text class="slot-label">{{item.label}}<text class="slot-required" wx:if="{{item.key === 'title'}}">必填</text></text>
+          <text class="slot-max">最多 {{item.max}} 字</text>
+        </view>
+        <input class="slot-input" value="{{texts[item.key]}}" data-key="{{item.key}}"
+               bindinput="onTextInput" placeholder="填写{{item.label}}" maxlength="{{item.max}}" />
+      </view>
+      <view class="btn-primary gen-btn {{rendering ? 'disabled' : ''}}" bindtap="render">
+        {{rendering ? '正在生成...' : '生成高清稿'}}
+      </view>
+    </view>
+
+    <!-- 生成结果（缩略图内联免加载，点图看高清原图） -->
+    <view class="card result-card" wx:if="{{resultUrl}}">
+      <view class="card-title">高清稿已生成</view>
+      <image class="result-img" src="{{resultThumb || resultUrl}}" mode="widthFix" bindtap="previewResult" />
+      <view class="result-note" wx:if="{{resultMm}}">已含出血 {{resultMm}}mm · 同步生成印刷制版文件（PDF）随单给工厂</view>
+      <view class="result-note" wx:else>按印刷尺寸等比生成 · 点图片可放大查看</view>
+      <view class="result-actions">
+        <view class="btn-ghost" bindtap="editAgain">重新编辑</view>
+        <view class="btn-primary" bindtap="useDesign">使用此设计</view>
+      </view>
+    </view>
+
+    <view class="footnote">排版稿为印刷参考稿 · 文字矢量渲染无错字风险 · 工厂按此制版</view>
+  </block>
+
+  <!-- 该品类无模板：空态引导切到 AI 或返回 -->
+  <view class="empty" wx:else>
+    <view class="empty-title">暂无{{productType ? '该品类' : ''}}排版模板</view>
+    <view class="empty-desc">可切到上方「AI 画参考图」描述感觉出参考稿；或返回报价页直接描述设计需求、传参考图，让工厂设计师出稿</view>
+    <view class="btn-ghost empty-back" bindtap="editBack">返回报价页</view>
+  </view>
+</view>

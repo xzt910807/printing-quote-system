@@ -1,0 +1,9 @@
+# 目录不可删除：scripts/migrate.js 用 readdirSync 扫描本目录，目录不存在会直接 ENOENT 失败。
+#
+# 现状：sql/init.sql 是当前态 schema 的唯一权威，历史 001~027 迁移已全部并入并归档，
+#       因此本目录为空。归档位置：data/sql-migrations-backup-<日期>.zip（data/ 已被 .gitignore 忽略）。
+#
+# 今后约定：
+#   - 表结构变更 → 直接改 sql/init.sql，存量库用 node scripts/schema-sync.js --apply 补齐（只加不删）；
+#   - 只有确实需要「带校验和的版本化执行记录」时才在本目录放 .sql，然后 node scripts/migrate.js apply；
+#   - 严禁对存量/生产库执行 sql/init.sql（其头部含 DROP DATABASE）。

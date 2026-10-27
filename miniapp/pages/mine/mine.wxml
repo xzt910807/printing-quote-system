@@ -1,0 +1,271 @@
+<!-- Stage11 自定义导航栏 -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-title">我的</view>
+  </view>
+</view>
+
+<view class="page page-tab">
+
+  <!-- 用户卡（已登录） -->
+  <view class="hero user-hero" wx:if="{{auth}}">
+    <view class="user-main">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar"
+              style="width:120rpx;height:120rpx;border-radius:50%;padding:0;margin:0;line-height:1;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;background:rgba(255,255,255,0.25);box-sizing:border-box">
+        <image class="avatar-img" wx:if="{{profile.avatarFull}}" src="{{profile.avatarFull}}" mode="aspectFill" style="width:100%;height:100%" />
+        <view class="avatar-ph" wx:else><view class="ic ic-mine"><view class="ic-a"></view></view></view>
+      </button>
+      <view class="user-info">
+        <input class="nickname-input" type="nickname" value="{{profile.nickname}}" placeholder="点击设置昵称"
+               placeholder-class="nickname-ph" confirm-type="done" bindblur="onNicknameBlur" />
+        <view class="user-sub" wx:if="{{profile.devMode}}">开发模式（未配置微信密钥）</view>
+        <view class="user-sub" wx:else>已通过微信登录</view>
+        <view class="phone-line" wx:if="{{profile.isBound}}"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>{{profile.phoneMasked}}</view>
+        <view class="phone-line phone-bind" wx:elif="{{profile.devMode}}" bindtap="bindPhone">+ 绑定手机号</view>
+        <button class="phone-line phone-bind phone-btn" wx:else open-type="getPhoneNumber"
+                bindgetphonenumber="getPhoneNumber">+ 绑定手机号</button>
+        <!-- F-103：公司名称（选填，随询价带给工厂；C 端个人用户不显示入口，已填过的可点改） -->
+        <view class="phone-line company-line" wx:if="{{profile.companyName}}" bindtap="onEditCompany">
+          <view class="company-text"><view class="ic-inline"><view class="ic ic-building"><view class="ic-a"></view></view></view>{{profile.companyName}}</view>
+        </view>
+      </view>
+      <view class="logout-btn" bindtap="logout">退出</view>
+    </view>
+    <!-- 统计 -->
+    <view class="hero-stats">
+      <view class="hstat">
+        <view class="hstat-num">{{stats.total}}</view>
+        <view class="hstat-label">询价</view>
+      </view>
+      <view class="hstat-div"></view>
+      <view class="hstat">
+        <view class="hstat-num">{{stats.active}}</view>
+        <view class="hstat-label">进行中</view>
+      </view>
+      <view class="hstat-div"></view>
+      <view class="hstat">
+        <view class="hstat-num">{{stats.accepted}}</view>
+        <view class="hstat-label">已成交</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- stage14 收货地址入口：独立白色卡片行 -->
+  <view class="card menu-card" wx:if="{{auth}}">
+    <view class="menu-row" bindtap="goAddress">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-blue"><view class="ic ic-pin"><view class="ic-a"></view></view></view>
+        <text class="menu-row-label">收货地址</text>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
+    <view class="menu-row" bindtap="goChatThreads">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-green"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+        <text class="menu-row-label">沟通消息</text>
+        <text class="chat-badge" wx:if="{{chatUnread}}">{{chatUnread}}</text>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
+  </view>
+
+  <!-- 029：仅纯 C 端用户（无接单会话也未绑定工厂）显示；与已入驻身份卡同构（灰调图标区分状态），两态版式统一 -->
+  <view class="card menu-card fac-card" wx:if="{{auth && !factoryAuth && role !== 'factory'}}" bindtap="onFactoryEntry">
+    <view class="menu-row">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-gray"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+        <view class="fac-info">
+          <text class="menu-row-label">我是工厂 / 供应商</text>
+          <text class="fac-sub">入驻平台 · 在线接单</text>
+        </view>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
+  </view>
+
+  <!-- 未登录：登录引导 -->
+  <view class="hero login-hero" wx:if="{{!auth}}">
+    <view class="login-hero-ic"><view class="ic ic-mine"><view class="ic-a"></view></view></view>
+    <view class="login-title">登录后查看询价、订单与消息</view>
+    <view class="login-sub">推送工厂时自动带入昵称与手机号</view>
+    <view class="login-btn" bindtap="login">微信快捷登录</view>
+    <view class="login-tip">未登录也可匿名发起报价</view>
+  </view>
+
+  <!-- 工厂接单：统一身份卡（三态合一，简约单卡）——
+       已绑定未登录：显示绑定厂名引导登录；已登录：显示会话工厂
+       仅对有工厂身份的用户展示（会话/绑定其一）；纯 C 端用户的入驻入口在收货地址菜单卡第二行 -->
+  <view class="card menu-card fac-card" wx:if="{{auth && (factoryAuth || role === 'factory')}}" bindtap="onFacCardTap">
+    <view class="menu-row">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-orange"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+        <view class="fac-info">
+          <text class="menu-row-label">{{facCardTitle}}</text>
+          <text class="fac-sub"><text class="fac-dot" wx:if="{{facLoggedIn}}"></text>{{facCardSub}}</text>
+        </view>
+      </view>
+      <text class="fac-logout" wx:if="{{factoryAuth}}" catchtap="factoryLogout">退出</text>
+      <view class="menu-arrow" wx:else></view>
+    </view>
+  </view>
+
+  <!-- Tab 切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{tab === 'inquiry' ? 'tab-active' : ''}}" data-tab="inquiry" bindtap="switchTab">我的询价</view>
+    <view class="tab-item {{tab === 'order' ? 'tab-active' : ''}}" data-tab="order" bindtap="switchTab">订单</view>
+    <view class="tab-item {{tab === 'message' ? 'tab-active' : ''}}" data-tab="message" bindtap="switchTab">
+      消息<text class="tab-num" wx:if="{{unread}}">{{unread}}</text>
+    </view>
+  </view>
+
+  <!-- 列表搜索（本地过滤当前 tab） -->
+  <view class="search-bar" wx:if="{{auth}}">
+    <view class="search-box">
+      <view class="search-icon"><view class="ic ic-search"><view class="ic-a"></view></view></view>
+      <input class="search-input" value="{{searchKeyword}}" placeholder="搜索单号 / 工厂 / 内容"
+             placeholder-class="search-ph" confirm-type="search" bindinput="onSearchInput" />
+      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+    </view>
+  </view>
+
+  <!-- 我的询价 -->
+  <block wx:if="{{tab === 'inquiry'}}">
+    <view class="empty" wx:if="{{loading}}">
+      <text class="empty-icon">⏳</text>加载中...
+    </view>
+    <view class="empty" wx:elif="{{!displayList.length}}">
+      <view class="empty-ic"><view class="ic ic-quote"><view class="ic-a"></view></view></view>
+      {{searchKeyword ? '没有匹配的询价记录' : '暂无询价记录'}}
+      <view class="empty-cta" wx:if="{{!searchKeyword}}" bindtap="goQuote">去发起报价</view>
+    </view>
+    <view class="inq-card" wx:for="{{displayList}}" wx:key="id">
+      <view class="row">
+        <text class="inq-no">{{item.inquiry_no}}</text>
+        <text class="badge badge-purple" wx:if="{{item.design_status === 'need'}}">需设计</text>
+        <text class="badge badge-blue" wx:if="{{item.design_status === 'public'}}">工厂公版</text>
+        <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
+        <text class="badge badge-gray" wx:if="{{item.expired}}">已失效</text>
+      </view>
+      <view class="row inq-main">
+        <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
+        <text class="inq-price" wx:if="{{item.total_price}}">¥{{item.total_price}}</text>
+      </view>
+      <!-- 工厂信息：询价卡片直接展示工厂名，未匹配时显示待匹配 -->
+      <view class="inq-factory-row" wx:if="{{item.factory_name}}"
+            data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name}} ›</view>
+      <view class="inq-factory-row inq-factory-wait" wx:elif="{{item.status === 'quoted' || item.status === 'matched'}}"><view class="ic-inline"><view class="ic ic-search"><view class="ic-a"></view></view></view>待匹配工厂</view>
+      <!-- 017 工厂正式报价：金额 + 说明 + 有效期，未过期可一键确认下单 -->
+      <view class="quote-box" wx:if="{{item.status === 'factory_quoted'}}">
+        <view class="qb-row">
+          <text class="qb-label">工厂正式报价</text>
+          <text class="qb-price">¥{{item.factoryQuotedPrice}}</text>
+        </view>
+        <view class="qb-remark" wx:if="{{item.factoryQuoteRemark}}">工厂说明：{{item.factoryQuoteRemark}}</view>
+        <view class="qb-valid {{item.factoryQuoteExpired ? 'qb-expired' : ''}}">
+          {{item.factoryQuoteExpired ? '⚠️ 报价已过期，请再次询价' : '⏰ 有效期至 ' + item.factoryQuoteExpiresText + '，确认后生成订单'}}
+        </view>
+        <view class="btn-primary qb-confirm" wx:if="{{item.canConfirmQuote}}"
+              data-id="{{item.id}}" data-price="{{item.factoryQuotedPrice}}" data-remark="{{item.factoryQuoteRemark}}"
+              catchtap="confirmFactoryQuote">确认报价并下单</view>
+      </view>
+      <view class="inq-time">{{item.timeText}}</view>
+      <view class="inq-actions">
+        <view class="btn-ghost inq-btn" data-item="{{item}}" catchtap="repurchase">再次询价</view>
+        <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
+              data-inquiry-id="{{item.id}}" data-factory-id="{{item.matched_factory_id}}" data-name="{{item.factory_name}}" data-no="{{item.inquiry_no}}"
+              catchtap="goChat">在线沟通</view>
+        <view class="btn-ghost inq-btn inq-call" wx:if="{{item.factory_phone}}"
+              data-phone="{{item.factory_phone}}" catchtap="callFactory">联系工厂</view>
+        <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
+              data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail">工厂详情</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 订单 -->
+  <block wx:if="{{tab === 'order'}}">
+    <view class="empty" wx:if="{{ordersLoading}}">
+      <text class="empty-icon">⏳</text>加载中...
+    </view>
+    <view class="empty" wx:elif="{{!displayOrders.length}}">
+      <view class="empty-ic"><view class="ic ic-box"><view class="ic-a"></view></view></view>
+      {{searchKeyword ? '没有匹配的订单' : '暂无订单，工厂接单后自动生成'}}
+    </view>
+    <view class="inq-card" wx:for="{{displayOrders}}" wx:key="id">
+      <view class="row">
+        <text class="inq-no">{{item.order_no}}</text>
+        <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
+      </view>
+      <view class="row inq-main">
+        <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
+        <text class="inq-price">¥{{item.total_price}}</text>
+      </view>
+      <view class="inq-subfee" wx:if="{{item.sample_fee > 0}}">
+        <text>打样费 ¥{{item.sample_fee}}</text>
+      </view>
+
+      <!-- 订单进度时间线 -->
+      <view class="mini-steps" wx:if="{{item.stepIndex > 0}}">
+        <view class="ms {{item.stepIndex >= i + 1 ? 'ms-on' : ''}}"
+              wx:for="{{orderSteps}}" wx:for-item="s" wx:for-index="i" wx:key="*this">
+          <view class="ms-dot"></view>
+          <view class="ms-label">{{s}}</view>
+        </view>
+      </view>
+      <!-- 工厂信息：订单卡片独立一行展示工厂名（可点击进工厂详情） -->
+      <view class="inq-factory-row" wx:if="{{item.factory_name || item.factory_id || item.matched_factory_id}}"
+            data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">
+        <view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name || '查看工厂'}} ›
+      </view>
+      <view class="inq-time">{{item.timeText}}</view>
+      <!-- F-70：评分展示 / 评价入口 -->
+      <view class="rate-row" wx:if="{{item.rated}}">
+        <text class="rate-stars">{{item.ratingText}}</text>
+        <text class="rate-label">已评价</text>
+      </view>
+      <view class="order-foot">
+        <text class="pay-state {{item.pay_status === 'paid' ? 'pay-paid' : ''}}">{{item.payText}}</text>
+        <view class="order-btns">
+          <view class="btn-mini" wx:if="{{item.status === 'shipped' || item.status === 'completed'}}"
+                data-id="{{item.id}}" catchtap="goLogistics">查看物流</view>
+          <view class="btn-mini btn-pay" wx:if="{{item.pay_status !== 'paid' && item.status !== 'cancelled' && item.pay_status !== 'refunding' && item.pay_status !== 'refunded'}}"
+                data-id="{{item.id}}" catchtap="payOrder">支付</view>
+          <view class="btn-mini" wx:if="{{item.status === 'pending' || item.status === 'confirmed'}}"
+                data-id="{{item.id}}" data-action="cancel" catchtap="orderAction">取消订单</view>
+          <view class="btn-mini btn-mini-primary" wx:if="{{item.status === 'sampling'}}"
+                data-id="{{item.id}}" data-action="confirmSample" catchtap="orderAction">确认样品</view>
+          <view class="btn-mini btn-mini-primary" wx:if="{{item.status === 'shipped'}}"
+                data-id="{{item.id}}" data-action="complete" catchtap="orderAction">确认收货</view>
+          <view class="btn-mini btn-refund" wx:if="{{item.canRefund}}"
+                data-id="{{item.id}}" catchtap="onApplyRefund">申请退款</view>
+          <view class="btn-mini btn-rate" wx:if="{{item.canRate}}"
+                data-id="{{item.id}}" catchtap="onRateOrder">评价</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 消息 -->
+  <block wx:if="{{tab === 'message'}}">
+    <view class="msg-tool" wx:if="{{messages.length}}">
+      <text class="msg-unread-text">未读 {{unread}} 条</text>
+      <text class="msg-allread" wx:if="{{unread}}" bindtap="readAll">全部已读</text>
+    </view>
+    <view class="empty" wx:if="{{msgLoading}}">
+      <text class="empty-icon">⏳</text>加载中...
+    </view>
+    <view class="empty" wx:elif="{{!displayMessages.length}}">
+      <view class="empty-ic"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+      {{searchKeyword ? '没有匹配的消息' : '暂无消息，工厂接单后会在这里通知你'}}
+    </view>
+    <view class="msg-card {{item.is_read ? '' : 'msg-card-unread'}}" wx:for="{{displayMessages}}" wx:key="id"
+          data-id="{{item.id}}" data-read="{{item.is_read}}" bindtap="tapMessage">
+      <view class="row">
+        <text class="msg-title">{{item.title}}</text>
+        <text class="msg-dot" wx:if="{{!item.is_read}}"></text>
+      </view>
+      <view class="msg-content">{{item.content}}</view>
+      <view class="msg-time">{{item.timeText}}</view>
+    </view>
+  </block>
+</view>

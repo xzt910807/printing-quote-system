@@ -1,0 +1,28 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">{{title}}<text class="navbar-sub" wx:if="{{subTip}}"> · {{subTip}}</text></view>
+  </view>
+</view>
+
+<scroll-view class="msg-area" scroll-y scroll-into-view="msg-{{lastId}}" scroll-with-animation
+             style="top: {{statusBarHeight + navBarHeight}}px; bottom: {{inputBarH + keyboardHeight}}px;">
+  <view class="msg-empty" wx:if="{{loading}}">加载中...</view>
+  <view class="msg-empty" wx:elif="{{!messages.length}}">
+    还没有消息，发一条打个招呼吧
+    <view class="msg-quick">常见开场：交期多久？/ 能否接这个量？/ 可以看看效果图吗？</view>
+  </view>
+  <view class="msg-item {{item.mine ? 'msg-mine' : ''}}" wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}">
+    <view class="msg-bubble">
+      <text class="msg-text">{{item.content}}</text>
+      <text class="msg-time">{{item.timeText}}</text>
+    </view>
+  </view>
+</scroll-view>
+
+<view class="input-bar" style="bottom: {{keyboardHeight}}px;">
+  <input class="msg-input" value="{{inputText}}" placeholder="输入消息（最长 500 字）" placeholder-class="msg-ph"
+         confirm-type="send" cursor-spacing="16" adjust-position="{{false}}"
+         bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" bindconfirm="send" />
+  <view class="msg-send {{!inputText || sending ? 'msg-send-off' : ''}}" bindtap="send">发送</view>
+</view>

@@ -1,0 +1,617 @@
+/* ---------- 自定义导航栏：样式统一在 app.wxss 全局维护，本页不再保留副本（避免页面级优先级覆盖全局调权） ---------- */
+
+/* ---------- 指定工厂横幅（Stage11） ---------- */
+.prefer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #eff6ff;
+  border: 2rpx solid #93c5fd;
+  border-radius: 16rpx;
+  padding: 18rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.prefer-text { font-size: 26rpx; color: #1d4ed8; }
+.prefer-clear { font-size: 40rpx; color: #64748b; padding: 0 10rpx; line-height: 1; }
+
+/* ---------- 扫码锁定工厂横幅（F-102）：绿色系与蓝色 prefer 区分 ---------- */
+.entry-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ecfdf5;
+  border: 2rpx solid #6ee7b7;
+  border-radius: 16rpx;
+  padding: 18rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.entry-text { font-size: 26rpx; color: #047857; }
+.entry-clear { font-size: 40rpx; color: #64748b; padding: 0 10rpx; line-height: 1; }
+
+/* ---------- 场景模板（横向滑动，一屏固定 4 张） ---------- */
+.tpl-scroll { width: 100%; }
+
+.tpl-row {
+  display: inline-flex;
+  gap: 20rpx;
+  padding: 4rpx 2rpx;
+}
+
+.tpl-item {
+  flex-shrink: 0;
+  width: 158rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 18rpx;
+  padding: 28rpx 12rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.tpl-on {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 4rpx 16rpx rgba(37, 99, 235, 0.18);
+}
+
+.tpl-icon {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 22rpx;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0eaff;
+  color: #2563eb;
+}
+
+.tpl-icon .ic { transform: scale(1.45); }
+
+.tpl-on .tpl-icon { background: #2563eb; color: #fff; }
+
+.tpl-name { font-size: 30rpx; font-weight: 600; color: #0f172a; margin-top: 16rpx; }
+.tpl-desc { font-size: 22rpx; color: #94a3b8; margin-top: 6rpx; }
+.tpl-on .tpl-name { color: #2563eb; }
+
+/* ---------- 一句话报价 ---------- */
+/* 输入框 + 内嵌话筒：relative 容器，话筒绝对定位右下角（与设计需求区块同款） */
+.quick-input-wrap {
+  position: relative;
+}
+
+.quick-textarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: 22rpx 22rpx 84rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.quick-mic {
+  position: absolute;
+  right: 18rpx;
+  bottom: 18rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #eff6ff;
+  border: 2rpx solid #bfdbfe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.quick-mic-on {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.quick-input-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10rpx;
+  padding: 0 6rpx;
+}
+
+.quick-meta-hint { font-size: 22rpx; color: #94a3b8; }
+.quick-meta-hint.recording { color: #dc2626; }
+.quick-meta-count { font-size: 22rpx; color: #cbd5e1; }
+
+.parsed-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.parsed-tag {
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+}
+
+.ai-btn { margin-top: 24rpx; }
+
+/* ---------- 表单 ---------- */
+.form-item {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0;
+  border-bottom: 2rpx solid #f1f5f9;
+}
+
+.form-item:last-of-type { border-bottom: none; }
+.form-item.col { flex-direction: column; align-items: stretch; gap: 16rpx; }
+.form-item.col .label { width: auto; }
+
+.form-item > .label { width: 240rpx; font-size: 28rpx; color: #475569; }
+
+/* stage14 胶囊选择框：浅底描边 + 右侧 ▾ 箭头（伪元素），宽度自适应内容 */
+.form-item .flex1 {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 下拉触发框：与全站表单控件同规范（浅灰底 + 浅描边），避免白底深边在卡片内显突兀 */
+.picker-value {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 12rpx 24rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.picker-value::after {
+  content: '▾';
+  margin-left: 10rpx;
+  font-size: 22rpx;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.size-inputs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #94a3b8;
+}
+
+.size-inputs input {
+  flex: 1;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 8rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 26rpx;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+/* ---------- 数量快捷 ---------- */
+.qty-row {
+  display: flex;
+  gap: 14rpx;
+}
+
+.qty-chip {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  border-radius: 14rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  font-size: 26rpx;
+  color: #64748b;
+}
+
+.qc-on {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.qty-custom {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  padding: 14rpx 28rpx;
+  gap: 16rpx;
+}
+
+.qc-label { font-size: 24rpx; color: #94a3b8; flex: none; }
+
+.qc-input { flex: 1; height: 40rpx; line-height: 40rpx; padding: 0; font-size: 28rpx; text-align: right; color: #1e293b; }
+
+.qc-unit { font-size: 24rpx; color: #94a3b8; flex: none; }
+
+/* ---------- 工艺标签 ---------- */
+.process-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+/* ---------- 021 设计需求 ---------- */
+/* 描述输入框 + 内嵌话筒：relative 容器，话筒绝对定位右下角，不挤占版面 */
+.design-input-wrap {
+  position: relative;
+}
+
+.design-textarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: 20rpx 22rpx 84rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  font-size: 27rpx;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+/* 右下角话筒钮：圆形浅底，按住变蓝；textarea 行内 touch 用 catch 避免触发输入框焦点 */
+.design-mic {
+  position: absolute;
+  right: 18rpx;
+  bottom: 18rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #eff6ff;
+  border: 2rpx solid #bfdbfe;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.design-mic-on {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  transform: scale(1.08);
+}
+
+/* 输入框下方小字行：左录音状态/引导，右字数 */
+.design-input-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10rpx;
+  padding: 0 6rpx;
+}
+
+.design-meta-hint {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+
+.design-meta-hint.recording {
+  color: #dc2626;
+}
+
+.design-meta-count {
+  font-size: 22rpx;
+  color: #cbd5e1;
+}
+
+/* 工厂公版：单行备注输入（要印的文字/店名，选填） */
+.design-public-input {
+  width: 100%;
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 22rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  font-size: 27rpx;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.design-imgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.design-img-item {
+  position: relative;
+  width: 150rpx;
+  height: 150rpx;
+}
+
+.design-img {
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 14rpx;
+  background: #f1f5f9;
+}
+
+.design-img-del {
+  position: absolute;
+  top: -14rpx;
+  right: -14rpx;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #475569;
+  color: #fff;
+  font-size: 30rpx;
+}
+
+.design-add {
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 14rpx;
+  border: 2rpx dashed #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  gap: 4rpx;
+}
+
+.design-add-plus { font-size: 48rpx; line-height: 1; }
+.design-add-text { font-size: 22rpx; }
+
+.design-tip {
+  font-size: 22rpx;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.design-link { color: #2563eb; }
+
+/* ---------- 020 印刷配置：色数与专色合并单选 ---------- */
+.pc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+/* 专色数量行：选中「含专色」时在单选下方展开，沿用表单 picker-trigger 风格 */
+.pc-spot {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #f8fafc;
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+}
+
+.pc-spot-label {
+  font-size: 26rpx;
+  color: #475569;
+  flex: none;
+}
+
+/* 四色模式提示：一句话讲清 CMYK 已含四色，专色是额外加印 */
+.pc-tip {
+  font-size: 24rpx;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.footnote {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 24rpx;
+  margin: 10rpx 0 30rpx;
+}
+
+/* 自定义下拉弹层：原生 picker 弹层字号过小且不可样式化，这里统一大字体 */
+.picker-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 200;
+}
+
+.picker-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 抬高于原生 tabBar（原生层永远盖在页面 fixed 元素之上），否则列表末行会被底栏遮挡 */
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  z-index: 201;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: picker-up 0.18s ease-out;
+}
+
+@keyframes picker-up {
+  from { transform: translateY(60%); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 2rpx solid #f1f5f9;
+}
+
+.picker-cancel {
+  font-size: 30rpx;
+  color: #64748b;
+  padding: 6rpx 12rpx;
+}
+
+.picker-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.picker-confirm {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #2563eb;
+  padding: 6rpx 12rpx;
+}
+
+.picker-list {
+  /* 可视约 6 行，超出可滑动；打开时自动定位到选中项，且面板抬高于 tabBar，末项不会被遮 */
+  max-height: 600rpx;
+}
+
+.picker-opt {
+  padding: 26rpx 40rpx;
+  font-size: 34rpx;
+  color: #334155;
+  text-align: center;
+  border-bottom: 2rpx solid #f8fafc;
+}
+
+.picker-opt:last-child {
+  border-bottom: none;
+}
+
+.opt-on {
+  color: #2563eb;
+  font-weight: 600;
+  background: #eff6ff;
+}
+
+/* ---------- F-85 首次启动协议勾选弹窗 ---------- */
+.terms-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.terms-panel {
+  width: 620rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 36rpx;
+  box-sizing: border-box;
+}
+
+.terms-title { font-size: 32rpx; font-weight: 700; color: #0f172a; text-align: center; }
+
+.terms-body { font-size: 26rpx; color: #475569; line-height: 1.8; margin: 28rpx 0; }
+
+.terms-link { color: #2563eb; }
+
+.terms-check {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 32rpx;
+}
+
+/* 自绘勾选框：白底灰边，选中变蓝底白勾（模拟器原生 checkbox 点不上问题的根治） */
+.terms-box {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 8rpx;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.terms-box-on { background: #2563eb; border-color: #2563eb; }
+
+.terms-tick {
+  width: 14rpx;
+  height: 8rpx;
+  border-left: 3rpx solid #fff;
+  border-bottom: 3rpx solid #fff;
+  transform: rotate(-45deg);
+  margin-top: -4rpx;
+}
+.terms-check-text { font-size: 24rpx; color: #334155; }
+
+.terms-actions { display: flex; align-items: center; justify-content: space-between; }
+.terms-defer { font-size: 26rpx; color: #94a3b8; padding: 16rpx 8rpx; }
+.terms-ok {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border-radius: 999rpx;
+  padding: 16rpx 48rpx;
+}
+.terms-ok-disabled { opacity: 0.4; }
+
+/* ---------- F-96 新用户三步引导 ---------- */
+.guide-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 抬高于协议窗与下拉弹层，保证引导层级最顶 */
+  z-index: 300;
+}
+
+.guide-panel {
+  width: 620rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 48rpx 40rpx 40rpx;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.guide-icon { font-size: 72rpx; margin-bottom: 16rpx; }
+.guide-title { font-size: 34rpx; font-weight: 700; color: #0f172a; }
+.guide-desc { font-size: 27rpx; color: #475569; line-height: 1.9; margin: 28rpx 0 36rpx; text-align: left; }
+
+.guide-dots { display: flex; justify-content: center; gap: 16rpx; margin-bottom: 36rpx; }
+.guide-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #e2e8f0; }
+.dot-on { background: #2563eb; }
+
+.guide-actions { display: flex; align-items: center; justify-content: space-between; }
+.guide-skip { font-size: 26rpx; color: #94a3b8; padding: 16rpx 8rpx; }
+.guide-next {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border-radius: 999rpx;
+  padding: 16rpx 48rpx;
+}
+
+/* ---------- F-105 语音输入 ---------- */

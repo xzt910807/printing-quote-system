@@ -1,0 +1,103 @@
+<!-- 自定义导航栏（带返回按钮） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">工厂详情</view>
+  </view>
+</view>
+
+<view class="page page-tab">
+  <view class="empty" wx:if="{{loading}}">
+    <text class="empty-icon">⏳</text>
+    加载中...
+  </view>
+
+  <block wx:elif="{{info}}">
+    <!-- 头部：首字头像 + 名称 + 地址 -->
+    <view class="card hero-card">
+      <view class="fd-avatar" style="background: {{avatarColor}}">{{avatarText}}</view>
+      <view class="fd-title">{{info.name}}</view>
+      <!-- 印查查式信任位：已核验徽章 + 闲置产能胶囊 -->
+      <view class="fd-badges" wx:if="{{verified || capacity}}">
+        <text class="fd-verified" wx:if="{{verified}}">✓ 已核验</text>
+        <text class="fd-cap fd-cap-{{capacity.status}}" wx:if="{{capacity}}">⚡ {{capacity.label}}</text>
+      </view>
+      <view class="fd-cap-note" wx:if="{{capacity && capacity.note}}">{{capacity.note}}</view>
+      <view class="fd-code">{{info.code}}</view>
+      <view class="fd-addr" bindtap="copyAddress" wx:if="{{info.address}}">
+        <view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{info.address}} <text class="fd-copy">复制</text>
+      </view>
+    </view>
+
+    <!-- 设备/车间图文（印查查式硬实力展示） -->
+    <view class="card" wx:if="{{media.length}}">
+      <view class="card-title">设备与车间实拍</view>
+      <view class="fd-media-grid">
+        <view class="fd-media-item" wx:for="{{media}}" wx:key="url" data-index="{{index}}" bindtap="previewMedia">
+          <image class="fd-media-img" src="{{apiBase}}{{item.url}}" mode="aspectFill" lazy-load="{{true}}"></image>
+          <view class="fd-media-cap" wx:if="{{item.caption}}">{{item.caption}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 工厂简介 -->
+    <view class="card" wx:if="{{info.intro}}">
+      <view class="card-title"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>工厂简介</view>
+      <view class="fd-intro">{{info.intro}}</view>
+    </view>
+
+    <!-- 联系方式 -->
+    <view class="card">
+      <view class="card-title"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>联系方式</view>
+      <view class="fd-row">
+        <text class="fd-label">联系人</text>
+        <text class="fd-value">{{info.contact || '—'}}</text>
+      </view>
+      <view class="fd-row">
+        <text class="fd-label">电话</text>
+        <text class="fd-value">{{info.phone || '—'}}</text>
+        <view class="fd-call" wx:if="{{info.phone}}" bindtap="callFactory">拨打</view>
+      </view>
+    </view>
+
+    <!-- 生产能力 -->
+    <view class="card">
+      <view class="card-title">生产能力</view>
+
+      <view class="fd-cap-block" wx:if="{{capTags.length}}">
+        <view class="fd-cap-label">主营产品</view>
+        <view class="fd-tags">
+          <text class="fd-tag fd-tag-blue" wx:for="{{capTags}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="fd-cap-block" wx:if="{{modeTags.length}}">
+        <view class="fd-cap-label">印刷方式</view>
+        <view class="fd-tags">
+          <text class="fd-tag fd-tag-green" wx:for="{{modeTags}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="fd-cap-block" wx:if="{{processTags.length}}">
+        <view class="fd-cap-label">后道工艺</view>
+        <view class="fd-tags">
+          <text class="fd-tag" wx:for="{{processTags}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="fd-empty-cap" wx:if="{{!capTags.length && !modeTags.length && !processTags.length}}">
+        暂无能力信息
+      </view>
+    </view>
+  </block>
+
+  <view class="empty" wx:else>
+    <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+    工厂不存在或已停用
+  </view>
+
+  <!-- 底部询价按钮 -->
+  <view class="fd-footer" wx:if="{{info}}">
+    <view class="btn-primary fd-quote-btn" bindtap="quoteToFactory">向 TA 询价</view>
+  </view>
+</view>

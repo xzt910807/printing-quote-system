@@ -1,0 +1,106 @@
+/* 询价会话聊天页（印查查式 IM） */
+page { background: #f1f5f9; }
+
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+.navbar-inner { position: relative; display: flex; align-items: center; justify-content: center; }
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(241, 245, 249, 0.9);
+}
+.navbar-title {
+  max-width: 60%;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.navbar-sub { font-size: 22rpx; color: #94a3b8; font-weight: 400; }
+
+/* 消息区：介于导航栏与输入栏之间 */
+.msg-area { position: fixed; left: 0; right: 0; padding: 20rpx 24rpx; box-sizing: border-box; }
+.msg-empty { text-align: center; color: #94a3b8; font-size: 26rpx; padding: 80rpx 40rpx; }
+.msg-quick { margin-top: 20rpx; font-size: 22rpx; color: #cbd5e1; line-height: 1.7; }
+
+.msg-item { display: flex; margin-bottom: 24rpx; }
+.msg-item.msg-mine { justify-content: flex-end; }
+.msg-bubble {
+  max-width: 76%;
+  background: #fff;
+  border-radius: 18rpx 18rpx 18rpx 4rpx;
+  padding: 18rpx 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.05);
+}
+.msg-mine .msg-bubble {
+  background: #2563eb;
+  border-radius: 18rpx 18rpx 4rpx 18rpx;
+}
+.msg-text {
+  display: block;
+  font-size: 28rpx;
+  color: #0f172a;
+  line-height: 1.6;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.msg-mine .msg-text { color: #fff; }
+.msg-time {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #94a3b8;
+  text-align: right;
+}
+.msg-mine .msg-time { color: rgba(255, 255, 255, 0.7); }
+
+/* 底部输入栏 */
+.input-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 56px;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: content-box;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  background: #fff;
+  border-top: 1rpx solid #e2e8f0;
+}
+.msg-input {
+  flex: 1;
+  height: 72rpx;
+  background: #f1f5f9;
+  border-radius: 999rpx;
+  padding: 0 28rpx;
+  font-size: 28rpx;
+}
+.msg-ph { color: #94a3b8; }
+.msg-send {
+  flex: none;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 32rpx;
+  border-radius: 999rpx;
+  background: #2563eb;
+  color: #fff;
+  font-size: 28rpx;
+}
+.msg-send-off { opacity: 0.4; }

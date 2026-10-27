@@ -1,0 +1,305 @@
+/* 返回按钮（自定义导航栏） */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- 工厂头部 ---------- */
+.header-card {
+  text-align: center;
+  padding: 40rpx 24rpx;
+  background: linear-gradient(135deg, #4f7cff 0%, #2563eb 55%, #1d4ed8 100%);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.25);
+  margin-bottom: 24rpx;
+}
+
+.factory-name { font-size: 38rpx; font-weight: 700; color: #fff; }
+.factory-sub { font-size: 24rpx; color: rgba(255, 255, 255, 0.8); margin-top: 10rpx; }
+
+.card-title { margin-bottom: 24rpx; }
+
+/* ---------- 表单 ---------- */
+.field { margin-bottom: 24rpx; }
+.field .label { display: block; font-size: 26rpx; color: #475569; margin-bottom: 10rpx; }
+.field .textarea {
+  min-height: 150rpx;
+}
+
+.card-btn { width: 100%; margin-top: 8rpx; }
+
+/* ---------- 价格覆盖 ---------- */
+.ov-form { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; }
+.picker { flex: 1; }
+.picker-box {
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 22rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  color: #334155;
+  background: #f8fafc;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.flex1 { flex: 1; }
+
+.mini-btn {
+  padding: 0 36rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #4f7cff, #2563eb);
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 500;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.25);
+}
+
+.mini-btn.danger {
+  background: linear-gradient(135deg, #f87171, #dc2626);
+  box-shadow: 0 4rpx 12rpx rgba(220, 38, 38, 0.25);
+}
+
+.ov-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22rpx 0;
+  border-top: 2rpx dashed #f1f5f9;
+}
+
+.ov-main { display: flex; flex-direction: column; }
+.ov-title { font-size: 28rpx; color: #0f172a; font-weight: 500; }
+.ov-sub { font-size: 24rpx; color: #64748b; margin-top: 6rpx; }
+.ov-del { font-size: 24rpx; color: #dc2626; padding: 8rpx 20rpx; }
+
+/* ---------- 生产能力 ---------- */
+.cap-group { margin-bottom: 28rpx; }
+.cap-label { font-size: 26rpx; color: #475569; margin-bottom: 14rpx; font-weight: 500; }
+.cap-list { display: flex; flex-wrap: wrap; gap: 14rpx; }
+.cap-item {
+  padding: 14rpx 28rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: #475569;
+  background: #f8fafc;
+}
+.cap-item.on {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+  font-weight: 500;
+}
+
+/* ---------- F-102 我的专属二维码 ---------- */
+.qr-card { cursor: pointer; }
+
+.qr-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.qr-info { flex: 1; min-width: 0; }
+
+.qr-title { font-size: 30rpx; font-weight: 600; color: #0f172a; }
+
+.qr-desc {
+  font-size: 24rpx;
+  color: #64748b;
+  margin-top: 10rpx;
+  line-height: 1.5;
+}
+
+.qr-thumb {
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+}
+
+.qr-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.qr-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.qr-panel {
+  width: 560rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.qr-panel-title { font-size: 32rpx; font-weight: 700; color: #0f172a; }
+
+.qr-image {
+  width: 420rpx;
+  height: 420rpx;
+  margin: 28rpx auto 0;
+  display: block;
+  border-radius: 16rpx;
+}
+
+.qr-loading {
+  width: 420rpx;
+  height: 420rpx;
+  margin: 28rpx auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 16rpx;
+}
+
+.qr-tip {
+  font-size: 24rpx;
+  color: #64748b;
+  margin-top: 24rpx;
+  line-height: 1.5;
+}
+
+.qr-save { width: 100%; margin-top: 28rpx; }
+
+.qr-close {
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  padding: 12rpx 0;
+}
+
+/* ---------- 021 微信一键登录绑定 ---------- */
+.wxbind-row { display: flex; align-items: center; gap: 24rpx; }
+.wxbind-info { flex: 1; min-width: 0; }
+.wxbind-status { font-size: 30rpx; font-weight: 600; color: #94a3b8; }
+.wxbind-status.wxbind-on { color: #07c160; }
+.wxbind-tip { font-size: 23rpx; color: #94a3b8; margin-top: 8rpx; line-height: 1.5; }
+.wxbind-btn { flex-shrink: 0; font-size: 26rpx !important; padding: 0 36rpx !important; height: 68rpx !important; line-height: 68rpx !important; margin: 0 !important; }
+.wxbind-btn::after { border: none; }
+.btn-outline.wxbind-btn { border: 2rpx solid #e2e8f0 !important; color: #64748b !important; background: #fff !important; }
+
+/* ---------- 分区吸顶导航：长页面分区定位，免反复下拉 ---------- */
+.sec-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
+}
+.sec-nav-item {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: #64748b;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+}
+.sec-nav-item:active { background: #f1f5f9; }
+
+/* 选中分区高亮：蓝字浅蓝底，与全局 tab 选中态同风格 */
+.sec-nav-item.sec-on {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+/* ===== 027 档案分区：产能填报提示 + 设备图文图集 ===== */
+.trust-tip { font-size: 24rpx; color: #94a3b8; line-height: 1.6; }
+.trust-sub { font-size: 22rpx; color: #cbd5e1; margin-top: 12rpx; }
+
+.media-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.media-item { position: relative; width: calc((100% - 32rpx) / 3); }
+.media-img {
+  width: 100%;
+  height: 200rpx;
+  border-radius: 12rpx;
+  background: #f1f5f9;
+  display: block;
+}
+.media-cap {
+  font-size: 20rpx;
+  color: #94a3b8;
+  margin-top: 6rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.media-del {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  font-size: 28rpx;
+}
+.media-audit {
+  position: absolute;
+  left: 8rpx;
+  top: 8rpx;
+  font-size: 18rpx;
+  color: #fff;
+  background: rgba(234, 88, 12, 0.85);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+}
+.media-audit-rejected { background: rgba(220, 38, 38, 0.85); }
+.media-add {
+  width: calc((100% - 32rpx) / 3);
+  height: 200rpx;
+  border-radius: 12rpx;
+  border: 2rpx dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 48rpx;
+  box-sizing: border-box;
+}
+.media-add-txt { font-size: 22rpx; margin-top: 6rpx; }

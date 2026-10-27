@@ -1,0 +1,259 @@
+<!-- Stage11 自定义导航栏 -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-title">工厂接单</view>
+  </view>
+</view>
+
+<view class="container page-tab">
+
+  <!-- 未登录：工厂端登录（老板微信一键进入为主，员工账号密码折叠） -->
+  <view wx:if="{{!auth}}" class="card login-card">
+    <view class="login-hero-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+    <view class="login-title">工厂端登录</view>
+    <view class="login-tip">老板微信绑定过工厂（我的 → 我是工厂），一键进入处理询价与订单</view>
+    <!-- 021 主入口：微信一键登录 -->
+    <button class="wx-login-btn" loading="{{wxLoggingIn}}" bindtap="wxLogin">微信一键登录</button>
+    <!-- 当前微信已绑定工厂：一行弱提示，不抢视觉 -->
+    <view class="wx-bound-tip" wx:if="{{wxBound}}">微信已绑定工厂，点上方按钮直接登录</view>
+
+    <view class="login-divider"><text>或</text></view>
+    <!-- 员工账号密码：默认折叠，点击展开 -->
+    <view class="staff-toggle" bindtap="toggleStaffLogin">
+      员工账号登录
+      <text class="staff-arrow {{showStaffLogin ? 'staff-arrow-up' : ''}}">▾</text>
+    </view>
+    <block wx:if="{{showStaffLogin}}">
+      <input class="login-input" placeholder="账号（如 f001）" value="{{usernameInput}}" bindinput="onUsernameInput" />
+      <input class="login-input" placeholder="密码" value="{{passwordInput}}" bindinput="onPasswordInput" password />
+      <button class="btn-primary login-btn" loading="{{loggingIn}}" bindtap="login">登 录</button>
+      <view class="staff-hint">首次登录后可在「工厂设置 → 微信一键登录」绑定微信，以后一键进入</view>
+    </block>
+
+    <view class="register-link" bindtap="goRegister">没有账号？注册新工厂</view>
+  </view>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <!-- 工厂信息卡：厂名独占一行完整展示；次行编号与操作统一为半透明标签，干净不拥挤 -->
+    <view class="hero factory-hero">
+      <view class="factory-name">{{auth.factoryName || auth.name}}</view>
+      <view class="factory-hero-bottom">
+        <view class="factory-code">编号 {{auth.code}}</view>
+        <view class="header-actions">
+          <view class="hero-btn" bindtap="goChatThreads">💬 沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
+          <view class="hero-btn" bindtap="goProfile">⚙ 工厂设置</view>
+          <view class="hero-btn" bindtap="logout">退出</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 生产能力未配置引导：不配置将无法收到询价派单 -->
+    <view class="setup-banner" wx:if="{{needSetup}}" bindtap="goProfile">
+      <view class="setup-title">⚠️ 尚未配置生产能力</view>
+      <view class="setup-sub">询价按「产品/印刷/材料/工艺」匹配工厂，配置后才能收到派单 → 去设置</view>
+    </view>
+
+    <!-- 顶部页签：询价单 / 订单 -->
+    <view class="tabs">
+      <view class="tab {{tab === 'inquiry' ? 'active' : ''}}"
+            data-tab="inquiry" bindtap="switchTab">
+        询价单<text class="tab-dot" wx:if="{{newInquiry}}"></text>
+      </view>
+      <view class="tab {{tab === 'orders' ? 'active' : ''}}"
+            data-tab="orders" bindtap="switchTab">订单</view>
+    </view>
+
+    <!-- 询价单 -->
+    <block wx:if="{{tab === 'inquiry'}}">
+      <!-- 状态标签 -->
+      <view class="status-tabs">
+        <view class="stab {{status === 'pending' ? 'stab-active' : ''}}"
+              data-status="pending" bindtap="switchStatus">
+          待处理<text class="stab-num" wx:if="{{pendingCount}}">{{pendingCount}}</text>
+        </view>
+        <view class="stab {{status === 'accept' ? 'stab-active' : ''}}"
+              data-status="accept" bindtap="switchStatus">已接单</view>
+        <view class="stab {{status === 'decline' ? 'stab-active' : ''}}"
+              data-status="decline" bindtap="switchStatus">已拒绝</view>
+      </view>
+
+      <!-- 询价列表 -->
+      <view wx:if="{{inquiries.length === 0}}" class="empty">
+        <view class="empty-ic"><view class="ic ic-mail"><view class="ic-a"></view></view></view>
+        暂无询价，有新需求会在这里提醒
+      </view>
+
+      <view class="inquiry-card" wx:for="{{inquiries}}" wx:key="push_id">
+        <view class="row">
+          <text class="inquiry-no">{{item.inquiry_no}}</text>
+          <text class="qty">{{item.quantity}} 个</text>
+        </view>
+        <view class="row" style="margin-top:16rpx">
+          <text class="type">{{item.product_type === 'carton' ? '纸箱' : '彩盒'}}</text>
+          <text class="text-price">¥{{item.factory_quote}}</text>
+        </view>
+        <view class="time">{{item.inquiry_time}}<text class="inq-chat-link" data-inquiry-id="{{item.inquiry_id}}" data-no="{{item.inquiry_no}}" data-name="{{item.contact_name}}" catchtap="goChatInquiry">💬 在线沟通</text></view>
+
+        <!-- 021 设计需求三态：need=需设计（可单列设计费）/ public=用贵厂公版 / none=客户自带稿（图即设计稿） -->
+        <view wx:if="{{item.design_status !== 'none' || item.design_images.length}}" class="design-box">
+          <view class="design-line" wx:if="{{item.design_status !== 'none'}}">
+            <text class="design-badge {{item.design_status === 'public' ? 'design-badge-public' : ''}}">{{item.design_status === 'need' ? '需设计' : '工厂公版'}}</text>
+            <text class="design-note">{{item.design_status === 'need'
+              ? (item.design_note || '客户未填写描述，可接单后电话沟通')
+              : (item.design_note || '客户使用贵厂公版/现成版式，确认要印的文字后报价')}}</text>
+          </view>
+          <view class="design-imgs" wx:if="{{item.design_images.length}}">
+            <image class="design-thumb" wx:for="{{item.design_images}}" wx:key="*this"
+                  src="{{apiBase + item}}" mode="aspectFill"
+                  data-url="{{apiBase + item}}" catchtap="previewDesignImg" />
+          </view>
+        </view>
+
+        <!-- 已被其他工厂接单 -->
+        <view wx:if="{{item.inquiry_status === 'accepted' && item.matched_factory_id !== auth.factoryId && item.response === 'pending'}}"
+              class="taken-tip">😢 手慢了，该询价已被其他工厂接单</view>
+
+        <!-- 已接单：展示客户联系方式，便于线下对接 -->
+        <view wx:if="{{item.response === 'accept'}}" class="contact-tip">
+          <view>客户联系人：{{item.contact_name || '未填写'}}</view>
+          <view>联系电话：{{item.contact_phone || '未填写'}}</view>
+        </view>
+
+        <view class="actions" wx:if="{{status === 'pending' && item.response === 'pending' && !(item.inquiry_status === 'accepted' && item.matched_factory_id !== auth.factoryId)}}">
+          <view class="btn-outline btn-flex"
+                data-push-id="{{item.push_id}}"
+                data-response="decline"
+                catchtap="respond">拒绝</view>
+          <view class="btn-outline btn-flex"
+                data-push-id="{{item.push_id}}"
+                data-response="accept"
+                catchtap="respond">直接接单</view>
+          <view class="btn-primary btn-flex"
+                data-push-id="{{item.push_id}}"
+                data-no="{{item.inquiry_no}}"
+                data-sysprice="{{item.factory_quote}}"
+                data-need-design="{{item.design_status === 'need'}}"
+                catchtap="openQuoteModal">报价</view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 订单 -->
+    <block wx:if="{{tab === 'orders'}}">
+      <view wx:if="{{orders.length === 0}}" class="empty">
+        <view class="empty-ic"><view class="ic ic-box"><view class="ic-a"></view></view></view>
+        暂无订单，接单后自动生成
+      </view>
+
+      <view class="inquiry-card" wx:for="{{orders}}" wx:key="id">
+        <view class="row">
+          <text class="inquiry-no">{{item.order_no}}</text>
+          <text class="badge badge-blue">{{item.statusText}}</text>
+        </view>
+        <view class="row" style="margin-top:16rpx">
+          <text class="type">{{item.quantity}} 个</text>
+          <text class="text-price">¥{{item.total_price}}</text>
+        </view>
+        <view class="time">{{item.timeText}}</view>
+
+        <view class="contact-tip" wx:if="{{item.contact_name || item.contact_phone}}">
+          <view>客户联系人：{{item.contact_name || '未填写'}}</view>
+          <view>联系电话：{{item.contact_phone || '未填写'}}</view>
+        </view>
+
+        <!-- F-56 退款闭环：pay_status=refunding（客户申请退款/取消已支付订单）时优先展示确认退款，
+             覆盖 pending/confirmed/cancelled 各状态，避免取消后按钮消失卡住退款 -->
+        <view class="actions" wx:if="{{item.pay_status === 'refunding'}}">
+          <view class="btn-primary btn-flex" data-id="{{item.id}}" catchtap="confirmRefund">确认退款</view>
+        </view>
+        <view class="actions" wx:elif="{{item.status === 'pending'}}">
+          <view class="btn-outline btn-flex"
+                data-id="{{item.id}}" data-action="cancel" catchtap="orderAction">取消</view>
+          <view class="btn-primary btn-flex"
+                data-id="{{item.id}}" data-action="confirm" catchtap="orderAction">确认订单</view>
+        </view>
+        <view class="actions" wx:elif="{{item.status === 'confirmed' || item.status === 'sample_confirmed'}}">
+          <view class="btn-outline btn-flex"
+                data-id="{{item.id}}" data-action="cancel" catchtap="orderAction">取消</view>
+          <view class="btn-primary btn-flex"
+                data-id="{{item.id}}" data-action="produce" catchtap="orderAction">开始生产</view>
+        </view>
+        <view class="actions" wx:elif="{{item.status === 'producing'}}">
+          <view class="btn-primary btn-flex"
+                data-id="{{item.id}}" data-action="ship" catchtap="orderAction">发货</view>
+        </view>
+        <!-- stage13 已发货/已完成订单：查看物流 -->
+        <view class="actions" wx:if="{{item.status === 'shipped' || item.status === 'completed'}}">
+          <view class="btn-outline btn-flex" data-id="{{item.id}}" catchtap="goOrderLogistics">查看物流</view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 确认订单弹窗：填货物重量（原生 editable 弹窗说明区固定高度会裁剪文字，弃用） -->
+    <view class="ship-mask" wx:if="{{confirmModal.show}}" catchtap="closeConfirmModal">
+      <view class="ship-sheet" catchtap="noop">
+        <view class="ship-title">确认订单</view>
+        <view class="confirm-tip">按重计费模板的订单必须填写货物重量，其他订单可留空。</view>
+        <input class="ship-input" type="digit" placeholder="货物重量 kg" value="{{confirmModal.weight}}" bindinput="onConfirmWeightInput" />
+        <view class="ship-actions">
+          <view class="btn-outline ship-btn" catchtap="closeConfirmModal">取消</view>
+          <view class="btn-primary ship-btn" catchtap="submitConfirm">确定</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 017 正式报价弹窗：金额 + 有效期 + 调价说明（与确认订单弹窗同款结构） -->
+    <view class="ship-mask" wx:if="{{quoteModal.show}}" catchtap="closeQuoteModal">
+      <view class="ship-sheet" catchtap="noop">
+        <view class="ship-title">正式报价 {{quoteModal.inquiryNo}}</view>
+        <view class="confirm-tip">系统参考价 ¥{{quoteModal.systemPrice}}。提交正式报价后，客户确认即按此价生成订单（客户也可拒绝不成交）。</view>
+        <input class="ship-input" type="digit" placeholder="报价金额（元）" value="{{quoteModal.price}}" bindinput="onQuotePriceInput" />
+        <input class="ship-input" type="number" placeholder="报价有效期（天，默认 7 天）" value="{{quoteModal.validDays}}" bindinput="onQuoteDaysInput" />
+        <input class="ship-input" placeholder="调价说明（选填，如：满版图案油墨成本高）" value="{{quoteModal.remark}}" bindinput="onQuoteRemarkInput" />
+        <!-- 021 客户需要设计：可单列设计费，随报价一并展示（含在总报价中收款） -->
+        <block wx:if="{{quoteModal.needDesign}}">
+          <view class="design-fee-tip">客户需要设计服务：设计费含在上方总报价中收款，在此单列金额便于客户核对（选填）。</view>
+          <input class="ship-input" type="digit" placeholder="设计费（元，选填）" value="{{quoteModal.designFee}}" bindinput="onQuoteDesignFeeInput" />
+        </block>
+        <view class="ship-actions">
+          <view class="btn-outline ship-btn" catchtap="closeQuoteModal">取消</view>
+          <view class="btn-primary ship-btn {{quoteModal.submitting ? 'btn-disabled' : ''}}" catchtap="submitQuote">提交报价</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- stage13 发货弹窗：选快递公司 + 填单号 -->
+    <view class="ship-mask" wx:if="{{shipModal.show}}" catchtap="closeShipModal">
+      <view class="ship-sheet" catchtap="noop">
+        <view class="ship-title">订单发货</view>
+        <!-- 原生 picker 滚轮字号基础库写死且不可样式化，点击还可能穿透关闭本弹窗；
+             改为页面内大字体选择弹层（与报价页产品选择同款交互） -->
+        <view class="ship-picker {{shipModal.companyIndex >= 0 ? '' : 'ship-picker-ph'}}" bindtap="openCompanySheet">
+          {{shipModal.companyIndex >= 0 ? expressCompanies[shipModal.companyIndex].name : '请选择快递公司'}}
+        </view>
+        <input class="ship-input" placeholder="请输入快递单号" value="{{shipModal.expressNo}}" bindinput="onExpressNoInput" />
+        <view class="ship-actions">
+          <view class="btn-outline ship-btn" catchtap="closeShipModal">取消</view>
+          <view class="btn-primary ship-btn" catchtap="submitShip">确认发货</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 快递公司大字体选择弹层：页面内层级，抬高于发货面板与 tabBar -->
+    <view class="comp-mask" wx:if="{{companySheetVisible}}" catchtap="closeCompanySheet"></view>
+    <view class="comp-panel" wx:if="{{companySheetVisible}}">
+      <view class="comp-head">
+        <text class="comp-cancel" catchtap="closeCompanySheet">取消</text>
+        <text class="comp-title">选择快递公司</text>
+        <text class="comp-confirm" catchtap="confirmCompany">确定</text>
+      </view>
+      <scroll-view scroll-y class="comp-list">
+        <view class="comp-opt {{companyTempIndex === index ? 'comp-on' : ''}}"
+              wx:for="{{expressCompanies}}" wx:key="code"
+              data-index="{{index}}" catchtap="pickCompany">{{item.name}}</view>
+      </scroll-view>
+    </view>
+  </block>
+
+</view>

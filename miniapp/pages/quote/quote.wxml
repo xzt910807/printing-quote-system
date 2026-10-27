@@ -1,0 +1,320 @@
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-title">印刷报价</view>
+  </view>
+</view>
+
+<view class="container page-tab">
+
+  <!-- F-102 工厂专属二维码锁定横幅：客户扫工厂码进入即锁定，询价只推给该厂不走平台撮合 -->
+  <view class="entry-bar" wx:if="{{entryFactoryId}}">
+    <view class="entry-text"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>向「{{entryFactoryName || '工厂' + entryFactoryId}}」询价 · 不走平台撮合</view>
+    <text class="entry-clear" bindtap="clearEntryFactory">×</text>
+  </view>
+
+  <!-- Stage11 找厂页指定工厂横幅：提交后询价单直接推送给该厂 -->
+  <view class="prefer-bar" wx:if="{{preferFactoryId}}">
+    <view class="prefer-text"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>指定工厂：{{preferFactoryName || '工厂' + preferFactoryId}} · 提交后直接推送</view>
+    <text class="prefer-clear" bindtap="clearPreferFactory">×</text>
+  </view>
+
+  <!-- 品牌头 -->
+  <view class="hero">
+    <view class="hero-title"><view class="ic-inline"><view class="ic ic-quote"><view class="ic-a"></view></view></view>智能印刷报价</view>
+    <view class="hero-sub">参数一填，智能匹配全城工厂 · 龙港产业带真实数据</view>
+  </view>
+
+  <!-- 场景模板 -->
+  <view class="card">
+    <view class="card-title">我想印</view>
+    <scroll-view class="tpl-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="tpl-row">
+        <view class="tpl-item {{templateIndex === index ? 'tpl-on' : ''}}"
+              wx:for="{{templates}}" wx:key="name"
+              data-index="{{index}}" bindtap="onTemplateTap">
+          <view class="tpl-icon"><view class="ic {{item.icon}}"><view class="ic-a"></view></view></view>
+          <view class="tpl-name">{{item.name}}</view>
+          <view class="tpl-desc">{{item.desc}}</view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 一句话报价 -->
+  <view class="card">
+    <view class="card-title">一句话报价</view>
+    <!-- 输入框内嵌话筒（F-105 按住说话），下方小字行给录音状态与字数 -->
+    <view class="quick-input-wrap">
+      <textarea class="quick-textarea"
+                placeholder="例如：1000个双坑纸箱 30x20x15厘米 覆哑膜"
+                value="{{textInput}}"
+                bindinput="onTextInput"
+                maxlength="200" />
+      <view class="quick-mic {{voiceRecording && voiceTarget === 'textInput' ? 'quick-mic-on' : ''}}"
+            data-target="textInput"
+            catchtouchstart="startVoice" catchtouchend="stopVoice" catchtouchcancel="stopVoice">
+        <view class="ic ic-mic"><view class="ic-a"></view></view>
+      </view>
+    </view>
+    <view class="quick-input-meta">
+      <text class="quick-meta-hint {{voiceRecording && voiceTarget === 'textInput' ? 'recording' : ''}}">{{voiceRecording && voiceTarget === 'textInput' ? '正在录音，松开结束' : '点右下角话筒，说出印刷需求'}}</text>
+      <text class="quick-meta-count">{{textInput.length || 0}}/200</text>
+    </view>
+    <view class="parsed-tags" wx:if="{{parsedTags.length}}">
+      <text class="parsed-tag" wx:for="{{parsedTags}}" wx:key="*this">✓ {{item}}</text>
+    </view>
+    <view class="btn-primary ai-btn" bindtap="quickQuote">
+      {{loading ? '智能解析中...' : '智能报价'}}
+    </view>
+  </view>
+
+  <!-- 手动填写 -->
+  <view class="card">
+    <view class="card-title">手动填写参数</view>
+
+    <view class="form-item">
+      <text class="label">产品类型</text>
+      <view class="flex1 picker-trigger" data-picker="product" bindtap="showPicker">
+        <view class="picker-value">{{productTypes[productIndex].label}}</view>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="label">{{sizeLabels.join('×')}} (mm)</text>
+      <view class="size-inputs">
+        <input type="number" value="{{form.lengthMm}}" data-field="lengthMm" bindinput="onInput" placeholder="{{sizeLabels[0]}}" />
+        <text>×</text>
+        <input type="number" value="{{form.widthMm}}" data-field="widthMm" bindinput="onInput" placeholder="{{sizeLabels[1]}}" />
+        <block wx:if="{{sizeLabels.length > 2}}">
+          <text>×</text>
+          <input type="number" value="{{form.heightMm}}" data-field="heightMm" bindinput="onInput" placeholder="{{sizeLabels[2]}}" />
+        </block>
+      </view>
+    </view>
+
+    <view class="form-item col">
+      <text class="label">数量</text>
+      <view class="qty-row">
+        <view class="qty-chip {{form.quantity == item ? 'qc-on' : ''}}"
+              wx:for="{{qtyChips}}" wx:key="*this"
+              data-q="{{item}}" bindtap="onQtyChip">{{item}}</view>
+      </view>
+      <view class="qty-custom">
+        <text class="qc-label">自定义数量</text>
+        <input class="qc-input" type="number" value="{{form.quantity}}" data-field="quantity" bindinput="onInput" placeholder="输入数量" />
+        <text class="qc-unit">个</text>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{productTypes[productIndex].value === 'cardBox'}}">
+      <text class="label">盒型</text>
+      <view class="flex1 picker-trigger" data-picker="boxType" bindtap="showPicker">
+        <view class="picker-value">{{boxTypes[boxTypeIndex].label}}</view>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{productTypes[productIndex].value === 'cardBox'}}">
+      <text class="label">拼版数量</text>
+      <view class="size-inputs">
+        <input type="number" value="{{form.nUp}}" data-field="nUp" bindinput="onInput" placeholder="1张大纸拼几个" />
+        <text>个/张</text>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{productTypes[productIndex].value === 'flexiblePackaging'}}">
+      <text class="label">复合层数</text>
+      <view class="flex1 picker-trigger" data-picker="filmLayers" bindtap="showPicker">
+        <view class="picker-value">{{filmLayerOptions[filmLayersIndex]}} 层</view>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{productTypes[productIndex].value === 'flexiblePackaging'}}">
+      <text class="label">袋型</text>
+      <view class="flex1 picker-trigger" data-picker="bagType" bindtap="showPicker">
+        <view class="picker-value">{{bagTypes[bagTypeIndex].label}}</view>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{productTypes[productIndex].value === 'paperBag' || productTypes[productIndex].value === 'nonWovenBag'}}">
+      <text class="label">拎手</text>
+      <view class="flex1 picker-trigger" data-picker="handle" bindtap="showPicker">
+        <view class="picker-value">{{handleTypes[handleIndex].label}}</view>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="label">材质</text>
+      <view class="flex1 picker-trigger" data-picker="material" bindtap="showPicker">
+        <view class="picker-value">{{materialOptions[materialIndex].name}}</view>
+      </view>
+    </view>
+
+    <!-- 020 印刷配置：色数与专色合并单选（四色CMYK已含青品黄黑，专色是额外加印的特殊色） -->
+    <view class="form-item col">
+      <text class="label">印刷配置</text>
+      <view class="pc-tags">
+        <view class="tag {{printConfig === 'cmyk' ? 'tag-active' : ''}}" data-pc="cmyk" bindtap="onPrintConfigChange">四色印刷（CMYK）</view>
+        <view class="tag {{printConfig === 'cmyk+spot' ? 'tag-active' : ''}}" data-pc="cmyk+spot" bindtap="onPrintConfigChange">四色+专色</view>
+        <view class="tag {{printConfig === 'spot' ? 'tag-active' : ''}}" data-pc="spot" bindtap="onPrintConfigChange">纯专色印刷</view>
+      </view>
+      <view class="pc-spot" wx:if="{{printConfig !== 'cmyk'}}">
+        <text class="pc-spot-label">{{printConfig === 'spot' ? '专色色数' : '加印专色'}}</text>
+        <view class="flex1 picker-trigger" data-picker="spotColor" bindtap="showPicker">
+          <view class="picker-value">{{spotColorOptions[spotColorIndex]}}</view>
+        </view>
+      </view>
+      <view class="pc-tip" wx:else>青/品红/黄/黑四色叠印即可还原大部分彩色，无需加专色</view>
+    </view>
+
+    <!-- 016 印刷参数：图案覆盖率/油墨类型按品类显隐（020 配置：软包装/无纺布袋/热转印隐藏，纸容器只显油墨类型） -->
+    <view class="form-item" wx:if="{{paramShow.pattern}}">
+      <text class="label">图案覆盖率</text>
+      <view class="flex1 picker-trigger" data-picker="patternCover" bindtap="showPicker">
+        <view class="picker-value">{{patternCoverOptions[patternCoverIndex].label}}</view>
+      </view>
+    </view>
+
+    <view class="form-item" wx:if="{{paramShow.ink}}">
+      <text class="label">油墨类型</text>
+      <view class="flex1 picker-trigger" data-picker="inkType" bindtap="showPicker">
+        <view class="picker-value">{{inkTypeOptions[inkTypeIndex].name}}</view>
+      </view>
+    </view>
+
+    <view class="form-item col">
+      <text class="label">后道工艺（可多选）</text>
+      <view class="process-tags">
+        <view class="tag {{item.selected ? 'tag-active' : ''}} {{item.allowed === false ? 'tag-disabled' : ''}}"
+              wx:for="{{processes}}" wx:key="code"
+              data-code="{{item.code}}"
+              bindtap="toggleProcess">{{item.name}}</view>
+      </view>
+    </view>
+
+    <!-- 021 设计需求：自带稿（传稿图）/ 工厂公版（备注文字）/ 需要设计（描述+参考图） -->
+    <view class="form-item col">
+      <text class="label">设计需求</text>
+      <view class="pc-tags">
+        <view class="tag {{designMode === 'none' ? 'tag-active' : ''}}" data-m="none" bindtap="onDesignMode">自带设计稿</view>
+        <view class="tag {{designMode === 'public' ? 'tag-active' : ''}}" data-m="public" bindtap="onDesignMode">工厂公版</view>
+        <view class="tag {{designMode === 'need' ? 'tag-active' : ''}}" data-m="need" bindtap="onDesignMode">需要设计</view>
+      </view>
+
+      <!-- 自带设计稿：上传稿图，工厂照稿报价 -->
+      <block wx:if="{{designMode === 'none'}}">
+        <view class="design-imgs">
+          <view class="design-img-item" wx:for="{{designImages}}" wx:key="*this">
+            <image class="design-img" src="{{apiBase + item}}" mode="aspectFill" data-idx="{{index}}" bindtap="previewDesignImg" bindlongpress="removeDesignImg" />
+            <text class="design-img-del" data-idx="{{index}}" bindtap="removeDesignImg">×</text>
+          </view>
+          <view class="design-add" bindtap="addDesignImg" wx:if="{{designImages.length < 3}}">
+            <view class="design-add-plus">＋</view>
+            <view class="design-add-text">传设计稿</view>
+          </view>
+        </view>
+        <view class="design-tip">稿图随询价发给工厂 · 没有合适的图？<text class="design-link" bindtap="goDesignTool">AI 画参考图 / 智能排版</text></view>
+      </block>
+
+      <!-- 工厂公版：用工厂现成版式，备注要印的内容 -->
+      <block wx:elif="{{designMode === 'public'}}">
+        <input class="design-public-input" placeholder="备注要印的文字 / 店名（选填）"
+               value="{{designNote}}" bindinput="onDesignNote" maxlength="100" />
+        <view class="design-tip">使用工厂现成版式，工厂确认要印的内容后直接报价</view>
+      </block>
+
+      <!-- 需要设计：描述 + 参考图，工厂报价可单列设计费 -->
+      <block wx:else>
+        <!-- 描述输入框：右下角内嵌话筒（按住说话），下方小字行给录音状态与字数 -->
+        <view class="design-input-wrap">
+          <textarea class="design-textarea"
+                    placeholder="描述你要的设计：店名、风格、颜色、要印的文案…"
+                    value="{{designNote}}"
+                    bindinput="onDesignNote"
+                    maxlength="200" />
+          <view class="design-mic {{voiceRecording && voiceTarget === 'designNote' ? 'design-mic-on' : ''}}"
+                data-target="designNote"
+                catchtouchstart="startVoice" catchtouchend="stopVoice" catchtouchcancel="stopVoice">
+            <view class="ic ic-mic"><view class="ic-a"></view></view>
+          </view>
+        </view>
+        <view class="design-input-meta">
+          <text class="design-meta-hint {{voiceRecording && voiceTarget === 'designNote' ? 'recording' : ''}}">{{voiceRecording && voiceTarget === 'designNote' ? '正在录音，松开结束' : '点右下角话筒，说话描述设计'}}</text>
+          <text class="design-meta-count">{{designNote.length || 0}}/200</text>
+        </view>
+        <view class="design-imgs">
+          <view class="design-img-item" wx:for="{{designImages}}" wx:key="*this">
+            <image class="design-img" src="{{apiBase + item}}" mode="aspectFill" data-idx="{{index}}" bindtap="previewDesignImg" bindlongpress="removeDesignImg" />
+            <text class="design-img-del" data-idx="{{index}}" bindtap="removeDesignImg">×</text>
+          </view>
+          <view class="design-add" bindtap="addDesignImg" wx:if="{{designImages.length < 3}}">
+            <view class="design-add-plus">＋</view>
+            <view class="design-add-text">参考图</view>
+          </view>
+        </view>
+        <view class="design-tip">没有图？<text class="design-link" bindtap="goDesignTool">AI 画参考图 / 智能排版</text>{{designToolAvailable ? '' : '（袋类最全）'}}</view>
+      </block>
+    </view>
+
+    <view class="btn-primary" bindtap="submitQuote" style="margin-top:30rpx">
+      {{loading ? '计算中...' : '立即报价'}}
+    </view>
+  </view>
+
+  <view class="footnote">报价由龙港本地工厂数据实时计算 · 材料/印工/后道逐项透明</view>
+
+  <!-- 自定义下拉弹层：原生 picker 弹层字号过小且不可样式化，这里用大字体列表替代 -->
+  <view class="picker-mask" wx:if="{{pickerVisible}}" bindtap="closePicker"></view>
+  <view class="picker-panel" wx:if="{{pickerVisible}}">
+    <view class="picker-head">
+      <text class="picker-cancel" bindtap="closePicker">取消</text>
+      <text class="picker-title">{{pickerTitle}}</text>
+      <text class="picker-confirm" bindtap="confirmPicker">确定</text>
+    </view>
+    <scroll-view scroll-y class="picker-list" scroll-into-view="{{pickerIntoView}}" scroll-with-animation="{{false}}">
+      <view id="po-{{index}}" class="picker-opt {{pickerSelected === index ? 'opt-on' : ''}}"
+            wx:for="{{pickerOptions}}" wx:key="index"
+            data-index="{{index}}" bindtap="pickOption">{{item}}</view>
+    </scroll-view>
+  </view>
+
+  <!-- F-85 首次启动协议勾选弹窗：未勾选「同意并继续」不可用 -->
+  <view class="terms-mask" wx:if="{{termsVisible}}">
+    <view class="terms-panel">
+      <view class="terms-title">服务协议与隐私保护</view>
+      <view class="terms-body">
+        欢迎使用龙港印刷报价平台。为保障您的合法权益，使用前请阅读并同意
+        <text class="terms-link" data-type="user-agreement" bindtap="openTermsDoc">《用户协议》</text>与
+        <text class="terms-link" data-type="privacy" bindtap="openTermsDoc">《隐私政策》</text>。
+        我们将按协议约定保护您的个人信息与交易数据安全。
+      </view>
+      <!-- 自绘勾选框：模拟器原生 checkbox 在部分基础库版本点不上，改用 view 实现，两端行为一致 -->
+      <view class="terms-check" bindtap="toggleTermsCheck">
+        <view class="terms-box {{termsChecked ? 'terms-box-on' : ''}}">
+          <view class="terms-tick" wx:if="{{termsChecked}}"></view>
+        </view>
+        <text class="terms-check-text">我已阅读并同意《用户协议》和《隐私政策》</text>
+      </view>
+      <view class="terms-actions">
+        <view class="terms-defer" bindtap="declineTerms">暂不同意</view>
+        <view class="terms-ok {{termsChecked ? '' : 'terms-ok-disabled'}}" bindtap="agreeTerms">同意并继续</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- F-96 新用户三步引导：协议同意后首次进入全屏展示，可跳过，看过不再弹 -->
+  <view class="guide-mask" wx:if="{{guideVisible}}">
+    <view class="guide-panel">
+      <view class="guide-icon">{{guideSteps[guideStep].icon}}</view>
+      <view class="guide-title">{{guideSteps[guideStep].title}}</view>
+      <view class="guide-desc">{{guideSteps[guideStep].desc}}</view>
+      <view class="guide-dots">
+        <view class="guide-dot {{guideStep === index ? 'dot-on' : ''}}" wx:for="{{guideSteps}}" wx:key="index"></view>
+      </view>
+      <view class="guide-actions">
+        <view class="guide-skip" bindtap="skipGuide">跳过引导</view>
+        <view class="guide-next" bindtap="nextGuideStep">{{guideStep === guideSteps.length - 1 ? '开始体验' : '下一步'}}</view>
+      </view>
+    </view>
+  </view>
+
+</view>

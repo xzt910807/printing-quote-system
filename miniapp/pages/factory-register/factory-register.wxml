@@ -1,0 +1,67 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">工厂入驻注册</view>
+  </view>
+</view>
+
+<view class="container">
+
+  <!-- 注册表单 -->
+  <view wx:if="{{!success}}" class="card form-card">
+    <view class="form-title">工厂入驻注册</view>
+    <view class="form-tip">提交后由平台管理员审核，审核通过后即可使用账号登录接单</view>
+
+    <view class="field">
+      <text class="label">工厂名称 <text class="req">*</text></text>
+      <input class="input" data-field="name" value="{{form.name}}" bindinput="onInput" placeholder="如：龙港 XX 包装厂" />
+    </view>
+    <view class="field">
+      <text class="label">联系人</text>
+      <input class="input" data-field="contact" value="{{form.contact}}" bindinput="onInput" placeholder="选填" />
+    </view>
+    <view class="field">
+      <text class="label">联系电话</text>
+      <input class="input" type="number" data-field="phone" value="{{form.phone}}" bindinput="onInput" placeholder="选填" />
+    </view>
+    <view class="field">
+      <text class="label">工厂地址</text>
+      <input class="input" data-field="address" value="{{form.address}}" bindinput="onInput" placeholder="选填" />
+    </view>
+    <view class="field">
+      <text class="label">工厂简介</text>
+      <textarea class="textarea" data-field="intro" value="{{form.intro}}" bindinput="onInput" maxlength="500"
+        placeholder="主营产品、设备情况等（选填），将展示给 C 端客户" />
+    </view>
+    <view class="field">
+      <text class="label">登录账号 <text class="req">*</text></text>
+      <input class="input" data-field="username" value="{{form.username}}" bindinput="onInput" placeholder="4-50 位字母、数字或下划线" />
+    </view>
+    <view class="field">
+      <text class="label">登录密码 <text class="req">*</text></text>
+      <input class="input" password data-field="password" value="{{form.password}}" bindinput="onInput" placeholder="至少 6 位" />
+    </view>
+    <view class="field">
+      <text class="label">确认密码 <text class="req">*</text></text>
+      <input class="input" password data-field="confirm" value="{{form.confirm}}" bindinput="onInput" placeholder="再次输入密码" />
+    </view>
+
+    <button class="btn-primary submit-btn" loading="{{submitting}}" bindtap="submit">提交注册申请</button>
+  </view>
+
+  <!-- 提交成功 -->
+  <view wx:else class="card success-card">
+    <view class="success-icon">✅</view>
+    <view class="success-title">入驻申请已提交</view>
+    <view class="success-tip">您的工厂编号：<text class="code">{{code}}</text></view>
+    <block wx:if="{{bound}}">
+      <view class="success-tip">当前微信账号已关联该工厂（待审核）。审核通过后即可在「接单」页微信一键登录；也可使用注册账号密码登录</view>
+    </block>
+    <block wx:else>
+      <view class="success-tip">请等待平台管理员审核，审核通过后即可使用注册账号登录接单</view>
+    </block>
+    <button class="btn-primary submit-btn" bindtap="goLogin">返回</button>
+  </view>
+
+</view>

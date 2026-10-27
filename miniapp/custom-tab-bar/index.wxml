@@ -1,0 +1,12 @@
+<view class="tabbar">
+  <view class="tabbar-item {{selected === index ? 'on' : ''}}"
+        wx:for="{{list}}" wx:key="pagePath"
+        data-index="{{index}}" bindtap="switchTab">
+    <view class="tbi-icon">
+      <view class="ic {{item.iconClass}}"><view class="ic-a"></view></view>
+      <text class="tbi-badge" wx:if="{{index === 1 && badgeInquiry}}">{{badgeInquiry > 99 ? '99+' : badgeInquiry}}</text>
+      <text class="tbi-badge" wx:if="{{index === 3 && badgeMine}}">{{badgeMine > 99 ? '99+' : badgeMine}}</text>
+    </view>
+    <view class="tbi-text">{{item.text}}</view>
+  </view>
+</view>

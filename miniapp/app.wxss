@@ -1,0 +1,608 @@
+/* ============================================================
+   设计规范 · 清爽商务蓝
+   色板 / 字号 / 圆角阴影 / 通用组件类，各页面只引用不硬编码
+   ============================================================ */
+
+page {
+  background-color: #f4f6fa;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  color: #1e293b;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+/* button 组件默认样式重置：默认块级 + line-height:2.55 + 灰底 + 边框，会扰乱布局 */
+button {
+  padding: 0;
+  margin: 0;
+  line-height: 1.5;
+  background: none;
+  font-size: inherit;
+  box-sizing: border-box;
+}
+
+button::after { border: none; }
+
+/* ---------- 布局 ---------- */
+.container { padding: 24rpx; }
+
+/* ---------- 自定义导航栏（Stage10+：报价/接单/找厂/我的 四页统一） ---------- */
+.navbar {
+  background: #ffffff;
+  border-bottom: 2rpx solid #f1f5f9;
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 200rpx; /* 两侧留出胶囊区域，保证视觉居中不被遮挡 */
+  box-sizing: border-box;
+}
+
+.navbar-title {
+  font-size: 36rpx;
+  font-weight: 400;
+  color: #0f172a;
+  letter-spacing: 4rpx;
+}
+.row { display: flex; align-items: center; justify-content: space-between; }
+.flex1 { flex: 1; }
+.divider { height: 2rpx; background: #eef2f7; margin: 20rpx 0; }
+
+/* ---------- 文字 ---------- */
+.text-muted { color: #94a3b8; font-size: 26rpx; }
+.text-sub { color: #64748b; font-size: 26rpx; }
+.text-title { color: #0f172a; font-size: 32rpx; font-weight: 600; }
+.text-price { color: #e11d48; font-weight: 700; }
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+}
+
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 8rpx;
+  height: 30rpx;
+  border-radius: 4rpx;
+  background: linear-gradient(180deg, #4f7cff, #2563eb);
+  margin-right: 14rpx;
+}
+
+/* ---------- 按钮 ---------- */
+.btn-primary {
+  background: linear-gradient(135deg, #4f7cff 0%, #2563eb 100%);
+  color: #fff;
+  border-radius: 999rpx;
+  padding: 24rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 6rpx 16rpx rgba(37, 99, 235, 0.28);
+}
+
+.btn-primary:active { opacity: 0.88; }
+
+.btn-outline {
+  background: #fff;
+  color: #2563eb;
+  border: 2rpx solid #bfdbfe;
+  border-radius: 999rpx;
+  padding: 20rpx 24rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.btn-outline:active { background: #eff6ff; }
+
+.btn-ghost {
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 999rpx;
+  padding: 16rpx 28rpx;
+  text-align: center;
+  font-size: 26rpx;
+}
+
+.btn-primary[disabled], .btn-primary.disabled {
+  background: #cbd5e1;
+  color: #fff;
+  box-shadow: none;
+}
+
+/* ---------- 标签 chips ---------- */
+.tag {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background: #f1f5f9;
+  font-size: 26rpx;
+  color: #64748b;
+  border: 2rpx solid transparent;
+}
+
+.tag-active {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 500;
+  border-color: #2563eb;
+}
+
+/* ---------- 线性图标体系（自定义 tabBar / 菜单行共用） ----------
+   单色 currentColor 驱动：父级设 color 即整体变色；默认继承不自带灰色。
+   每个图标一个 .ic-a 主体 + 伪元素补细节，替换 emoji 图标 */
+.ic {
+  position: relative;
+  width: 40rpx;
+  height: 40rpx;
+  flex: none;
+}
+
+.ic-a { position: absolute; box-sizing: border-box; }
+
+/* 报价：剪贴板（夹条白底需容器为白色，仅用于 tabBar） */
+.ic-quote .ic-a {
+  left: 4rpx; top: 6rpx; width: 32rpx; height: 31rpx;
+  border: 3rpx solid currentColor; border-radius: 8rpx;
+}
+
+.ic-quote .ic-a::before {
+  content: ''; position: absolute; top: -8rpx; left: 50%; transform: translateX(-50%);
+  width: 15rpx; height: 10rpx; background: #fff;
+  border: 3rpx solid currentColor; border-radius: 5rpx; box-sizing: border-box;
+}
+
+.ic-quote .ic-a::after {
+  content: ''; position: absolute; top: 9rpx; left: 50%; transform: translateX(-50%);
+  width: 15rpx; height: 3rpx; background: currentColor; border-radius: 2rpx;
+  box-shadow: 0 9rpx 0 currentColor;
+}
+
+/* 接单：厂房（实心锯齿屋顶 + 三线身 + 门） */
+.ic-factory .ic-a {
+  left: 2rpx; top: 3rpx; width: 36rpx; height: 13rpx;
+  background: currentColor;
+  clip-path: polygon(0% 100%, 0% 15%, 20% 55%, 20% 15%, 40% 55%, 40% 15%, 60% 55%, 60% 15%, 80% 55%, 80% 15%, 100% 55%, 100% 100%);
+}
+
+.ic-factory::before {
+  content: ''; position: absolute; left: 2rpx; top: 16rpx; width: 36rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-top: none; box-sizing: border-box;
+}
+
+.ic-factory::after {
+  content: ''; position: absolute; left: 50%; bottom: 4rpx; transform: translateX(-50%);
+  width: 8rpx; height: 9rpx; background: currentColor; border-radius: 2rpx 2rpx 0 0;
+}
+
+/* 找厂：放大镜 */
+.ic-search .ic-a {
+  left: 3rpx; top: 3rpx; width: 20rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-radius: 50%;
+}
+
+.ic-search::after {
+  content: ''; position: absolute; left: 22rpx; top: 22rpx; width: 3rpx; height: 13rpx;
+  background: currentColor; border-radius: 2rpx; transform: rotate(45deg); transform-origin: top center;
+}
+
+/* 我的：人像（圆头 + 弧线肩） */
+.ic-mine .ic-a {
+  left: 50%; top: 2rpx; transform: translateX(-50%);
+  width: 15rpx; height: 15rpx;
+  border: 3rpx solid currentColor; border-radius: 50%;
+}
+
+.ic-mine::before {
+  content: ''; position: absolute; left: 50%; bottom: 2rpx; transform: translateX(-50%);
+  width: 32rpx; height: 16rpx;
+  border: 3rpx solid currentColor; border-bottom: none;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0; box-sizing: border-box;
+}
+
+/* 定位针（收货地址）：圆 + 直角圆角旋转成水滴 */
+.ic-pin .ic-a {
+  left: 50%; top: 4rpx; transform: translateX(-50%) rotate(-45deg);
+  width: 20rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-radius: 50% 50% 50% 0;
+}
+
+.ic-pin .ic-a::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 6rpx; height: 6rpx; background: currentColor; border-radius: 50%;
+}
+
+/* ---------- 菜单彩色圆角图标块（参考主流小程序个人中心风格） ---------- */
+.menu-ic {
+  width: 68rpx; height: 68rpx; border-radius: 20rpx;
+  display: flex; align-items: center; justify-content: center;
+  flex: none; margin-right: 22rpx;
+}
+
+.menu-ic .ic { width: 36rpx; height: 36rpx; }
+
+.menu-ic-blue { background: #eff6ff; color: #2563eb; }
+
+.menu-ic-green { background: #ecfdf5; color: #059669; }
+
+.menu-ic-orange { background: #fff7ed; color: #ea580c; }
+
+/* 灰调：弱功能入口（如 C 端用户菜单里的「我是工厂/供应商」），降低招聘感 */
+.menu-ic-gray { background: #f1f5f9; color: #94a3b8; }
+
+/* 手机（绑定手机号 / 联系方式） */
+.ic-phone .ic-a {
+  left: 50%; top: 2rpx; transform: translateX(-50%);
+  width: 22rpx; height: 36rpx;
+  border: 3rpx solid currentColor; border-radius: 6rpx;
+}
+
+.ic-phone .ic-a::before {
+  content: ''; position: absolute; top: 3rpx; left: 50%; transform: translateX(-50%);
+  width: 8rpx; height: 2.5rpx; background: currentColor; border-radius: 2rpx;
+}
+
+.ic-phone .ic-a::after {
+  content: ''; position: absolute; bottom: 3rpx; left: 50%; transform: translateX(-50%);
+  width: 10rpx; height: 3rpx; background: currentColor; border-radius: 2rpx;
+}
+
+/* 公司大楼（随询价带出的公司名） */
+.ic-building .ic-a {
+  left: 6rpx; top: 9rpx; width: 28rpx; height: 29rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx;
+}
+
+.ic-building .ic-a::before {
+  content: ''; position: absolute; top: -9rpx; left: 4rpx;
+  width: 10rpx; height: 6rpx; background: currentColor; border-radius: 2rpx 2rpx 0 0;
+}
+
+.ic-building .ic-a::after {
+  content: ''; position: absolute; top: 6rpx; left: 50%; transform: translateX(-50%);
+  width: 3rpx; height: 17rpx; background: currentColor;
+  box-shadow: -7rpx 0 0 currentColor, 7rpx 0 0 currentColor;
+}
+
+/* 麦克风（语音输入按钮） */
+.ic-mic .ic-a {
+  left: 50%; top: 2rpx; transform: translateX(-50%);
+  width: 14rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-radius: 8rpx;
+}
+
+.ic-mic::before {
+  content: ''; position: absolute; left: 50%; top: 16rpx; transform: translateX(-50%);
+  width: 24rpx; height: 13rpx;
+  border: 3rpx solid currentColor; border-top: none;
+  border-radius: 0 0 12rpx 12rpx; box-sizing: border-box;
+}
+
+.ic-mic::after {
+  content: ''; position: absolute; left: 50%; bottom: 2rpx; transform: translateX(-50%);
+  width: 3rpx; height: 7rpx; background: currentColor; border-radius: 2rpx;
+}
+
+/* 行内小图标盒：与文字同行，视觉 32rpx（40rpx 画布 × 0.8 缩放） */
+.ic-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+  flex: none;
+  vertical-align: middle;
+}
+
+.ic-inline .ic { transform: scale(0.8); }
+
+/* 登录引导顶部图标块：浅蓝圆角块 + 蓝色线性图标（工厂接单 / 我的 两处共用） */
+.login-hero-ic {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 36rpx;
+  margin: 0 auto 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.login-hero-ic .ic { transform: scale(1.7); }
+
+/* 信封（空状态：暂无询价） */
+.ic-mail .ic-a {
+  left: 2rpx; top: 9rpx; width: 36rpx; height: 26rpx;
+  border: 3rpx solid currentColor; border-radius: 6rpx;
+}
+
+.ic-mail .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: 1rpx;
+  transform: translateX(-50%) rotate(-45deg);
+  width: 14rpx; height: 14rpx;
+  border-left: 3rpx solid currentColor; border-bottom: 3rpx solid currentColor;
+  border-radius: 0 0 0 3rpx;
+}
+
+/* 纸箱（空状态：暂无订单/物流） */
+.ic-box .ic-a {
+  left: 3rpx; top: 7rpx; width: 34rpx; height: 28rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx;
+}
+
+.ic-box .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: 0; bottom: 0; transform: translateX(-50%);
+  width: 3rpx; background: currentColor;
+}
+
+.ic-box .ic-a::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 38%; height: 3rpx;
+  background: currentColor;
+}
+
+/* 铃铛（空状态：暂无消息） */
+.ic-bell .ic-a {
+  left: 50%; top: 4rpx; transform: translateX(-50%);
+  width: 22rpx; height: 19rpx;
+  background: currentColor;
+  border-radius: 12rpx 12rpx 5rpx 5rpx;
+}
+
+.ic-bell .ic-a::before {
+  content: ''; position: absolute; left: 50%; bottom: -5rpx; transform: translateX(-50%);
+  width: 28rpx; height: 4rpx; background: currentColor; border-radius: 2rpx;
+}
+
+.ic-bell .ic-a::after {
+  content: ''; position: absolute; left: 50%; bottom: -10rpx; transform: translateX(-50%);
+  width: 8rpx; height: 8rpx; background: currentColor; border-radius: 50%;
+}
+
+/* 空状态插画块：浅灰圆角块 + 灰色线性图标（替代 empty-icon 的 emoji 插画） */
+.empty-ic {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 40rpx;
+  margin: 0 auto 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #cbd5e1;
+}
+
+.empty-ic .ic { transform: scale(1.8); }
+
+/* Stage9 品类联动：当前品类不可用的工艺置灰 */
+.tag-disabled {
+  opacity: 0.35;
+}
+
+/* ---------- 徽标（状态/推荐） ---------- */
+.badge {
+  display: inline-block;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.badge-blue { background: #eff6ff; color: #2563eb; }
+.badge-green { background: #ecfdf5; color: #059669; }
+.badge-orange { background: #fff7ed; color: #d97706; }
+.badge-red { background: #fef2f2; color: #dc2626; }
+.badge-gray { background: #f1f5f9; color: #64748b; }
+/* 021 设计需求徽标（紫色系，与设计卡片同主题） */
+.badge-purple { background: #f5f3ff; color: #6d28d9; }
+
+/* ---------- 表单 ---------- */
+.label { font-size: 27rpx; color: #475569; }
+
+/* 单行 input：必须固定 height + line-height=height，否则微信端文字垂直裁切 */
+.input {
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 24rpx;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.textarea {
+  width: 100%;
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.input:focus, .textarea:focus { border-color: #93c5fd; background: #fff; }
+
+.picker-box {
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+}
+
+/* ---------- 空状态 ---------- */
+.empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 26rpx;
+  padding: 60rpx 0;
+}
+
+.empty-icon { font-size: 80rpx; display: block; margin-bottom: 16rpx; }
+
+/* ---------- 品牌渐变头 ---------- */
+.hero {
+  background: linear-gradient(135deg, #4f7cff 0%, #2563eb 55%, #1d4ed8 100%);
+  border-radius: 24rpx;
+  padding: 36rpx 32rpx;
+  color: #fff;
+  margin-bottom: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.25);
+}
+
+.hero-title { font-size: 40rpx; font-weight: 700; }
+.hero-sub { font-size: 26rpx; opacity: 0.85; margin-top: 8rpx; }
+
+/* ---------- tab 页底部避让（自定义 tabBar 内容约 104rpx + 安全区，200rpx 余量不依赖 env 混算） ----------
+   双类选择器提权：防止页面级 .page/.container 的 padding 简写覆盖 */
+.page.page-tab { padding-bottom: 200rpx; }
+.container.page-tab { padding-bottom: 200rpx; }
+
+/* ---------- 产品品类图标（报价页「我想印」模板，替换 emoji） ----------
+   与全站线性图标同款：3rpx 描边 / currentColor 驱动；热转印与纸容器为实心剪影（同铃铛先例） */
+
+/* 彩盒：盒身 + 外凸盒盖 + 缎带竖条 */
+.ic-p-gift .ic-a {
+  left: 7rpx; top: 16rpx; width: 26rpx; height: 19rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx;
+}
+
+.ic-p-gift .ic-a::before {
+  content: ''; position: absolute; left: -5rpx; top: -11rpx;
+  width: 36rpx; height: 9rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx; box-sizing: border-box;
+}
+
+.ic-p-gift .ic-a::after {
+  content: ''; position: absolute; left: 50%; top: -11rpx; bottom: 0; transform: translateX(-50%);
+  width: 3rpx; background: currentColor;
+}
+
+/* 卡片：前卡描边 + 后卡错位描边阴影 + 两行文字线 */
+.ic-p-card .ic-a {
+  left: 11rpx; top: 6rpx; width: 24rpx; height: 29rpx;
+  border: 3rpx solid currentColor; border-radius: 5rpx;
+  box-shadow: -8rpx 8rpx 0 -3rpx currentColor;
+}
+
+.ic-p-card .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: 8rpx; transform: translateX(-50%);
+  width: 12rpx; height: 3rpx; background: currentColor; border-radius: 2rpx;
+  box-shadow: 0 9rpx 0 currentColor;
+}
+
+/* 纸袋：袋身 + 半圆提手 */
+.ic-p-bag .ic-a {
+  left: 7rpx; top: 15rpx; width: 26rpx; height: 21rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx;
+}
+
+.ic-p-bag .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: -13rpx; transform: translateX(-50%);
+  width: 13rpx; height: 11rpx;
+  border: 3rpx solid currentColor; border-bottom: none;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0; box-sizing: border-box;
+}
+
+/* 不干胶：45° 标签 + 挂孔 + 中缝线 */
+.ic-p-tag .ic-a {
+  left: 9rpx; top: 9rpx; width: 20rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-radius: 5rpx;
+  transform: rotate(45deg);
+}
+
+.ic-p-tag .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: 2rpx; transform: translateX(-50%);
+  width: 5rpx; height: 5rpx; background: currentColor; border-radius: 50%;
+}
+
+.ic-p-tag .ic-a::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -30%);
+  width: 3rpx; height: 8rpx; background: currentColor; border-radius: 2rpx;
+}
+
+/* 软包装：袋身 + 上下锯齿热封边（clip-path 齿形） */
+.ic-p-pouch .ic-a {
+  left: 6rpx; top: 11rpx; width: 28rpx; height: 22rpx;
+  border: 3rpx solid currentColor; border-radius: 6rpx;
+}
+
+.ic-p-pouch .ic-a::before,
+.ic-p-pouch .ic-a::after {
+  content: ''; position: absolute; left: 1rpx; width: 22rpx; height: 6rpx;
+  background: currentColor;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 55%, 87.5% 100%, 75% 55%, 62.5% 100%, 50% 55%, 37.5% 100%, 25% 55%, 12.5% 100%, 0% 55%);
+}
+
+.ic-p-pouch .ic-a::before { top: -8rpx; }
+
+.ic-p-pouch .ic-a::after { bottom: -8rpx; }
+
+/* 无纺布袋：宽袋身 + 双提手弧（描边阴影复制） */
+.ic-p-tote .ic-a {
+  left: 5rpx; top: 16rpx; width: 30rpx; height: 20rpx;
+  border: 3rpx solid currentColor; border-radius: 4rpx;
+}
+
+.ic-p-tote .ic-a::before {
+  content: ''; position: absolute; left: 2rpx; top: -11rpx;
+  width: 9rpx; height: 9rpx;
+  border: 3rpx solid currentColor; border-bottom: none;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0; box-sizing: border-box;
+  box-shadow: 17rpx 0 0 -3rpx currentColor;
+}
+
+/* 防伪：蛋形盾 + 对勾 */
+.ic-p-shield .ic-a {
+  left: 8rpx; top: 4rpx; width: 24rpx; height: 30rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50% 50% 50% 50% / 42% 42% 58% 58%;
+}
+
+.ic-p-shield .ic-a::before {
+  content: ''; position: absolute; left: 50%; top: 11rpx; transform: translateX(-50%) rotate(-45deg);
+  width: 11rpx; height: 6rpx;
+  border-left: 3rpx solid currentColor; border-bottom: 3rpx solid currentColor;
+  border-radius: 0 0 0 3rpx;
+}
+
+/* 热转印：T 恤剪影（实心） */
+.ic-p-heat .ic-a {
+  left: 3rpx; top: 3rpx; width: 34rpx; height: 34rpx;
+  background: currentColor;
+  clip-path: polygon(32% 6%, 44% 0%, 56% 0%, 68% 6%, 94% 16%, 85% 31%, 71% 25%, 71% 100%, 29% 100%, 29% 25%, 15% 31%, 6% 16%);
+}
+
+/* 纸容器：梯形纸杯（实心） + 杯盖 */
+.ic-p-cup .ic-a {
+  left: 9rpx; top: 11rpx; width: 22rpx; height: 25rpx;
+  background: currentColor;
+  clip-path: polygon(0% 0%, 100% 0%, 80% 100%, 20% 100%);
+}
+
+.ic-p-cup .ic-a::before {
+  content: ''; position: absolute; left: -4rpx; top: -6rpx;
+  width: 30rpx; height: 5rpx; background: currentColor; border-radius: 3rpx;
+}

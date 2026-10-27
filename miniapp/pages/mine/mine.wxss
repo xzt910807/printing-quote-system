@@ -1,0 +1,454 @@
+.page { padding: 24rpx; }
+
+/* ---------- 用户 Hero ---------- */
+.user-hero { padding: 32rpx 32rpx 0; }
+
+.user-main { display: flex; align-items: center; }
+
+/* button 组件默认 display:block + line-height:2.55，必须整体重置为 flex 圆形 */
+.avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120rpx;
+  height: 120rpx;
+  line-height: 1;
+  border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  flex: none;
+  box-sizing: border-box;
+}
+
+.avatar-btn::after { border: none; }
+
+.avatar-img { width: 100%; height: 100%; }
+
+.avatar-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+}
+
+.avatar-ph .ic { transform: scale(1.5); }
+
+.user-info { flex: 1; margin-left: 24rpx; }
+
+.nickname-input {
+  height: 52rpx;
+  line-height: 52rpx;
+  padding: 0;
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: 600;
+  background: transparent;
+}
+
+.nickname-ph { color: rgba(255, 255, 255, 0.6); }
+
+.user-sub { font-size: 23rpx; opacity: 0.8; margin-top: 6rpx; }
+
+.phone-line { font-size: 25rpx; opacity: 0.9; margin-top: 10rpx; }
+
+.phone-bind {
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  color: #2563eb;
+  font-size: 22rpx;
+  font-weight: 600;
+  border-radius: 999rpx;
+  padding: 8rpx 26rpx;
+  margin-top: 14rpx;
+  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.15);
+}
+
+.logout-btn {
+  flex: none;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  border: 2rpx solid rgba(255, 255, 255, 0.4);
+  border-radius: 999rpx;
+  padding: 8rpx 26rpx;
+}
+
+/* Hero 内统计 */
+.hero-stats {
+  display: flex;
+  align-items: center;
+  margin: 28rpx -32rpx 0;
+  padding: 22rpx 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 0 0 24rpx 24rpx;
+}
+
+.hstat { flex: 1; text-align: center; }
+
+.hstat-num { font-size: 38rpx; font-weight: 700; }
+
+.hstat-label { font-size: 23rpx; opacity: 0.8; margin-top: 2rpx; }
+
+.hstat-div { width: 2rpx; height: 44rpx; background: rgba(255, 255, 255, 0.25); }
+
+/* ---------- 登录引导 ---------- */
+.login-hero { text-align: center; padding: 48rpx 32rpx; }
+
+.login-title { font-size: 32rpx; font-weight: 600; margin-top: 16rpx; }
+
+.login-sub { font-size: 25rpx; opacity: 0.85; margin-top: 8rpx; }
+
+.login-btn {
+  display: inline-block;
+  margin-top: 28rpx;
+  background: #fff;
+  color: #2563eb;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 999rpx;
+  padding: 18rpx 72rpx;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.12);
+}
+
+.login-btn:active { opacity: 0.88; }
+
+.login-tip { font-size: 23rpx; opacity: 0.7; margin-top: 18rpx; }
+
+/* ---------- Tab 栏 ---------- */
+.tab-bar {
+  display: flex;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.05);
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #64748b;
+  border-radius: 999rpx;
+}
+
+.tab-active {
+  background: linear-gradient(135deg, #4f7cff, #2563eb);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tab-num {
+  display: inline-block;
+  min-width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 20rpx;
+  margin-left: 8rpx;
+  padding: 0 6rpx;
+}
+
+/* ---------- 询价/订单卡片 ---------- */
+.inq-card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 26rpx 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.inq-no { font-size: 24rpx; color: #94a3b8; }
+
+.inq-main { margin-top: 14rpx; }
+
+.inq-desc { font-size: 29rpx; font-weight: 500; color: #0f172a; }
+
+.inq-price { font-size: 30rpx; font-weight: 700; color: #e11d48; }
+.inq-subfee { font-size: 23rpx; color: #d97706; margin-top: 8rpx; }
+
+.inq-time { font-size: 23rpx; color: #94a3b8; margin-top: 10rpx; }
+
+.inq-actions { display: flex; gap: 16rpx; margin-top: 18rpx; }
+
+.inq-btn { flex: 1; font-size: 25rpx; padding: 12rpx 0; }
+
+.inq-call { color: #2563eb; }
+
+/* ---------- 订单进度时间线 ---------- */
+.mini-steps {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 22rpx;
+  padding: 18rpx 8rpx;
+  background: #f8fafc;
+  border-radius: 14rpx;
+}
+
+.ms { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+
+.ms-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #e2e8f0;
+}
+
+.ms-on .ms-dot { background: #2563eb; box-shadow: 0 0 0 6rpx rgba(37, 99, 235, 0.15); }
+
+.ms-label { font-size: 21rpx; color: #94a3b8; margin-top: 8rpx; }
+
+.ms-on .ms-label { color: #2563eb; font-weight: 500; }
+
+.ms::after {
+  content: '';
+  position: absolute;
+  top: 8rpx;
+  left: calc(50% + 14rpx);
+  width: calc(100% - 28rpx);
+  height: 2rpx;
+  background: #e2e8f0;
+}
+
+.ms:last-child::after { display: none; }
+
+.ms-on::after { background: #2563eb; }
+
+/* ---------- 订单操作 ---------- */
+.order-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18rpx;
+}
+
+.pay-state { font-size: 24rpx; color: #d97706; }
+
+.pay-paid { color: #059669; }
+
+.order-btns { display: flex; gap: 14rpx; }
+
+.btn-mini {
+  font-size: 25rpx;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999rpx;
+  padding: 10rpx 28rpx;
+}
+
+.btn-mini-primary { background: #2563eb; color: #fff; }
+
+.btn-pay { background: #fff7ed; color: #d97706; }
+
+/* ---------- 消息 ---------- */
+.msg-tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8rpx 16rpx;
+}
+
+.msg-unread-text { font-size: 25rpx; color: #94a3b8; }
+
+.msg-allread { font-size: 25rpx; color: #2563eb; }
+
+.msg-card {
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 24rpx 26rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.04);
+}
+
+.msg-card-unread { border-left: 6rpx solid #2563eb; }
+
+.msg-title { font-size: 28rpx; font-weight: 600; color: #0f172a; }
+
+.msg-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #ef4444; }
+
+.msg-content { font-size: 26rpx; color: #475569; margin-top: 8rpx; }
+
+.msg-time { font-size: 22rpx; color: #94a3b8; margin-top: 10rpx; }
+
+/* ---------- stage14 收货地址/我是工厂入口（独立卡片行 + 彩色图标块） ---------- */
+.menu-card { padding: 4rpx 28rpx; margin-bottom: 16rpx; }
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22rpx 0;
+}
+
+.menu-row-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+
+/* 身份卡标题允许超长省略（工厂名可能很长），副标题同理单行截断 */
+.menu-row-label {
+  font-size: 30rpx;
+  color: #1e293b;
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 沟通消息入口未读徽标 */
+.chat-badge {
+  margin-left: 12rpx;
+  min-width: 34rpx;
+  height: 34rpx;
+  line-height: 34rpx;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  background: #dc2626;
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+  flex: none;
+}
+
+/* 右箭头：细 chevron，替代字体 › */
+.menu-arrow {
+  width: 14rpx;
+  height: 14rpx;
+  border-top: 3rpx solid #cbd5e1;
+  border-right: 3rpx solid #cbd5e1;
+  transform: rotate(45deg);
+  flex: none;
+}
+
+/* 统一工厂身份卡：白底与整体菜单卡一致，绿点标识"已登录在线"（未登录/未入驻不显示绿点） */
+.fac-info { display: flex; flex-direction: column; min-width: 0; }
+.fac-sub { display: flex; align-items: center; font-size: 24rpx; color: #64748b; margin-top: 4rpx; }
+.fac-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #22c55e; margin-right: 10rpx; flex: none; }
+.fac-logout { font-size: 26rpx; color: #94a3b8; padding: 8rpx 0 8rpx 24rpx; flex: none; }
+
+/* 同一菜单卡内的多行之间加细分隔线（收货地址 / 我是工厂 两行版式） */
+.menu-row + .menu-row { border-top: 1rpx solid #f1f5f9; }
+
+/* 列表搜索框（与找厂页同款） */
+.search-bar { padding: 16rpx 0 4rpx; }
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 0 28rpx;
+  height: 72rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.search-icon {
+  display: flex;
+  align-items: center;
+  margin-right: 14rpx;
+  color: #94a3b8;
+}
+
+.search-input { flex: 1; font-size: 27rpx; color: #0f172a; height: 72rpx; }
+
+.search-ph { color: #94a3b8; font-size: 27rpx; }
+
+.search-clear {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 22rpx;
+  flex: none;
+}
+
+/* 列表卡片的工厂名行：可点击进工厂详情；wait 态为未匹配灰字 */
+.inq-factory-row {
+  display: inline-block;
+  font-size: 25rpx;
+  color: #2563eb;
+  margin-top: 12rpx;
+  background: #eff6ff;
+  border-radius: 10rpx;
+  padding: 6rpx 16rpx;
+}
+
+.inq-factory-wait { color: #94a3b8; background: #f8fafc; }
+
+/* 订单卡片里的内联工厂名（保留旧引用） */
+.inq-factory { color: #2563eb; }
+
+/* ---------- F-103 公司名称 ---------- */
+.company-line { display: flex; align-items: center; }
+
+.company-empty { color: rgba(255, 255, 255, 0.75); }
+
+/* ---------- F-70 订单评分 ---------- */
+.rate-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.rate-stars { font-size: 26rpx; color: #f59e0b; letter-spacing: 2rpx; }
+
+.rate-label { font-size: 22rpx; color: #94a3b8; }
+
+.btn-rate { background: #fef3c7; color: #d97706; }
+
+.btn-refund { background: #fef2f2; color: #dc2626; }
+
+/* ---------- F-97 空状态 CTA ----------
+   flex 纵向居中：text-align 方案下图标块/文字/按钮挤在一行（inline 流），改为列布局 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 40rpx;
+  color: #94a3b8;
+  font-size: 27rpx;
+  line-height: 1.7;
+}
+
+.empty-icon { display: block; font-size: 70rpx; margin-bottom: 16rpx; }
+
+.empty-cta {
+  display: inline-block;
+  margin-top: 24rpx;
+  padding: 14rpx 48rpx;
+  border-radius: 999rpx;
+  background: #2563eb;
+  color: #fff;
+  font-size: 27rpx;
+}
+
+/* ---------- 017 工厂正式报价卡（我的询价） ---------- */
+.quote-box {
+  margin-top: 16rpx;
+  border: 2rpx solid #fed7aa;
+  background: #fffbeb;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+
+.qb-row { display: flex; justify-content: space-between; align-items: baseline; }
+
+.qb-label { font-size: 26rpx; color: #92400e; }
+
+.qb-price { font-size: 40rpx; font-weight: 700; color: #ea580c; }
+
+.qb-remark { font-size: 24rpx; color: #92400e; line-height: 1.6; margin-top: 8rpx; }
+
+.qb-valid { font-size: 22rpx; color: #b45309; margin-top: 10rpx; }
+
+.qb-valid.qb-expired { color: #dc2626; }
+
+.qb-confirm { text-align: center; margin-top: 18rpx; padding: 16rpx 0; font-size: 28rpx; }

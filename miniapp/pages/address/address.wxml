@@ -1,0 +1,57 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">收货地址</view>
+  </view>
+</view>
+
+<view class="page">
+
+  <!-- 地址列表 -->
+  <view class="empty" wx:if="{{!loading && !addresses.length}}">
+    <view class="empty-ic"><view class="ic ic-pin"><view class="ic-a"></view></view></view>
+    暂无收货地址，点击下方按钮添加
+  </view>
+
+  <view class="card addr-card" wx:for="{{addresses}}" wx:key="id">
+    <view class="addr-head">
+      <text class="addr-name">{{item.contact_name}}</text>
+      <text class="addr-phone">{{item.contact_phone}}</text>
+      <text class="badge badge-green" wx:if="{{item.is_default}}">默认</text>
+    </view>
+    <view class="addr-detail">{{item.province}}{{item.city}}{{item.district}}{{item.detail_address}}</view>
+    <view class="addr-actions">
+      <view class="btn-ghost addr-btn" wx:if="{{!item.is_default}}" data-id="{{item.id}}" catchtap="setDefault">设为默认</view>
+      <view class="btn-ghost addr-btn" data-id="{{item.id}}" catchtap="openForm">编辑</view>
+      <view class="btn-ghost addr-btn addr-del" data-id="{{item.id}}" catchtap="removeAddress">删除</view>
+    </view>
+  </view>
+
+  <view class="addr-add btn-primary" bindtap="openForm" wx:if="{{!showForm}}">+ 新增收货地址</view>
+
+  <!-- 新增 / 编辑表单弹层 -->
+  <view class="mask" wx:if="{{showForm}}" catchtap="closeForm">
+    <view class="sheet" catchtap="noop">
+      <view class="sheet-title">{{form.id ? '编辑地址' : '新增地址'}}</view>
+      <input class="input" placeholder="联系人姓名" value="{{form.contactName}}" data-field="contactName" bindinput="onFieldInput" />
+      <input class="input" type="number" maxlength="11" placeholder="手机号" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onFieldInput" />
+      <!-- stage14 省市区三级联动（内置数据 regions.js，multiSelector 联动刷新） -->
+      <picker mode="multiSelector" range="{{regionRange}}" value="{{regionIndex}}"
+              bindchange="onRegionChange" bindcolumnchange="onRegionColumnChange">
+        <view class="input region-display {{regionText ? '' : 'region-placeholder'}}">{{regionText || '省 / 市 / 区'}}</view>
+      </picker>
+      <textarea class="input textarea addr-textarea" placeholder="详细地址（街道、门牌号等）"
+                value="{{form.detailAddress}}" data-field="detailAddress" bindinput="onFieldInput" />
+      <view class="default-row">
+        <text>设为默认地址</text>
+        <switch checked="{{form.isDefault}}" color="#2563eb" bindchange="onDefaultChange" />
+      </view>
+      <view class="sheet-actions">
+        <view class="btn-outline sheet-btn" catchtap="closeForm">取消</view>
+        <view class="btn-primary sheet-btn" catchtap="saveAddress">保存</view>
+      </view>
+    </view>
+  </view>
+
+</view>

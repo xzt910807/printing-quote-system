@@ -1,0 +1,273 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">我的工厂</view>
+  </view>
+</view>
+
+<view class="container">
+
+  <!-- 工厂头部 -->
+  <view class="card header-card">
+    <view class="factory-name">{{factoryInfo.name}}</view>
+    <view class="factory-sub">编号 {{factoryInfo.code}} · 账号 {{factoryInfo.username}}</view>
+  </view>
+
+  <!-- 分区导航：点击切换分区，只展示当前分区（选中项高亮） -->
+  <view class="sec-nav">
+    <view class="sec-nav-item {{section === 'profile' ? 'sec-on' : ''}}" data-section="profile" bindtap="switchSection">资料</view>
+    <view class="sec-nav-item {{section === 'price' ? 'sec-on' : ''}}" data-section="price" bindtap="switchSection">价格</view>
+    <view class="sec-nav-item {{section === 'cap' ? 'sec-on' : ''}}" data-section="cap" bindtap="switchSection">能力</view>
+    <view class="sec-nav-item {{section === 'trust' ? 'sec-on' : ''}}" data-section="trust" bindtap="switchSection">档案</view>
+    <view class="sec-nav-item {{section === 'staff' ? 'sec-on' : ''}}" wx:if="{{canManageStaff}}" data-section="staff" bindtap="switchSection">员工</view>
+    <view class="sec-nav-item {{section === 'account' ? 'sec-on' : ''}}" data-section="account" bindtap="switchSection">账号</view>
+  </view>
+
+  <!-- ===== 资料分区：基本资料 + 专属二维码 ===== -->
+  <block wx:if="{{section === 'profile'}}">
+    <!-- 基本资料 -->
+    <view class="card">
+      <view class="card-title">基本资料</view>
+      <view class="field">
+        <text class="label">联系人</text>
+        <input class="input" data-field="contact" value="{{profile.contact}}" bindinput="onProfileInput" placeholder="选填" />
+      </view>
+      <view class="field">
+        <text class="label">联系电话</text>
+        <input class="input" type="number" data-field="phone" value="{{profile.phone}}" bindinput="onProfileInput" placeholder="选填" />
+      </view>
+      <view class="field">
+        <text class="label">工厂地址</text>
+        <input class="input" data-field="address" value="{{profile.address}}" bindinput="onProfileInput" placeholder="选填" />
+      </view>
+      <view class="field">
+        <text class="label">工厂简介（将展示给找厂客户）</text>
+        <textarea class="textarea" data-field="intro" value="{{profile.intro}}" bindinput="onProfileInput" maxlength="500" placeholder="主营产品、设备情况等" />
+      </view>
+      <button class="btn-primary card-btn" bindtap="saveProfile">保存资料</button>
+    </view>
+
+    <!-- F-102 我的专属二维码：客户扫码直达我厂询价页，不走平台撮合 -->
+    <view class="card qr-card" bindtap="openQrcode">
+      <view class="qr-row">
+        <view class="qr-info">
+          <view class="qr-title"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>我的专属二维码</view>
+          <view class="qr-desc">客户微信扫码后直接进入向你厂询价的页面，不走平台撮合；发给老客户或印在名片上</view>
+        </view>
+        <image class="qr-thumb" src="{{qrcodeUrl}}" mode="aspectFit" wx:if="{{qrcodeUrl}}" />
+        <view class="qr-thumb qr-placeholder" wx:else>›</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ===== 价格分区：价格体系 + 价格覆盖（+无权限只读提示） ===== -->
+  <block wx:if="{{section === 'price'}}">
+    <!-- 价格体系（F-25：仅老板/主管 price:edit 可见可编） -->
+    <view class="card" wx:if="{{canEditPrice}}">
+      <view class="card-title">价格体系</view>
+      <view class="field">
+        <text class="label">默认毛利率（%）</text>
+        <input class="input" type="digit" data-field="marginPct" value="{{pricing.marginPct}}" bindinput="onPricingInput" />
+      </view>
+      <view class="field">
+        <text class="label">税率（%）</text>
+        <input class="input" type="digit" data-field="taxRatePct" value="{{pricing.taxRatePct}}" bindinput="onPricingInput" />
+      </view>
+      <view class="field">
+        <text class="label">损耗率（%）</text>
+        <input class="input" type="digit" data-field="wasteRatePct" value="{{pricing.wasteRatePct}}" bindinput="onPricingInput" />
+      </view>
+      <button class="btn-primary card-btn" bindtap="savePricing">保存定价</button>
+    </view>
+
+    <!-- 价格覆盖（F-25：仅老板/主管 price:edit） -->
+    <view class="card" wx:if="{{canEditPrice}}">
+      <view class="card-title">价格覆盖（按材料 / 工艺定制单价）</view>
+
+      <view class="ov-form">
+        <picker class="picker" range="{{overrideTypeNames}}" value="{{newOverride.typeIndex}}" bindchange="onOverrideTypeChange">
+          <view class="picker-box">{{overrideTypeNames[newOverride.typeIndex]}}</view>
+        </picker>
+        <picker class="picker" range="{{overrideFieldNames}}" value="{{newOverride.fieldIndex}}" bindchange="onOverrideFieldChange">
+          <view class="picker-box">{{overrideFieldNames[newOverride.fieldIndex]}}</view>
+        </picker>
+      </view>
+      <view class="ov-form">
+        <picker class="picker" range="{{codeNames}}" value="{{newOverride.codeIndex}}" bindchange="onOverrideCodeChange">
+          <view class="picker-box">{{codeNames[newOverride.codeIndex] || '选择编码'}}</view>
+        </picker>
+        <input class="input flex1" type="digit" data-field="fieldValue" value="{{newOverride.fieldValue}}" bindinput="onNewOverrideInput" placeholder="{{fieldUnit ? '数值（' + fieldUnit + '）' : '数值'}}" />
+        <view class="mini-btn" bindtap="addOverride">添加</view>
+      </view>
+
+      <view class="ov-item" wx:for="{{overrides}}" wx:key="key">
+        <view class="ov-main">
+          <text class="ov-title">{{item.typeName}} · {{item.codeLabel}}</text>
+          <text class="ov-sub">{{item.fieldLabel}}：{{item.fieldValue}}</text>
+        </view>
+        <text class="ov-del" data-t-type="{{item.targetType}}" data-t-code="{{item.targetCode}}" data-f-name="{{item.fieldName}}" catchtap="removeOverride">删除</text>
+      </view>
+      <view wx:if="{{overrides.length === 0}}" class="empty">暂无覆盖，使用平台默认价</view>
+    </view>
+
+    <!-- 无价格编辑权限（业务员/财务/设计/查看者）：只读提示 -->
+    <view class="card" wx:if="{{!canEditPrice}}">
+      <view class="card-title">价格体系</view>
+      <view class="empty">价格设置仅老板 / 主管可操作，如需调整请联系管理员</view>
+    </view>
+  </block>
+
+  <!-- ===== 能力分区：生产能力（用于询价派单匹配） ===== -->
+  <block wx:if="{{section === 'cap'}}">
+    <view class="card">
+      <view class="card-title">生产能力（用于询价派单匹配）</view>
+      <view class="cap-group" wx:for="{{capTypes}}" wx:for-item="ct" wx:key="*this">
+        <view class="cap-label">{{capLabels[ct]}}</view>
+        <view class="cap-list">
+          <view class="cap-item {{o.on ? 'on' : ''}}"
+                wx:for="{{capView[ct]}}" wx:for-item="o" wx:key="code"
+                data-type="{{ct}}" data-code="{{o.code}}" bindtap="toggleCap">{{o.name}}</view>
+        </view>
+      </view>
+      <button class="btn-primary card-btn" bindtap="saveCaps">保存能力</button>
+    </view>
+  </block>
+
+  <!-- ===== 027 档案分区：闲置产能 + 设备图文（印查查式工厂画像） ===== -->
+  <block wx:if="{{section === 'trust'}}">
+    <!-- 闲置产能：填报后 72h 内有效，空闲厂优先被撮合推单 -->
+    <view class="card">
+      <view class="card-title">闲置产能</view>
+      <view class="trust-tip">如实填报产能状态，「产能空闲」的工厂会被平台优先推单；超 3 天未更新自动失效。</view>
+      <view class="cap-list" style="margin-top:16rpx">
+        <view class="cap-item {{capacity.status === o.code ? 'on' : ''}}"
+              wx:for="{{capacityOptions}}" wx:for-item="o" wx:key="code"
+              data-code="{{o.code}}" bindtap="pickCapacity">{{o.name}}</view>
+      </view>
+      <view class="trust-sub" wx:if="{{capacityUpdatedAt}}">上次填报：{{capacityUpdatedAt}}</view>
+      <view class="field" style="margin-top:16rpx">
+        <text class="label">产能备注（选填，展示给客户）</text>
+        <input class="input" data-field="note" maxlength="100" value="{{capacity.note}}" bindinput="onCapNoteInput" placeholder="如：本周可接加急单 / 模切档期已满" />
+      </view>
+      <button class="btn-primary card-btn" bindtap="saveCapacity">保存产能状态</button>
+    </view>
+
+    <!-- 设备图文：客户工厂详情页图集（最多 9 张，上传即展示） -->
+    <view class="card">
+      <view class="card-title">设备图文（{{media.length}}/{{mediaMax}}）</view>
+      <view class="trust-tip">上传设备、车间、样品实拍，展示在工厂详情页图集，提升客户信任与成单率。</view>
+      <view class="media-grid" style="margin-top:16rpx">
+        <view class="media-item" wx:for="{{media}}" wx:key="id">
+          <image class="media-img" src="{{apiBase + item.url}}" mode="aspectFill" data-url="{{item.url}}" bindtap="previewMedia" />
+          <view class="media-cap" wx:if="{{item.caption}}">{{item.caption}}</view>
+          <view class="media-del" data-id="{{item.id}}" catchtap="removeMedia">×</view>
+          <view class="media-audit media-audit-{{item.audit_status}}" wx:if="{{item.audit_status !== 'approved'}}">{{item.audit_status === 'pending' ? '待审' : '已驳回'}}</view>
+        </view>
+        <view class="media-add" wx:if="{{media.length < mediaMax}}" bindtap="addMedia">＋
+          <text class="media-add-txt">添加图片</text>
+        </view>
+      </view>
+      <view class="field" style="margin-top:20rpx">
+        <text class="label">新图类型</text>
+        <picker range="{{mediaTypeOptions}}" range-key="name" value="{{mediaTypeIndex}}" bindchange="onMediaTypeChange">
+          <view class="picker-box">{{mediaTypeOptions[mediaTypeIndex].name}}</view>
+        </picker>
+      </view>
+      <view class="trust-sub">图注在点「添加图片」选图后填写；违规图会被平台驳回下架。</view>
+    </view>
+  </block>
+
+  <!-- ===== 员工分区（仅老板可见，F-152~F-159 简版） ===== -->
+  <block wx:if="{{section === 'staff'}}">
+    <!-- 员工管理 -->
+    <view class="card" wx:if="{{canManageStaff}}">
+      <view class="card-title">员工管理（业务员等子账号）</view>
+
+      <view class="ov-item" wx:for="{{staff}}" wx:key="id">
+        <view class="ov-main">
+          <text class="ov-title">{{item.real_name || item.username}} · {{item.roleText}}</text>
+          <text class="ov-sub">账号 {{item.username}} · {{item.status ? '启用' : '禁用'}}</text>
+        </view>
+        <view
+          wx:if="{{item.role !== 'owner'}}"
+          class="mini-btn {{item.status ? 'danger' : ''}}"
+          data-id="{{item.id}}"
+          data-name="{{item.real_name || item.username}}"
+          data-status="{{item.status}}"
+          catchtap="toggleStaffStatus">{{item.status ? '禁用' : '启用'}}</view>
+        <text wx:else class="ov-sub">老板</text>
+      </view>
+      <view wx:if="{{staff.length === 0}}" class="empty">暂无员工</view>
+
+      <view class="field">
+        <text class="label">登录账号</text>
+        <input class="input" data-field="username" value="{{newStaff.username}}" bindinput="onNewStaffInput" placeholder="4-50 位字母、数字或下划线" />
+      </view>
+      <view class="field">
+        <text class="label">初始密码</text>
+        <input class="input" password data-field="password" value="{{newStaff.password}}" bindinput="onNewStaffInput" placeholder="至少 6 位" />
+      </view>
+      <view class="field">
+        <text class="label">姓名（选填）</text>
+        <input class="input" data-field="realName" value="{{newStaff.realName}}" bindinput="onNewStaffInput" placeholder="真实姓名" />
+      </view>
+      <view class="field">
+        <text class="label">角色</text>
+        <picker range="{{staffRoleNames}}" value="{{newStaff.roleIndex}}" bindchange="onStaffRoleChange">
+          <view class="picker-box">{{staffRoleNames[newStaff.roleIndex]}}</view>
+        </picker>
+      </view>
+      <button class="btn-primary card-btn" bindtap="addStaff">添加员工</button>
+      <view class="empty" style="margin-top:8px">编辑角色 / 重置密码 / 删除请在电脑端管理后台操作</view>
+    </view>
+  </block>
+
+  <!-- ===== 账号分区：微信一键登录绑定 + 修改密码 ===== -->
+  <block wx:if="{{section === 'account'}}">
+    <!-- 021 微信一键登录绑定：员工账号密码登录后自助绑定，之后接单页可微信一键进入 -->
+    <view class="card">
+      <view class="card-title">微信一键登录</view>
+      <view class="wxbind-row">
+        <view class="wxbind-info">
+          <view class="wxbind-status {{wxBound ? 'wxbind-on' : ''}}">{{wxBound ? '已绑定' : '未绑定'}}</view>
+          <view class="wxbind-tip">绑定后，接单页可用本微信一键登录账号「{{auth.username}}」，免输密码</view>
+        </view>
+        <button wx:if="{{!wxBound}}" class="btn-primary wxbind-btn" loading="{{wxBinding}}" bindtap="bindWx">绑定微信</button>
+        <button wx:else class="btn-outline wxbind-btn" bindtap="unbindWx">解绑</button>
+      </view>
+    </view>
+
+    <!-- 修改密码 -->
+    <view class="card">
+      <view class="card-title">修改密码</view>
+      <view class="field">
+        <text class="label">原密码</text>
+        <input class="input" password data-field="old" value="{{pwd.old}}" bindinput="onPwdInput" />
+      </view>
+      <view class="field">
+        <text class="label">新密码（至少 6 位）</text>
+        <input class="input" password data-field="n1" value="{{pwd.n1}}" bindinput="onPwdInput" />
+      </view>
+      <view class="field">
+        <text class="label">确认新密码</text>
+        <input class="input" password data-field="n2" value="{{pwd.n2}}" bindinput="onPwdInput" />
+      </view>
+      <button class="btn-primary card-btn" bindtap="savePwd">修改密码</button>
+    </view>
+  </block>
+
+  <!-- F-102 二维码弹层：大图展示 + 保存到相册（长按图片可转发/识别） -->
+  <view class="qr-mask" wx:if="{{qrVisible}}" bindtap="closeQrcode">
+    <view class="qr-panel" catchtap="">
+      <view class="qr-panel-title">我的专属二维码</view>
+      <image class="qr-image" src="{{qrcodeUrl}}" mode="aspectFit" wx:if="{{qrcodeUrl}}" show-menu-by-longpress />
+      <view class="qr-loading" wx:elif="{{qrLoading}}">正在生成...</view>
+      <view class="qr-loading" wx:else>二维码暂不可用</view>
+      <view class="qr-tip">{{qrcodeTip || '客户扫码后直接向你厂询价'}}</view>
+      <button class="btn-primary qr-save" bindtap="saveQrcode" wx:if="{{qrcodeUrl}}">保存图片到相册</button>
+      <view class="qr-close" bindtap="closeQrcode">关闭</view>
+    </view>
+  </view>
+
+</view>

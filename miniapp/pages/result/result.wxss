@@ -1,0 +1,396 @@
+/* 返回按钮（自定义导航栏） */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- 报价 Hero 卡 ---------- */
+.price-hero { text-align: center; padding: 40rpx 32rpx 36rpx; }
+
+.price-label { font-size: 26rpx; opacity: 0.85; }
+
+.price-main { margin: 12rpx 0 8rpx; }
+
+.price-main .unit { font-size: 36rpx; font-weight: 600; opacity: 0.9; }
+.price-main .num { font-size: 88rpx; font-weight: 700; line-height: 1.1; }
+.price-main .suffix { font-size: 28rpx; opacity: 0.85; }
+
+.price-total { font-size: 26rpx; opacity: 0.9; margin-bottom: 10rpx; }
+.price-notice { font-size: 22rpx; opacity: 0.75; margin-bottom: 8rpx; }
+.price-valid { font-size: 22rpx; opacity: 0.75; margin-bottom: 28rpx; }
+.price-valid-expired { color: #fef2f2; opacity: 1; font-weight: 600; }
+
+/* ---------- 进度时间线 ---------- */
+.steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin-top: 10rpx;
+}
+
+.step {
+  flex: 1;
+  max-width: 180rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.step-dot {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  margin-bottom: 10rpx;
+}
+
+.step-on .step-dot { background: #fff; box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15); }
+
+.step-label { font-size: 24rpx; opacity: 0.75; }
+.step-on .step-label { opacity: 1; font-weight: 600; }
+
+.step-line {
+  position: absolute;
+  top: 32rpx;
+  left: calc(50% + 36rpx);
+  width: calc(100% - 72rpx);
+  height: 4rpx;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.step-on .step-line { background: #fff; }
+
+.rejected-tip {
+  margin-top: 16rpx;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  font-size: 25rpx;
+}
+
+/* F-12：拒单后重新选厂引导 */
+.reselect-tip {
+  padding: 20rpx 28rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+  background: #fff7e6;
+  border: 2rpx solid #ffd591;
+  color: #ad6800;
+}
+
+/* ---------- 状态横幅 ---------- */
+.status-banner {
+  display: block;
+  padding: 20rpx 28rpx;
+  border-radius: 16rpx;
+  font-size: 27rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 指定工厂被能力校验拒绝时的提示条（stage12） */
+.prefer-reject-tip {
+  padding: 20rpx 28rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+  background: #fff7e6;
+  border: 2rpx solid #ffd591;
+  color: #ad6800;
+}
+
+/* ---------- 成本拆解 ---------- */
+.breakdown-item { padding: 14rpx 0; border-bottom: 2rpx dashed #f1f5f9; }
+.breakdown-item:last-child { border-bottom: none; }
+
+.bd-name { font-size: 27rpx; color: #334155; }
+.bd-cost { font-size: 27rpx; color: #0f172a; font-weight: 600; }
+.bd-detail { font-size: 23rpx; color: #94a3b8; margin-top: 4rpx; }
+
+/* ---------- 工厂卡片（F-07 无价格） ---------- */
+.factory-card {
+  background: #f8fafc;
+  border: 2rpx solid #eef2f7;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  margin-bottom: 18rpx;
+}
+
+.fc-head { display: flex; align-items: flex-start; gap: 18rpx; }
+
+.fc-avatar {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 16rpx;
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fc-logo {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  background: #e2e8f0;
+}
+
+.fc-info { flex: 1; min-width: 0; }
+
+.fc-name-wrap { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; }
+
+.factory-name { font-size: 30rpx; font-weight: 600; color: #0f172a; }
+
+.fc-addr { font-size: 24rpx; color: #94a3b8; margin: 8rpx 0; }
+
+.fc-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 16rpx; font-size: 23rpx; color: #64748b; }
+.fc-star { color: #d97706; font-weight: 600; }
+.fc-stat-item { color: #64748b; }
+
+.fc-tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 12rpx; }
+.tag {
+  font-size: 22rpx;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 8rpx;
+  padding: 4rpx 14rpx;
+}
+
+.fc-actions { margin-top: 18rpx; }
+
+.fc-btn { font-size: 26rpx; padding: 14rpx 0; text-align: center; }
+
+.fc-done { color: #059669; font-size: 26rpx; font-weight: 500; }
+
+/* ---------- 联系方式 ---------- */
+.fc-item { font-size: 28rpx; color: #334155; padding: 12rpx 0; }
+
+.refresh-btn { margin-top: 20rpx; }
+
+.footnote {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 24rpx;
+  margin: 10rpx 0 30rpx;
+}
+
+/* ---------- 弹窗通用 ---------- */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-panel {
+  width: 640rpx;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.qm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.qm-title { font-size: 30rpx; font-weight: 600; color: #0f172a; }
+.qm-close { font-size: 32rpx; color: #94a3b8; padding: 0 8rpx; }
+
+.qm-loading { text-align: center; color: #64748b; font-size: 27rpx; padding: 60rpx 0; }
+
+.qm-error-box { text-align: center; padding: 30rpx 0 10rpx; }
+.qm-error-text { font-size: 28rpx; color: #b91c1c; }
+.qm-error-tip { font-size: 24rpx; color: #64748b; margin-top: 12rpx; }
+.qm-error-btn { margin-top: 30rpx; text-align: center; }
+
+/* ---------- 报价弹窗内容（F-08） ---------- */
+.qm-price { text-align: center; padding: 10rpx 0 24rpx; border-bottom: 2rpx dashed #f1f5f9; }
+
+.qm-unit { font-size: 26rpx; color: #64748b; }
+.qm-total { font-size: 72rpx; font-weight: 700; color: #0f172a; line-height: 1.2; margin: 6rpx 0; }
+.qm-tax { font-size: 24rpx; color: #94a3b8; }
+
+.qm-diff {
+  display: inline-block;
+  font-size: 24rpx;
+  border-radius: 999rpx;
+  padding: 8rpx 24rpx;
+  margin-top: 16rpx;
+  background: #f1f5f9;
+  color: #475569;
+}
+.diff-up { background: #fff7ed; color: #c2410c; }
+.diff-down { background: #ecfdf5; color: #047857; }
+.diff-flat { background: #f1f5f9; color: #475569; }
+
+.qm-valid { font-size: 23rpx; color: #d97706; margin-top: 14rpx; }
+
+.qm-bd-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 27rpx;
+  color: #334155;
+  font-weight: 600;
+  padding: 24rpx 0 8rpx;
+}
+
+.qm-bd { padding-bottom: 8rpx; }
+
+.qm-contact {
+  border-top: 2rpx dashed #f1f5f9;
+  margin-top: 16rpx;
+  padding-top: 8rpx;
+}
+
+.qm-actions { display: flex; gap: 20rpx; margin-top: 28rpx; }
+.qm-cancel { flex: 1; text-align: center; padding: 18rpx 0; }
+.qm-confirm { flex: 2; text-align: center; padding: 18rpx 0; }
+.btn-disabled { opacity: 0.5; }
+
+.qm-actions-done { text-align: center; font-size: 24rpx; color: #94a3b8; margin-top: 28rpx; }
+
+/* ---------- 手机号弹窗（F-11）：顶部图标 + 微信授权主按钮 + 手动输入次级 ---------- */
+.phone-panel { text-align: center; padding: 48rpx 40rpx 36rpx; }
+
+.pm-ic {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  margin: 0 auto 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  box-shadow: 0 6rpx 16rpx rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.pm-ic .ic { transform: scale(1.3); }
+
+.pm-title { font-size: 32rpx; font-weight: 600; color: #0f172a; }
+
+.pm-tip { font-size: 24rpx; color: #64748b; line-height: 1.7; margin: 16rpx 0 32rpx; }
+
+.pm-wxbtn {
+  background: #07c160;
+  color: #fff;
+  font-size: 29rpx;
+  font-weight: 500;
+  border-radius: 999rpx;
+  padding: 20rpx 0;
+}
+
+.pm-wxbtn::after { border: none; }
+
+.pm-divider {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: 32rpx 0;
+  color: #94a3b8;
+  font-size: 22rpx;
+}
+
+.pm-divider::before,
+.pm-divider::after {
+  content: '';
+  flex: 1;
+  height: 2rpx;
+  background: #f1f5f9;
+}
+
+.pm-input {
+  background: #f8fafc;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 16rpx;
+  padding: 18rpx 28rpx;
+  font-size: 30rpx;
+  text-align: left;
+  margin-bottom: 24rpx;
+}
+
+.pm-confirm { padding: 20rpx 0; text-align: center; }
+
+.pm-cancel { margin-top: 24rpx; font-size: 26rpx; color: #94a3b8; padding: 8rpx; }
+
+/* ---------- 017 工厂正式报价确认卡 ---------- */
+.fq-card { border: 2rpx solid #fed7aa; background: #fffbeb; }
+
+.fq-price {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #ea580c;
+  margin: 12rpx 0 8rpx;
+}
+
+.fq-remark { font-size: 26rpx; color: #92400e; line-height: 1.6; margin-top: 8rpx; }
+
+.fq-valid { font-size: 24rpx; color: #b45309; margin-top: 12rpx; }
+
+.fq-confirm-tip { font-size: 22rpx; color: #94a3b8; margin-top: 12rpx; }
+
+.fq-confirm { text-align: center; margin-top: 24rpx; padding: 20rpx 0; }
+
+/* 021 设计费（工厂报价卡内） */
+.fq-designfee {
+  font-size: 24rpx;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border: 2rpx solid #ddd6fe;
+  border-radius: 10rpx;
+  padding: 10rpx 18rpx;
+  margin-top: 12rpx;
+  align-self: flex-start;
+}
+
+/* ---------- 021 设计需求卡 ---------- */
+.design-card { border: 2rpx solid #ddd6fe; background: #faf5ff; }
+
+.rq-design-note { font-size: 26rpx; color: #5b21b6; line-height: 1.7; word-break: break-all; }
+
+.rq-design-empty { font-size: 24rpx; color: #a78bfa; }
+
+.rq-design-imgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.rq-design-thumb {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid #e9d5ff;
+  background: #fff;
+}

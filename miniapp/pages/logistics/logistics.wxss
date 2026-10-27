@@ -1,0 +1,174 @@
+/* 返回按钮（自定义导航栏） */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.page {
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  margin-bottom: 20rpx;
+}
+
+/* 物流状态徽章 */
+.lg-status {
+  display: inline-block;
+  font-size: 24rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  margin-bottom: 20rpx;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.lg-status.st-shipped {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.lg-status.st-delivering {
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.lg-status.st-signed {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+  font-size: 28rpx;
+  color: #334155;
+}
+
+.info-label {
+  width: 140rpx;
+  flex: none;
+  color: #94a3b8;
+}
+
+.info-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.info-no {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.copy-btn {
+  flex: none;
+  font-size: 24rpx;
+  color: #2563eb;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 999rpx;
+  padding: 4rpx 20rpx;
+  margin-left: 16rpx;
+}
+
+.info-addr {
+  margin-top: 12rpx;
+  padding: 16rpx 20rpx;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* 轨迹时间轴 */
+.track-tip {
+  padding: 20rpx 24rpx;
+  background: #fffbeb;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #b45309;
+  line-height: 1.6;
+  margin-bottom: 8rpx;
+}
+
+.track-item {
+  display: flex;
+}
+
+.track-rail {
+  width: 32rpx;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.track-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #cbd5e1;
+  margin-top: 8rpx;
+}
+
+.track-line {
+  flex: 1;
+  width: 2rpx;
+  background: #e2e8f0;
+  margin: 6rpx 0;
+}
+
+.track-body {
+  flex: 1;
+  min-width: 0;
+  padding: 0 0 32rpx 20rpx;
+}
+
+.track-ctx {
+  font-size: 26rpx;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.track-time {
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-top: 6rpx;
+}
+
+/* 最新节点高亮 */
+.track-first .track-dot {
+  background: #2563eb;
+  box-shadow: 0 0 0 6rpx rgba(37, 99, 235, 0.15);
+}
+
+.track-first .track-ctx {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.track-first .track-time {
+  color: #2563eb;
+}
+
+/* 已签收：最新节点绿色 */
+.track-signed .track-dot {
+  background: #059669;
+  box-shadow: 0 0 0 6rpx rgba(5, 150, 105, 0.15);
+}
+
+.track-signed .track-time {
+  color: #059669;
+}

@@ -1,0 +1,24 @@
+# 依赖
+node_modules/
+
+# 真实配置与凭据（只提交 .env.example 模板）
+.env
+*.pem
+
+# 运行产物
+*.log
+*.sql.gz
+.DS_Store
+
+# 用户上传件（含真实头像/设计稿/营业执照，不入版本库）
+uploads/
+
+# 运维备份与抢救产物（purge/rescue 备份、binlog 副本、迁移归档）
+data/
+
+# IDE / 编辑器个人配置
+.idea/
+.vscode/
+
+# 微信小程序本地私有配置（含个人 appid 与编译设置，官方要求不入库）
+miniapp/project.private.config.json

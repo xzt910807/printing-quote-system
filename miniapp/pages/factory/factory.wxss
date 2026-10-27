@@ -1,0 +1,514 @@
+/* ---------- 工厂 Hero 卡 ---------- */
+.factory-hero { padding: 32rpx; }
+
+/* 厂名独占一行：不再单行省略，超长时自然换行（最多两行） */
+.factory-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+/* 次行：编号居左，操作按钮居右 */
+.factory-hero-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+
+.factory-code {
+  font-size: 24rpx;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999rpx;
+  padding: 8rpx 22rpx;
+  flex-shrink: 0;
+}
+
+/* 操作区不收缩，「工厂设置/退出」恒定完整可点 */
+.header-actions { display: flex; align-items: center; gap: 14rpx; flex-shrink: 0; }
+
+/* 操作标签：白色半透明底、无边框，与编号标签同款，视觉干净统一 */
+.hero-btn {
+  font-size: 24rpx;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999rpx;
+  padding: 8rpx 22rpx;
+}
+
+.hero-btn:active { background: rgba(255, 255, 255, 0.3); }
+
+/* 沟通入口未读角标（嵌在 hero-btn 内的小红圆） */
+.hero-btn-dot {
+  display: inline-block;
+  min-width: 30rpx;
+  height: 30rpx;
+  line-height: 30rpx;
+  padding: 0 6rpx;
+  margin-left: 8rpx;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* ---------- 主 Tab ---------- */
+.tabs {
+  display: flex;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 8rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.05);
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 28rpx;
+  color: #64748b;
+  border-radius: 999rpx;
+  position: relative;
+}
+
+.tab.active {
+  background: linear-gradient(135deg, #4f7cff, #2563eb);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tab-dot {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-left: 10rpx;
+  vertical-align: middle;
+}
+
+/* ---------- 状态子 Tab ---------- */
+.status-tabs {
+  display: flex;
+  gap: 14rpx;
+  margin-bottom: 20rpx;
+}
+
+.stab {
+  padding: 12rpx 30rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  font-size: 26rpx;
+  color: #64748b;
+  border: 2rpx solid transparent;
+}
+
+.stab-active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 500;
+  border-color: #93c5fd;
+}
+
+.stab-num {
+  display: inline-block;
+  min-width: 30rpx;
+  height: 30rpx;
+  line-height: 30rpx;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+  margin-left: 8rpx;
+  padding: 0 6rpx;
+}
+
+/* ---------- 卡片 ---------- */
+.inquiry-card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 26rpx 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+
+.inquiry-no { font-size: 24rpx; color: #94a3b8; }
+
+.qty { font-size: 28rpx; color: #1e293b; font-weight: 500; }
+.type { font-size: 28rpx; color: #334155; }
+
+.time {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  margin-top: 16rpx;
+}
+
+/* 询价卡内在线沟通链接（印查查式 IM 入口） */
+.inq-chat-link {
+  float: right;
+  font-size: 24rpx;
+  color: #2563eb;
+  padding: 0 4rpx;
+}
+
+.actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+
+.btn-flex { flex: 1; }
+
+/* ---------- 登录表单 ---------- */
+.login-card { padding: 56rpx 36rpx; text-align: center; }
+
+/* 登录卡顶部图标块：样式在 app.wxss 全局维护（.login-hero-ic），本页不再保留副本 */
+
+.login-title { font-size: 36rpx; font-weight: 700; color: #0f172a; margin: 16rpx 0; }
+
+.login-tip { font-size: 25rpx; color: #94a3b8; margin-bottom: 36rpx; line-height: 1.6; }
+
+.login-input {
+  height: 92rpx;
+  line-height: 92rpx;
+  padding: 0 36rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  margin-bottom: 24rpx;
+  background: #f8fafc;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.login-btn { width: 100%; }
+
+/* 021 微信一键登录（绿色主按钮，老板绑定微信场景的第一入口） */
+.wx-login-btn {
+  width: 100%;
+  height: 92rpx;
+  line-height: 92rpx;
+  background: #07c160;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 999rpx;
+}
+.wx-login-btn::after { border: none; }
+.wx-login-btn[disabled] { background: #86e2ae; color: #fff; }
+
+/* 微信已绑定工厂的一键登录引导：居中灰字一行，弱化不抢视觉 */
+.wx-bound-tip {
+  margin-top: 22rpx;
+  font-size: 24rpx;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* 021 员工账号登录折叠器：低调文字按钮，展开后显示账号密码表单 */
+.staff-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 27rpx;
+  color: #64748b;
+  padding: 10rpx 24rpx;
+}
+.staff-arrow { display: inline-block; transition: transform 0.2s ease; font-size: 24rpx; }
+.staff-arrow-up { transform: rotate(180deg); }
+
+/* 员工登录区：绑定微信引导小字 */
+.staff-hint {
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-top: 18rpx;
+  line-height: 1.5;
+}
+
+/* 分隔线：「或」 */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin: 32rpx 0 16rpx;
+  font-size: 24rpx;
+  color: #cbd5e1;
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 2rpx;
+  background: #e2e8f0;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 28rpx;
+  font-size: 26rpx;
+  color: #2563eb;
+}
+
+/* ---------- 提示条 ---------- */
+.setup-banner {
+  background: #fef2f2;
+  border: 2rpx solid #fecaca;
+  border-radius: 18rpx;
+  padding: 24rpx 26rpx;
+  margin-bottom: 20rpx;
+}
+
+.setup-banner .setup-title { font-size: 29rpx; font-weight: 600; color: #b91c1c; }
+.setup-banner .setup-sub { font-size: 24rpx; color: #dc2626; margin-top: 8rpx; line-height: 1.6; }
+
+.taken-tip {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #d97706;
+  background: #fef3c7;
+  border-radius: 12rpx;
+  padding: 14rpx 18rpx;
+}
+
+.contact-tip {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #047857;
+  background: #ecfdf5;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  line-height: 1.7;
+}
+
+/* ---------- stage13 发货弹窗 ---------- */
+.ship-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  /* 抬高于自定义 tabBar（原生层永远盖在页面 fixed 元素之上），否则底部「取消/确认发货」按钮被 tabBar 遮挡 */
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+
+.ship-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx;
+  /* 底部留出安全区，全面屏手势条不压「确认发货」按钮 */
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.ship-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+  margin-bottom: 28rpx;
+}
+
+.ship-picker {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 28rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.ship-picker-ph {
+  color: #94a3b8;
+}
+
+.ship-input {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 28rpx;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #1e293b;
+  background: #f8fafc;
+  box-sizing: border-box;
+  margin-top: 20rpx;
+}
+
+.ship-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.ship-btn {
+  flex: 1;
+  text-align: center;
+}
+
+/* ---------- 确认订单弹窗说明文字 ---------- */
+.confirm-tip {
+  font-size: 26rpx;
+  color: #64748b;
+  line-height: 1.7;
+  margin-bottom: 24rpx;
+}
+
+/* ---------- 快递公司大字体选择弹层（原生 picker 字号基础库写死不可样式化，弃用） ---------- */
+.comp-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  /* 抬高于发货面板遮罩（z-index:100） */
+  z-index: 200;
+}
+
+.comp-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 抬高于自定义 tabBar（原生层恒高于页面 fixed 元素），否则末行快递公司被底栏遮挡 */
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  z-index: 201;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: comp-up 0.18s ease-out;
+}
+
+@keyframes comp-up {
+  from { transform: translateY(60%); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.comp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 2rpx solid #f1f5f9;
+}
+
+.comp-cancel {
+  font-size: 30rpx;
+  color: #64748b;
+  padding: 6rpx 12rpx;
+}
+
+.comp-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.comp-confirm {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #2563eb;
+  padding: 6rpx 12rpx;
+}
+
+.comp-list {
+  /* 可视约 6 行，超出可滑动 */
+  max-height: 600rpx;
+}
+
+.comp-opt {
+  padding: 26rpx 40rpx;
+  /* 大字体：原生 picker 滚轮字号过小是本弹层存在的原因 */
+  font-size: 34rpx;
+  color: #334155;
+  text-align: center;
+  border-bottom: 2rpx solid #f8fafc;
+}
+
+.comp-opt:last-child {
+  border-bottom: none;
+}
+
+.comp-on {
+  color: #2563eb;
+  font-weight: 600;
+  background: #eff6ff;
+}
+
+/* ---------- 021 设计需求（询价卡片） ---------- */
+.design-box {
+  margin-top: 16rpx;
+  background: #f5f3ff;
+  border: 2rpx solid #ddd6fe;
+  border-radius: 12rpx;
+  padding: 16rpx 18rpx;
+}
+
+.design-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+}
+
+.design-badge {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: #6d28d9;
+  background: #ede9fe;
+  border: 2rpx solid #c4b5fd;
+  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  margin-top: 4rpx;
+}
+
+/* 工厂公版徽标：青色系，与需设计（紫）区分 */
+.design-badge-public {
+  color: #0e7490;
+  background: #ecfeff;
+  border-color: #a5f3fc;
+}
+
+/* 公版单的文字说明跟随青色主题 */
+.design-badge-public ~ .design-note {
+  color: #155e75;
+}
+
+.design-note {
+  flex: 1;
+  font-size: 24rpx;
+  color: #5b21b6;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.design-imgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+
+.design-thumb {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 10rpx;
+  border: 2rpx solid #e9d5ff;
+  background: #fff;
+}
+
+/* 报价弹窗内设计费说明 */
+.design-fee-tip {
+  font-size: 24rpx;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-top: 20rpx;
+  line-height: 1.6;
+}
