@@ -56,7 +56,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const refType = String(req.body.refType || '').trim();
     const refId = parseInt(req.body.refId, 10);
-    if (!['inquiry', 'order'].includes(refType)) throw new Error('refType 必须为 inquiry 或 order');
+    if (!['inquiry', 'order', 'issue'].includes(refType)) throw new Error('refType 必须为 inquiry/order/issue');
     if (!refId) throw new Error('refId 不能为空');
     if (!req.file) throw new Error('未选择文件');
 
@@ -67,17 +67,23 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       if (refType === 'inquiry') {
         const [[inq]] = await pool.query('SELECT id FROM c_inquiry WHERE id = ? AND user_id = ?', [refId, userId]);
         if (!inq) throw new Error('无权操作该询价');
-      } else {
+      } else if (refType === 'order') {
         const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND user_id = ?', [refId, userId]);
         if (!ord) throw new Error('无权操作该订单');
+      } else { // issue
+        const [[tk]] = await pool.query('SELECT id FROM issue_ticket WHERE id = ? AND user_id = ?', [refId, userId]);
+        if (!tk) throw new Error('无权操作该工单');
       }
     } else if (factoryId) {
       if (refType === 'inquiry') {
         const [[push]] = await pool.query('SELECT id FROM factory_inquiry_push WHERE inquiry_id = ? AND factory_id = ?', [refId, factoryId]);
         if (!push) throw new Error('该询价未推送给你厂');
-      } else {
+      } else if (refType === 'order') {
         const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND factory_id = ?', [refId, factoryId]);
         if (!ord) throw new Error('无权操作该订单');
+      } else { // issue
+        const [[tk]] = await pool.query('SELECT id FROM issue_ticket WHERE id = ? AND factory_id = ?', [refId, factoryId]);
+        if (!tk) throw new Error('该工单不属于你厂');
       }
     } else {
       throw new Error('未登录');
@@ -111,16 +117,31 @@ router.get('/list', async (req, res) => {
     const userId = req.user ? req.user.id : null;
     const factoryId = req.factory ? req.factory.id : null;
 
-    // 权限校验
-    if (userId && refType === 'inquiry') {
-      const [[inq]] = await pool.query('SELECT id FROM c_inquiry WHERE id = ? AND user_id = ?', [refId, userId]);
-      if (!inq) throw new Error('无权访问');
-    } else if (userId && refType === 'order') {
-      const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND user_id = ?', [refId, userId]);
-      if (!ord) throw new Error('无权访问');
-    } else if (factoryId && refType === 'order') {
-      const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND factory_id = ?', [refId, factoryId]);
-      if (!ord) throw new Error('无权访问');
+    // 权限校验（列表与上传同机制）
+    if (userId) {
+      if (refType === 'inquiry') {
+        const [[inq]] = await pool.query('SELECT id FROM c_inquiry WHERE id = ? AND user_id = ?', [refId, userId]);
+        if (!inq) throw new Error('无权访问');
+      } else if (refType === 'order') {
+        const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND user_id = ?', [refId, userId]);
+        if (!ord) throw new Error('无权访问');
+      } else if (refType === 'issue') {
+        const [[tk]] = await pool.query('SELECT id FROM issue_ticket WHERE id = ? AND user_id = ?', [refId, userId]);
+        if (!tk) throw new Error('无权访问');
+      }
+    } else if (factoryId) {
+      if (refType === 'order') {
+        const [[ord]] = await pool.query('SELECT id FROM order_main WHERE id = ? AND factory_id = ?', [refId, factoryId]);
+        if (!ord) throw new Error('无权访问');
+      } else if (refType === 'issue') {
+        const [[tk]] = await pool.query('SELECT id FROM issue_ticket WHERE id = ? AND factory_id = ?', [refId, factoryId]);
+        if (!tk) throw new Error('无权访问');
+      } else if (refType === 'inquiry') {
+        const [[push]] = await pool.query('SELECT id FROM factory_inquiry_push WHERE inquiry_id = ? AND factory_id = ?', [refId, factoryId]);
+        if (!push) throw new Error('无权访问');
+      }
+    } else {
+      // admin 无 userId/factoryId，不拦截（上游需已接 requireAdmin）
     }
 
     const [rows] = await pool.query(

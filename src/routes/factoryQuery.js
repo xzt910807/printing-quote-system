@@ -54,7 +54,7 @@ router.get('/list', async (req, res) => {
     if (city && String(city).trim()) { regionConds.push('city = ?'); regionParams.push(String(city).trim()); }
     const regionSql = regionConds.length ? ' AND ' + regionConds.join(' AND ') : '';
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, province, city, intro, rating, rating_count, total_accepts, avg_response_hours, license_verified, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE status = 1 AND id IN (?)'
+      'SELECT id, code, name, contact, phone, address, province, city, intro, rating, rating_count, total_accepts, avg_response_hours, license_verified, verification_level, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE status = 1 AND id IN (?)'
         + (kw ? ' AND (name LIKE ? OR address LIKE ?)' : '')
         + regionSql
         + ' ORDER BY ' + orderBy,
@@ -115,7 +115,7 @@ router.get('/public/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) throw new Error('参数错误');
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, intro, rating, rating_count, total_accepts, avg_response_hours, audit_status, license_verified, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE id = ? AND status = 1', [id]
+      'SELECT id, code, name, contact, phone, address, intro, rating, rating_count, total_accepts, avg_response_hours, audit_status, license_verified, verification_level, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE id = ? AND status = 1', [id]
     );
     if (!rows.length) throw new Error('工厂不存在或已停用');
 
@@ -152,7 +152,7 @@ router.get('/detail/:id', requireAdmin, requirePermission('factory:view'), async
     const id = parseInt(req.params.id);
     // 显式列名，避免把 api_token 等敏感字段暴露给公开接口
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, default_margin, default_tax_rate, default_waste_rate, c_end_enabled, status, created_at, updated_at FROM factory WHERE id = ? AND status = 1', [id]
+      'SELECT id, code, name, contact, phone, address, province, city, default_margin, default_tax_rate, default_waste_rate, c_end_enabled, status, license_verified, verification_level, created_at, updated_at FROM factory WHERE id = ? AND status = 1', [id]
     );
     if (!rows.length) throw new Error('工厂不存在');
 
@@ -248,7 +248,7 @@ router.put('/:id', requireAdmin, requirePermission('factory:manage'), async (req
     const id = parseInt(req.params.id, 10);
     const { name, contact, phone, address,
       defaultMargin, defaultTaxRate, defaultWasteRate, cEndEnabled, status, licenseVerified,
-      province, city } = req.body;
+      province, city, verificationLevel } = req.body;
     if (!name) throw new Error('工厂名称不能为空');
     const [ret] = await pool.query(
       `UPDATE factory SET name=?, contact=?, phone=?, address=?, default_margin=?, default_tax_rate=?,
@@ -264,6 +264,11 @@ router.put('/:id', requireAdmin, requirePermission('factory:manage'), async (req
     // 验真徽章开关（仅当显式传入时更新，不影响未携带该字段的旧编辑请求）
     if (licenseVerified !== undefined) {
       await pool.query('UPDATE factory SET license_verified = ? WHERE id = ?', [licenseVerified ? 1 : 0, id]);
+    }
+    // 034 验真分级（0/1/2/3），仅当显式传入时更新
+    if (verificationLevel !== undefined) {
+      const lv = Math.max(0, Math.min(3, Number(verificationLevel) || 0));
+      await pool.query('UPDATE factory SET verification_level = ?, verified_at = NOW() WHERE id = ?', [lv, id]);
     }
     // 029：停用工厂不再连带禁用员工账号——factory.status=0 本身已全链路拦截
     // （登录 auth.js 报「工厂已被停用」，中间件拒绝对话，C 端不展示），

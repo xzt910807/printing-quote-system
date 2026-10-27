@@ -248,6 +248,21 @@ const app = createApp({
       catch (err) { alert('失败：' + err.message); }
     }
 
+    // 026+027 工单证据附件查看
+    async function viewIssueFiles(issue) {
+      try {
+        const res = await api.request('/api/admin/issue/' + issue.id + '/files');
+        const list = (res.data && res.data.list) || [];
+        if (!list.length) { alert('本工单暂无附件'); return; }
+        const lines = list.map((f) => {
+          const who = f.sender_type === 'user' ? '用户' : (f.sender_type === 'factory' ? '工厂' : '平台');
+          const size = Number(f.file_size) > 1048576 ? (f.file_size / 1048576).toFixed(1) + ' MB' : Math.ceil(Number(f.file_size) / 1024) + ' KB';
+          return '• ' + f.file_name + '  (' + who + ' · ' + size + ' · ' + (f.created_at || '') + ')\n  ' + location.origin + f.file_url;
+        });
+        alert('工单 ' + (issue.ticket_no || issue.id) + ' 证据共 ' + list.length + ' 个：\n\n' + lines.join('\n\n'));
+      } catch (err) { alert('加载失败：' + err.message); }
+    }
+
     // ===== 029 仲裁中心（争议中/冻结中的订单列表 + 仲裁处理） =====
     const arbState = reactive({ list: [], total: 0, page: 1, status: 'frozen', loading: false });
 
@@ -1522,6 +1537,8 @@ const app = createApp({
         defaultMarginPct: 15, cEndEnabled: 1,
         // 027 验真徽章：平台已核验资质（营业执照/印刷经营许可证），C 端展示「已核验」
         licenseVerified: 0,
+        // 034 验真分级：0=未验 / 1=执照已核 / 2=实地/视频验厂 / 3=深度验厂
+        verificationLevel: 0,
         // 登录账号：新增时可设置（开户），编辑时不修改
         username: '', password: '',
         // 隐藏字段：编辑时原样回传，避免被后端默认值覆盖
@@ -1542,6 +1559,7 @@ const app = createApp({
           defaultWasteRate: Number(f.default_waste_rate) || 0.04,
           status: f.status,
           licenseVerified: f.license_verified ? 1 : 0,
+          verificationLevel: Number(f.verification_level) || 0,
           username: f.username || '', password: '',
         });
       } else {
@@ -1551,6 +1569,7 @@ const app = createApp({
           defaultMarginPct: 15, cEndEnabled: 1,
           defaultTaxRate: 0.10, defaultWasteRate: 0.04, status: 1,
           licenseVerified: 0,
+          verificationLevel: 0,
           username: '', password: '',
         });
       }
@@ -1572,6 +1591,8 @@ const app = createApp({
         status: f.status,
         // 027：验真徽章开关（后端仅当显式传入时更新 license_verified，不影响旧请求）
         licenseVerified: f.licenseVerified ? 1 : 0,
+        // 034：验真分级
+        verificationLevel: Number(f.verificationLevel) || 0,
       };
       try {
         if (f.id) {
@@ -2429,7 +2450,7 @@ const app = createApp({
       quotePages, orderPages, inquiryPages, customerPages, onOrderFilterChange,
       currentFactoryLabel, filteredFactoryOptions, toggleFactoryPicker, pickFactory, setCatalogTab,
       // 027 售后工单 + 029 仲裁中心
-      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue,
+      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue, viewIssueFiles,
       arbState, loadArbitration, arbitrateOrder,
       // 021/022 设计稿展示
       designImgs, designBadge, openDesignImg, designPdf,

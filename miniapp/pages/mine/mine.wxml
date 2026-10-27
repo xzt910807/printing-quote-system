@@ -299,13 +299,29 @@
           data-id="{{item.id}}" bindtap="goFactoryDetail">
       <view class="row">
         <text class="inq-no">{{item.name}}</text>
-        <text class="badge badge-green" wx:if="{{item.order_count}}">合作 {{item.order_count}} 次</text>
+        <view class="sup-badges">
+          <text class="badge badge-orange" wx:if="{{item.pinned}}">置顶</text>
+          <text class="badge badge-blue" wx:if="{{item.followed && !item.order_count}}">已关注</text>
+          <text class="badge badge-green" wx:if="{{item.order_count}}">合作 {{item.order_count}} 次</text>
+        </view>
       </view>
       <view class="row inq-main">
         <text class="inq-desc">累计金额 ¥{{item.total_amount}}</text>
         <text class="inq-price" wx:if="{{item.avg_rating}}">⭐ {{item.avg_rating}}</text>
       </view>
       <view class="inq-time" wx:if="{{item.last_order_at}}">最近合作 {{item.lastOrderText}}</view>
+      <view class="sup-tags" wx:if="{{item.tags}}">🏷 {{item.tags}}</view>
+      <view class="sup-acts">
+        <block wx:if="{{item.followed}}">
+          <text class="sup-act" catchtap="onSupplierTagEdit"
+                data-id="{{item.id}}" data-tags="{{item.tags}}" data-pinned="{{item.pinned}}">改标签</text>
+          <text class="sup-act" catchtap="onSupplierTogglePin"
+                data-id="{{item.id}}" data-tags="{{item.tags}}" data-note="{{item.note}}" data-pinned="{{item.pinned}}">{{item.pinned ? '取消置顶' : '置顶'}}</text>
+          <text class="sup-act sup-act-danger" catchtap="onSupplierUnfollow"
+                data-id="{{item.id}}" data-name="{{item.name}}">取关</text>
+        </block>
+        <text wx:else class="sup-act sup-act-primary" catchtap="onSupplierFollow" data-id="{{item.id}}">＋关注</text>
+      </view>
     </view>
   </block>
 </view>

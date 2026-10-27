@@ -40,6 +40,19 @@
     <view class="reply note">{{ticket.admin_note}}</view>
   </view>
 
+  <!-- 026+027 证据附件列表 + 追加上传 -->
+  <view class="card">
+    <view class="card-title">证据附件（共 {{files.length}} 个）</view>
+    <view wx:if="{{!files.length}}" class="files-empty">暂无附件</view>
+    <view wx:for="{{files}}" wx:key="id" class="file-row" data-url="{{item.fullUrl}}" bindtap="openFile">
+      <view class="file-name">{{item.file_name}}</view>
+      <view class="file-meta">{{item.sender_type === 'user' ? (role === 'customer' ? '我' : '客户') : (item.sender_type === 'factory' ? (role === 'factory' ? '我' : '工厂') : '平台')}} · {{item.sizeText}}</view>
+    </view>
+    <view class="file-upload {{uploading ? 'disabled' : ''}}" bindtap="chooseFile">
+      {{uploading ? '上传中…' : '+ 追加证据'}}
+    </view>
+  </view>
+
   <view class="btn-primary" wx:if="{{ticket.status === 'resolved'}}" bindtap="close">
     {{closing ? '处理中…' : '确认关闭工单'}}
   </view>

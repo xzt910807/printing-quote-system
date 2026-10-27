@@ -164,6 +164,12 @@ function flattenOverrides(ov, options) {
 }
 
 const toPct = (v) => Math.round((Number(v) || 0) * 1000) / 10;
+// 034 同环比百分比格式化（无数据 → —）
+const fmtDelta = (v) => {
+  if (v === null || v === undefined || isNaN(Number(v))) return '—';
+  const n = Number(v);
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+};
 
 // 从字段名提取单位：'吨价(元/吨)' → '元/吨'；无括号则返回原名（如'层数'）
 function fieldUnit(fieldName) {
@@ -214,6 +220,9 @@ Page({
     dashTrend: [],
     dashTopProducts: [],
     dashLoaded: false,
+    // 034 日期区间 + 同环比
+    dashRange: { start: '', end: '' },
+    dashCompare: null,
     // 027 闲置产能填报（印查查式撮合加权：空闲厂优先推单）
     capacityOptions: CAPACITY_OPTIONS,
     capacity: { status: '', note: '' },
@@ -273,10 +282,14 @@ Page({
   // 029 经营概览：汇总 / 趋势 / 品类（均拉失败不卡页面，汇总中默认 0）
   async loadDashboard() {
     try {
-      const [summaryRes, trendRes, topRes] = await Promise.all([
-        api.request('/api/factory/dashboard/summary', { headers: this.authHeaders() }).catch(() => ({ data: {} })),
+      const rangeQs = this.data.dashRange.start && this.data.dashRange.end
+        ? ('?start=' + encodeURIComponent(this.data.dashRange.start) + '&end=' + encodeURIComponent(this.data.dashRange.end))
+        : '';
+      const [summaryRes, trendRes, topRes, compareRes] = await Promise.all([
+        api.request('/api/factory/dashboard/summary' + rangeQs, { headers: this.authHeaders() }).catch(() => ({ data: {} })),
         api.request('/api/factory/dashboard/trend?months=6', { headers: this.authHeaders() }).catch(() => ({ data: { list: [] } })),
-        api.request('/api/factory/dashboard/top-products', { headers: this.authHeaders() }).catch(() => ({ data: { list: [] } })),
+        api.request('/api/factory/dashboard/top-products' + rangeQs, { headers: this.authHeaders() }).catch(() => ({ data: { list: [] } })),
+        api.request('/api/factory/dashboard/compare' + rangeQs, { headers: this.authHeaders() }).catch(() => ({ data: null })),
       ]);
       const s = summaryRes.data || {};
       s.monthlyRevenue = Number(s.monthlyRevenue || 0).toFixed(2);
@@ -294,14 +307,63 @@ Page({
       const topView = top.map((x) => ({
         ...x,
         pct: Math.round(((Number(x.cnt) || 0) / maxTop) * 100),
+        amtText: Number(x.amt || 0).toFixed(2),
       }));
+      const cmp = compareRes.data || null;
+      if (cmp) {
+        cmp.momOrdersText = fmtDelta(cmp.momOrders);
+        cmp.momRevenueText = fmtDelta(cmp.momRevenue);
+        cmp.yoyOrdersText = fmtDelta(cmp.yoyOrders);
+        cmp.yoyRevenueText = fmtDelta(cmp.yoyRevenue);
+      }
       this.setData({
         dashSummary: s,
         dashTrend: trendView,
         dashTopProducts: topView,
+        dashCompare: cmp,
         dashLoaded: true,
       });
     } catch (e) { /* 静默 */ }
+  },
+
+  onDashStartDate(e) {
+    this.setData({ 'dashRange.start': e.detail.value });
+    this.loadDashboard();
+  },
+
+  onDashEndDate(e) {
+    this.setData({ 'dashRange.end': e.detail.value });
+    this.loadDashboard();
+  },
+
+  resetDashRange() {
+    this.setData({ dashRange: { start: '', end: '' } });
+    this.loadDashboard();
+  },
+
+  // 027 待处理工单入口 → 拉取本厂工单列表 + 弹层选中后跳 issue-detail?role=factory
+  async onIssuesTap() {
+    try {
+      const res = await api.request('/api/factory/issue?status=open,processing', { headers: this.authHeaders() });
+      const list = (res.data && (res.data.list || res.data)) || [];
+      if (!list.length) {
+        wx.showToast({ title: '当前没有待处理工单', icon: 'none' });
+        return;
+      }
+      const TYPE_LABEL = { quality: '质量', delay: '延期', reprint: '补印', other: '其他' };
+      const items = list.slice(0, 20).map((t) =>
+        (TYPE_LABEL[t.type] || t.type) + ' · ' + (t.title || t.ticket_no || ('#' + t.id)));
+      wx.showActionSheet({
+        itemList: items,
+        success: (r) => {
+          const pick = list[r.tapIndex];
+          if (!pick) return;
+          wx.navigateTo({ url: '/pages/issue-detail/issue-detail?id=' + pick.id + '&role=factory' });
+        },
+      });
+    } catch (err) {
+      wx.showToast({ title: err.message || '工单拉取失败', icon: 'none' });
+    }
   },
 
   async loadAll() {

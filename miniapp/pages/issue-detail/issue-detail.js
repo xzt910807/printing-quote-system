@@ -3,6 +3,9 @@ const api = require('../../utils/api');
 const TYPE_LABEL = { quality: '质量投诉', delay: '延期预警', reprint: '补印申请', other: '其他' };
 const STATUS_LABEL = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
 
+const ALLOWED_EXT = ['pdf','ai','cdr','psd','eps','zip','rar','7z','jpg','jpeg','png','tif','tiff','svg','dwg'];
+const MAX_MB = 20;
+
 Page({
   data: {
     statusBarHeight: 20,
@@ -13,6 +16,10 @@ Page({
     statusLabel: '',
     loading: false,
     closing: false,
+    files: [],
+    uploading: false,
+    role: 'customer',      // customer | factory，factory 走 /api/factory/issue 与 /api/factory/file
+    factoryAuth: null,
   },
 
   onLoad(options) {
@@ -23,24 +30,111 @@ Page({
       this.setData({ statusBarHeight: info.statusBarHeight, navBarHeight });
     } catch (e) { this.setData({ statusBarHeight: 20, navBarHeight: 44 }); }
     const id = parseInt((options && options.id) || '0', 10);
-    this.setData({ id });
+    const role = (options && options.role) === 'factory' ? 'factory' : 'customer';
+    let factoryAuth = null;
+    if (role === 'factory') {
+      try { factoryAuth = wx.getStorageSync('factoryAuth') || null; } catch (e) { factoryAuth = null; }
+      if (!factoryAuth) {
+        wx.showToast({ title: '请先登录工厂账号', icon: 'none' });
+        setTimeout(() => wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/mine/mine' }) }), 900);
+        return;
+      }
+    }
+    this.setData({ id, role, factoryAuth });
     this.loadDetail();
+  },
+
+  isFactory() { return this.data.role === 'factory'; },
+
+  facHeaders() {
+    const a = this.data.factoryAuth;
+    if (!a) return {};
+    return { 'X-Factory-Id': String(a.factoryId), 'X-Factory-Token': a.token };
   },
 
   async loadDetail() {
     if (!this.data.id) return;
     this.setData({ loading: true });
     try {
-      const res = await api.request('/api/c/issue/' + this.data.id);
+      const url = this.isFactory()
+        ? '/api/factory/issue/' + this.data.id
+        : '/api/c/issue/' + this.data.id;
+      const res = await api.request(url, this.isFactory() ? { headers: this.facHeaders() } : {});
       const t = res.data || null;
       this.setData({
         ticket: t,
         typeLabel: t ? (TYPE_LABEL[t.type] || t.type) : '',
         statusLabel: t ? (STATUS_LABEL[t.status] || t.status) : '',
       });
+      this.loadFiles();
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally { this.setData({ loading: false }); }
+  },
+
+  async loadFiles() {
+    if (!this.data.id) return;
+    try {
+      const url = '/list?refType=issue&refId=' + this.data.id;
+      const res = this.isFactory()
+        ? await api.request('/api/factory/file' + url, { headers: this.facHeaders() })
+        : await api.request('/api/c/file' + url);
+      const list = (res.data && res.data.list) || [];
+      this.setData({ files: list.map((f) => ({
+        ...f,
+        sizeText: formatSize(f.file_size),
+        fullUrl: f.file_url && f.file_url.indexOf('http') === 0 ? f.file_url : api.BASE_URL + f.file_url,
+      })) });
+    } catch (e) { this.setData({ files: [] }); }
+  },
+
+  openFile(e) {
+    const url = e.currentTarget.dataset.url;
+    if (!url) return;
+    wx.downloadFile({ url, success: (r) => {
+      wx.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => wx.previewImage({ urls: [url] }) });
+    }, fail: () => wx.showToast({ title: '下载失败', icon: 'none' }) });
+  },
+
+  chooseFile() {
+    if (this.data.uploading) return;
+    wx.chooseMessageFile({ count: 1, type: 'file', extension: ALLOWED_EXT, success: (r) => {
+      const f = r.tempFiles && r.tempFiles[0];
+      if (!f) return;
+      if (f.size > MAX_MB * 1024 * 1024) return wx.showToast({ title: '文件超 ' + MAX_MB + 'MB', icon: 'none' });
+      this.uploadFile(f);
+    } });
+  },
+
+  uploadFile(f) {
+    this.setData({ uploading: true });
+    const isFac = this.isFactory();
+    const token = isFac ? (this.data.factoryAuth && this.data.factoryAuth.token) || '' : (wx.getStorageSync('user_token') || '');
+    const userId = !isFac && (wx.getStorageSync('userAuth') || {}).userId;
+    const header = { 'Content-Type': 'multipart/form-data' };
+    if (isFac) {
+      header['X-Factory-Id'] = String(this.data.factoryAuth.factoryId);
+      header['X-Factory-Token'] = token;
+    } else {
+      header['X-User-Token'] = token;
+      if (userId) header['X-User-Id'] = String(userId);
+    }
+    wx.uploadFile({
+      url: api.BASE_URL + (isFac ? '/api/factory/file/upload' : '/api/c/file/upload'),
+      filePath: f.path,
+      name: 'file',
+      formData: { refType: 'issue', refId: String(this.data.id) },
+      header,
+      success: (res) => {
+        try {
+          const data = JSON.parse(res.data);
+          if (data && data.success) { wx.showToast({ title: '上传成功', icon: 'success' }); this.loadFiles(); }
+          else wx.showToast({ title: (data && data.error) || '上传失败', icon: 'none' });
+        } catch (e) { wx.showToast({ title: '上传异常', icon: 'none' }); }
+      },
+      fail: () => wx.showToast({ title: '上传失败', icon: 'none' }),
+      complete: () => this.setData({ uploading: false }),
+    });
   },
 
   previewImage(e) {
@@ -51,6 +145,10 @@ Page({
 
   async close() {
     if (this.data.closing) return;
+    if (this.isFactory()) {
+      wx.showToast({ title: '工厂端无权关闭工单', icon: 'none' });
+      return;
+    }
     const r = await wx.showModal({ title: '确认关闭', content: '关闭后工单不可再变更，确定？' });
     if (!r.confirm) return;
     this.setData({ closing: true });
@@ -65,3 +163,10 @@ Page({
 
   goBack() { wx.navigateBack({ fail: () => wx.redirectTo({ url: '/pages/issue/issue' }) }); },
 });
+
+function formatSize(b) {
+  b = Number(b) || 0;
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
+}

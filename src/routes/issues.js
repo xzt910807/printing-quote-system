@@ -98,6 +98,19 @@ factoryRouter.put('/:id/reply', async (req, res) => {
   } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
 });
 
+// GET /:id/files — 本厂工单证据附件列表
+factoryRouter.get('/:id/files', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const [[tk]] = await pool.query('SELECT id FROM issue_ticket WHERE id = ? AND factory_id = ?', [id, req.factory.id]);
+    if (!tk) return res.status(404).json(fail('工单不存在'));
+    const [rows] = await pool.query(
+      `SELECT id, sender_type, sender_id, file_name, file_url, file_size, mime_type, created_at
+       FROM file_transfer WHERE ref_type = 'issue' AND ref_id = ? ORDER BY created_at ASC`, [id]);
+    res.json(ok({ list: rows }));
+  } catch (err) { res.status(400).json(fail(err.message)); }
+});
+
 // ========== 管理端 ==========
 const adminRouter = express.Router();
 adminRouter.use(requireAdmin);
@@ -129,6 +142,17 @@ adminRouter.put('/:id', async (req, res) => {
     await issueService.adminUpdate(parseInt(req.params.id, 10), req.body || {});
     res.json(ok({ updated: true }));
   } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
+});
+
+// GET /:id/files — 管理端查看证据附件
+adminRouter.get('/:id/files', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const [rows] = await pool.query(
+      `SELECT id, sender_type, sender_id, file_name, file_url, file_size, mime_type, created_at
+       FROM file_transfer WHERE ref_type = 'issue' AND ref_id = ? ORDER BY created_at ASC`, [id]);
+    res.json(ok({ list: rows }));
+  } catch (err) { res.status(400).json(fail(err.message)); }
 });
 
 module.exports = userRouter;

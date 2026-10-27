@@ -231,6 +231,11 @@ adminNews.post('/crawl', async (req, res) => {
   catch (err) { res.status(500).json(fail(err.message)); }
 });
 app.use('/api/admin/news', adminNews);
+// 031 资讯编辑推荐面板：/api/admin/news/:id/feature
+const adminNewsFeature = express.Router();
+adminNewsFeature.use(requireAdmin);
+adminNewsFeature.use(newsRoutes.adminRouter);
+app.use('/api/admin/news', adminNewsFeature);
 // 029 仲裁接口（管理端）：/api/admin/order/:id/arbitrate
 const escrowService = require('./services/escrowService');
 const adminEscrow = express.Router();

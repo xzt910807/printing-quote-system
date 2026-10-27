@@ -27,8 +27,23 @@
 
   <!-- ===== 029 经营概览分区 ===== -->
   <block wx:if="{{section === 'dashboard'}}">
+    <!-- 034 日期区间 picker -->
+    <view class="card dash-filter">
+      <view class="dash-filter-row">
+        <text class="dash-filter-lbl">统计区间</text>
+        <picker mode="date" value="{{dashRange.start}}" bindchange="onDashStartDate">
+          <view class="dash-picker">{{dashRange.start || '本月首日'}}</view>
+        </picker>
+        <text class="dash-filter-tilde">至</text>
+        <picker mode="date" value="{{dashRange.end}}" bindchange="onDashEndDate">
+          <view class="dash-picker">{{dashRange.end || '今日'}}</view>
+        </picker>
+        <text wx:if="{{dashRange.start || dashRange.end}}" class="dash-reset" bindtap="resetDashRange">重置</text>
+      </view>
+    </view>
+
     <view class="card">
-      <view class="card-title">本月经营</view>
+      <view class="card-title">{{dashRange.start ? (dashRange.start + ' 至 ' + dashRange.end) : '本月经营'}}</view>
       <view class="dash-grid">
         <view class="dash-cell"><text class="dash-num">{{dashSummary.monthlyOrders || 0}}</text><text class="dash-lbl">本月接单</text></view>
         <view class="dash-cell"><text class="dash-num dash-num-money">¥{{dashSummary.monthlyRevenue || 0}}</text><text class="dash-lbl">本月金额</text></view>
@@ -39,7 +54,7 @@
         <view class="dash-cell"><text class="dash-num">{{dashSummary.rating || 0}}</text><text class="dash-lbl">评分（{{dashSummary.ratingCount || 0}}人）</text></view>
         <view class="dash-cell"><text class="dash-num">{{dashSummary.avgResponseHours || 0}}h</text><text class="dash-lbl">平均响应</text></view>
         <view class="dash-cell"><text class="dash-num">{{dashSummary.totalAccepts || 0}}/{{dashSummary.totalPushes || 0}}</text><text class="dash-lbl">接单/推送</text></view>
-        <view class="dash-cell"><text class="dash-num {{dashSummary.activeIssues > 0 ? 'dash-num-warn' : ''}}">{{dashSummary.activeIssues || 0}}</text><text class="dash-lbl">待处理工单</text></view>
+        <view class="dash-cell" bindtap="onIssuesTap"><text class="dash-num {{dashSummary.activeIssues > 0 ? 'dash-num-warn' : ''}}">{{dashSummary.activeIssues || 0}}</text><text class="dash-lbl">待处理工单 ›</text></view>
       </view>
     </view>
 
@@ -58,8 +73,25 @@
       <view class="bar-row" wx:for="{{dashTopProducts}}" wx:key="product_type">
         <text class="bar-lbl">{{item.name || item.product_type}}</text>
         <view class="bar-track"><view class="bar-fill bar-fill-alt" style="width: {{item.pct}}%"></view></view>
-        <text class="bar-val">{{item.cnt}}单</text>
+        <text class="bar-val">{{item.cnt}}单 · ¥{{item.amtText}}</text>
       </view>
+    </view>
+
+    <!-- 034 同环比 -->
+    <view class="card" wx:if="{{dashCompare}}">
+      <view class="card-title">同环比</view>
+      <view class="cmp-row">
+        <text class="cmp-lbl">环比上期</text>
+        <text class="cmp-val {{dashCompare.momOrders >= 0 ? 'cmp-up' : 'cmp-dn'}}">接单 {{dashCompare.momOrdersText}}</text>
+        <text class="cmp-val {{dashCompare.momRevenue >= 0 ? 'cmp-up' : 'cmp-dn'}}">金额 {{dashCompare.momRevenueText}}</text>
+      </view>
+      <view class="cmp-row">
+        <text class="cmp-lbl">同比去年</text>
+        <text class="cmp-val {{dashCompare.yoyOrders >= 0 ? 'cmp-up' : 'cmp-dn'}}">接单 {{dashCompare.yoyOrdersText}}</text>
+        <text class="cmp-val {{dashCompare.yoyRevenue >= 0 ? 'cmp-up' : 'cmp-dn'}}">金额 {{dashCompare.yoyRevenueText}}</text>
+      </view>
+      <view class="cmp-sub" wx:if="{{dashCompare.prevPeriod}}">上期：{{dashCompare.prevPeriod.start}} 至 {{dashCompare.prevPeriod.end}}</view>
+      <view class="cmp-sub" wx:if="{{dashCompare.yoyPeriod}}">去年同期：{{dashCompare.yoyPeriod.start}} 至 {{dashCompare.yoyPeriod.end}}</view>
     </view>
   </block>
 

@@ -452,3 +452,11 @@
 .qb-valid.qb-expired { color: #dc2626; }
 
 .qb-confirm { text-align: center; margin-top: 18rpx; padding: 16rpx 0; font-size: 28rpx; }
+
+/* 033 供应商关注：徽章横排 / 标签行 / 操作按钮组 */
+.sup-badges { display: flex; gap: 8rpx; align-items: center; }
+.sup-tags { font-size: 24rpx; color: #6d28d9; margin-top: 8rpx; }
+.sup-acts { display: flex; gap: 24rpx; margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid #f1f5f9; }
+.sup-act { font-size: 24rpx; color: #475569; padding: 6rpx 16rpx; background: #f1f5f9; border-radius: 8rpx; }
+.sup-act-primary { color: #2563eb; background: #eff6ff; }
+.sup-act-danger { color: #dc2626; background: #fef2f2; }

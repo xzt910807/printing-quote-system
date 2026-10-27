@@ -897,6 +897,15 @@
                   <option :value="0">未核验</option>
                 </select>
               </div>
+              <div class="form-item">
+                <label title="0=未验 / 1=执照已核 / 2=实地或视频验厂 / 3=深度验厂">验真分级</label>
+                <select v-model.number="factoryEditor.form.verificationLevel">
+                  <option :value="0">未核验</option>
+                  <option :value="1">执照已核</option>
+                  <option :value="2">实地/视频验厂</option>
+                  <option :value="3">深度验厂</option>
+                </select>
+              </div>
             </div>
             <div class="form-actions">
               <button class="btn btn-primary" @click="saveFactory">保存</button>
@@ -1526,6 +1535,7 @@
                     <button v-if="it.status === 'open'" class="btn-link" @click="adminUpdateIssue(it, 'processing')">接手</button>
                     <button v-if="it.status === 'processing'" class="btn-link" @click="adminUpdateIssue(it, 'resolved')">标记解决</button>
                     <button v-if="it.status === 'resolved'" class="btn-link" @click="adminUpdateIssue(it, 'closed')">关闭</button>
+                    <button class="btn-link" @click="viewIssueFiles(it)">证据</button>
                   </td>
                 </tr>
                 <tr v-if="!issuesState.list.length"><td colspan="7" class="empty">{{ issuesState.loading ? '加载中…' : '暂无工单' }}</td></tr>

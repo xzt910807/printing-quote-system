@@ -28,3 +28,12 @@
 
 .btn-primary { position: fixed; bottom: 20rpx; left: 20rpx; right: 20rpx; background: #2563eb; color: #fff; text-align: center; padding: 28rpx; border-radius: 12rpx; font-size: 30rpx; }
 .empty { text-align: center; color: #999; padding-top: 400rpx; }
+
+/* 026 证据附件 */
+.files-empty { color: #999; font-size: 24rpx; padding: 12rpx 0; }
+.file-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.file-row:last-child { border-bottom: none; }
+.file-name { flex: 1; font-size: 26rpx; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-meta { font-size: 22rpx; color: #888; margin-left: 16rpx; }
+.file-upload { margin-top: 16rpx; text-align: center; padding: 20rpx; border: 2rpx dashed #2563eb; color: #2563eb; border-radius: 8rpx; font-size: 26rpx; }
+.file-upload.disabled { opacity: .5; }

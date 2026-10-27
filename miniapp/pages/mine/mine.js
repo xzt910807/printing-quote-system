@@ -557,6 +557,10 @@ Page({
         total_amount: Number(s.total_amount || 0).toFixed(2),
         avg_rating: s.avg_rating ? Number(s.avg_rating).toFixed(1) : '',
         lastOrderText: formatTime(s.last_order_at),
+        followed: !!s.followed,
+        pinned: !!s.pinned,
+        tags: s.tags || '',
+        note: s.note || '',
       }));
       this.setData({ suppliers: enriched });
       this.applyFilter();
@@ -566,6 +570,86 @@ Page({
     } finally {
       this.setData({ supplierLoading: false });
     }
+  },
+
+  // 033 供应商关注：手动关注 / 打标签 / 置顶 / 取消关注
+  onSupplierFollow(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.showModal({
+      title: '关注标签（可选）',
+      placeholderText: '如：主力/备用/待评估，多标签用逗号分隔',
+      editable: true,
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          await api.request('/api/c/user/suppliers/follow', {
+            method: 'POST',
+            data: { factoryId: id, tags: (r.content || '').trim() },
+          });
+          wx.showToast({ title: '已关注', icon: 'success' });
+          this.loadSuppliers();
+        } catch (err) {
+          wx.showToast({ title: err.message || '关注失败', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  onSupplierTagEdit(e) {
+    const { id, tags, pinned } = e.currentTarget.dataset;
+    wx.showModal({
+      title: pinned ? '置顶中 · 修改标签' : '修改标签',
+      placeholderText: '标签，逗号分隔',
+      content: tags || '',
+      editable: true,
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          await api.request('/api/c/user/suppliers/follow', {
+            method: 'POST',
+            data: { factoryId: id, tags: (r.content || '').trim(), pinned: !!pinned },
+          });
+          wx.showToast({ title: '已更新', icon: 'success' });
+          this.loadSuppliers();
+        } catch (err) {
+          wx.showToast({ title: err.message || '更新失败', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  async onSupplierTogglePin(e) {
+    const { id, tags, note, pinned } = e.currentTarget.dataset;
+    try {
+      await api.request('/api/c/user/suppliers/follow', {
+        method: 'POST',
+        data: { factoryId: id, tags: tags || '', note: note || '', pinned: pinned ? 0 : 1 },
+      });
+      wx.showToast({ title: pinned ? '已取消置顶' : '已置顶', icon: 'success' });
+      this.loadSuppliers();
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    }
+  },
+
+  onSupplierUnfollow(e) {
+    const { id, name } = e.currentTarget.dataset;
+    wx.showModal({
+      title: '取消关注',
+      content: '不再关注「' + (name || '该工厂') + '」？历史合作数据仍会保留。',
+      confirmColor: '#e64340',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          await api.request('/api/c/user/suppliers/follow/' + id, { method: 'DELETE' });
+          wx.showToast({ title: '已取消关注', icon: 'success' });
+          this.loadSuppliers();
+        } catch (err) {
+          wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+        }
+      },
+    });
   },
 
   // 027 售后工单入口

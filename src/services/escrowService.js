@@ -1,12 +1,21 @@
 /**
  * 交易担保(分账)服务
  * 单商户号模式：资金入平台 → profit_sharing=true 冻结 → 确认收货后解冻 → 线下结算
+ *
+ * 开关设计：
+ *   WXPAY_ESCROW_ENABLED=1 → 启用担保链路（需同时 wxpay.isConfigured()==true 才调 API）
+ *   WXPAY_ESCROW_ENABLED=0/未配 → 全降级：不标 frozen不解冻，pay_status=paid 后资金直接可用
  */
 const { pool } = require('../config/db');
 const wxpay = require('./wxpay');
 
 const PLATFORM_FEE_RATE = Number(process.env.WXPAY_PLATFORM_FEE_RATE || 0.03);
 const AUTO_RELEASE_DAYS = Number(process.env.WXPAY_AUTO_RELEASE_DAYS || 7);
+const ESCROW_ENABLED = process.env.WXPAY_ESCROW_ENABLED === '1';
+
+function isEscrowActive() {
+  return ESCROW_ENABLED;
+}
 
 function httpError(message, status) {
   const e = new Error(message); e.status = status; return e;
@@ -14,8 +23,10 @@ function httpError(message, status) {
 
 /**
  * 标记订单为担保冻结状态（支付回调成功后调用）
+ * 未开启 ESCROW 时直接 return，保证 escrow_status 保持默认 'none'
  */
 async function markFrozen(orderId) {
+  if (!ESCROW_ENABLED) return;
   await pool.query("UPDATE order_main SET escrow_status = 'frozen' WHERE id = ? AND pay_status = 'paid'", [orderId]);
 }
 
@@ -34,8 +45,8 @@ async function confirmRelease(orderId, actor) {
   const platformFee = Math.round(totalAmount * PLATFORM_FEE_RATE * 100) / 100;
   const factoryAmount = Math.round((totalAmount - platformFee) * 100) / 100;
 
-  // 调用微信分账完结（解冻剩余资金给平台商户）
-  if (wxpay.isConfigured()) {
+  // 调用微信分账完结（解冻剩余资金给平台商户）——仅在 ESCROW 开关开启且 wxpay 已配时执行
+  if (ESCROW_ENABLED && wxpay.isConfigured()) {
     try {
       const outOrderNo = `PS_${order.order_no}`;
       await wxpay.profitSharingFinish({
@@ -141,4 +152,4 @@ async function autoReleaseExpired() {
   return count;
 }
 
-module.exports = { markFrozen, confirmRelease, disputeHold, arbitrate, autoReleaseExpired, PLATFORM_FEE_RATE, AUTO_RELEASE_DAYS };
+module.exports = { markFrozen, confirmRelease, disputeHold, arbitrate, autoReleaseExpired, isEscrowActive, PLATFORM_FEE_RATE, AUTO_RELEASE_DAYS, ESCROW_ENABLED };
