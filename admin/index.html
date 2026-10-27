@@ -1532,9 +1532,10 @@
                   <td><span class="badge">{{ ISSUE_STATUS_TEXT[it.status] || it.status }}</span></td>
                   <td class="muted">{{ formatTime(it.created_at) }}</td>
                   <td>
-                    <button v-if="it.status === 'open'" class="btn-link" @click="adminUpdateIssue(it, 'processing')">接手</button>
-                    <button v-if="it.status === 'processing'" class="btn-link" @click="adminUpdateIssue(it, 'resolved')">标记解决</button>
-                    <button v-if="it.status === 'resolved'" class="btn-link" @click="adminUpdateIssue(it, 'closed')">关闭</button>
+                    <button v-if="isFactoryMode && (it.status === 'open' || it.status === 'processing')" class="btn-link" @click="factoryReplyIssue(it)">回复</button>
+                    <button v-if="!isFactoryMode && it.status === 'open'" class="btn-link" @click="adminUpdateIssue(it, 'processing')">接手</button>
+                    <button v-if="!isFactoryMode && it.status === 'processing'" class="btn-link" @click="adminUpdateIssue(it, 'resolved')">标记解决</button>
+                    <button v-if="!isFactoryMode && it.status === 'resolved'" class="btn-link" @click="adminUpdateIssue(it, 'closed')">关闭</button>
                     <button class="btn-link" @click="viewIssueFiles(it)">证据</button>
                   </td>
                 </tr>
@@ -1625,7 +1626,7 @@
   <script src="./js/api.js?v=20"></script>
   <script src="./js/dialog.js?v=16"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=29"></script>
+  <script src="./js/app.js?v=30"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

@@ -218,12 +218,27 @@ const app = createApp({
     async function loadIssues(page) {
       issuesState.loading = true;
       try {
+        // 工厂身份走 /api/factory/issue（requireFactory），类型/关键词本地过滤
+        if (state.isFactoryMode) {
+          const q = new URLSearchParams();
+          if (issueFilter.status) q.set('status', issueFilter.status);
+          const res = await api.request('/api/factory/issue?' + q.toString());
+          let list = (res.data && res.data.list) || [];
+          if (issueFilter.type) list = list.filter((it) => it.type === issueFilter.type);
+          const kw = (issueFilter.keyword || '').toLowerCase();
+          if (kw) list = list.filter((it) =>
+            (it.ticket_no || '').toLowerCase().includes(kw) || (it.title || '').toLowerCase().includes(kw));
+          issuesState.list = list;
+          issuesState.total = list.length;
+          issueFilter.page = 1;
+          return;
+        }
         const q = new URLSearchParams();
         if (issueFilter.status) q.set('status', issueFilter.status);
         if (issueFilter.type) q.set('type', issueFilter.type);
         if (issueFilter.keyword) q.set('keyword', issueFilter.keyword);
         q.set('page', page || issueFilter.page || 1);
-        q.set('pageSize', 20);
+        q.set('size', 20);
         const res = await api.request('/api/admin/issue?' + q.toString());
         issuesState.list = (res.data && res.data.list) || [];
         issuesState.total = (res.data && res.data.total) || 0;
@@ -233,6 +248,16 @@ const app = createApp({
       } finally {
         issuesState.loading = false;
       }
+    }
+
+    // 工厂回复工单（open 回复后后端自动转 processing）
+    async function factoryReplyIssue(issue) {
+      const reply = prompt('回复工单 ' + (issue.ticket_no || '') + '：');
+      if (reply == null || !reply.trim()) return;
+      try {
+        await api.request('/api/factory/issue/' + issue.id + '/reply', { method: 'PUT', body: { reply: reply.trim() } });
+        await loadIssues();
+      } catch (err) { alert('回复失败：' + err.message); }
     }
 
     async function adminUpdateIssue(issue, status) {
@@ -248,10 +273,11 @@ const app = createApp({
       catch (err) { alert('失败：' + err.message); }
     }
 
-    // 026+027 工单证据附件查看
+    // 026+027 工单证据附件查看（工厂/管理端各自鉴权入口）
     async function viewIssueFiles(issue) {
       try {
-        const res = await api.request('/api/admin/issue/' + issue.id + '/files');
+        const base = state.isFactoryMode ? '/api/factory/issue/' : '/api/admin/issue/';
+        const res = await api.request(base + issue.id + '/files');
         const list = (res.data && res.data.list) || [];
         if (!list.length) { alert('本工单暂无附件'); return; }
         const lines = list.map((f) => {
@@ -2450,7 +2476,7 @@ const app = createApp({
       quotePages, orderPages, inquiryPages, customerPages, onOrderFilterChange,
       currentFactoryLabel, filteredFactoryOptions, toggleFactoryPicker, pickFactory, setCatalogTab,
       // 027 售后工单 + 029 仲裁中心
-      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue, viewIssueFiles,
+      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue, factoryReplyIssue, viewIssueFiles,
       arbState, loadArbitration, arbitrateOrder,
       // 021/022 设计稿展示
       designImgs, designBadge, openDesignImg, designPdf,
