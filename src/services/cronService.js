@@ -157,6 +157,8 @@ async function tick() {
     await autoReleaseEscrow();
     // 028 资讯抓取：每 NEWS_CRAWL_INTERVAL_HOURS(默认 2) 小时一次，以 sys_kv 时间戳节流
     await crawlNewsIfNeeded();
+    // 035 订阅资讯每日早报/晚报推送（默认 8/20 点窗口，每窗口只推一次）
+    await newsDigestPushIfNeeded();
     // 心跳：成功也落库（含耗时），/health 据此判活
     await kvSet(HEARTBEAT_KEY, JSON.stringify({ ok: true, costMs: Date.now() - started }));
   } catch (e) {
@@ -210,6 +212,35 @@ async function crawlNewsIfNeeded() {
     if (ret && ret.total) console.log('[cron] 资讯抓取新增 ' + ret.total + ' 条');
   } catch (e) {
     if (e.code !== 'ER_NO_SUCH_TABLE') console.warn('[cron] 资讯抓取失败:', e.message);
+  }
+}
+
+// ===== 035 订阅资讯每日推送（早报/晚报）=====
+const NEWS_PUSH_HOURS = String(process.env.NEWS_PUSH_HOURS || '8,20')
+  .split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n));
+const NEWS_PUSH_CATEGORIES = ['policy', 'market', 'tech', 'material'];
+async function newsDigestPushIfNeeded() {
+  if (!NEWS_PUSH_HOURS.length) return;
+  const now = new Date();
+  const hour = now.getHours();
+  const slot = NEWS_PUSH_HOURS.find((h) => hour >= h && hour < h + 2);
+  if (slot == null) return;
+  const dateStr = fmtDate(now);
+  const key = 'news_digest_push_' + slot + '_' + dateStr;
+  const rec = await kvGet(key);
+  if (rec) return;
+  try {
+    const news = require('./newsService');
+    const results = [];
+    for (const cat of NEWS_PUSH_CATEGORIES) {
+      const r = await news.pushDigest(cat).catch((e) => ({ error: e.message }));
+      results.push({ cat, ...(r || {}) });
+    }
+    await kvSet(key, JSON.stringify({ hour: slot, results }));
+    const sent = results.reduce((s, x) => s + (x.sent || 0), 0);
+    if (sent) console.log('[cron] 订阅资讯推送 slot=' + slot + ':00 成功 ' + sent + ' 人次');
+  } catch (e) {
+    console.warn('[cron] 订阅资讯推送失败:', e.message);
   }
 }
 

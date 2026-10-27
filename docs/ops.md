@@ -240,3 +240,56 @@ node scripts/binlog-rescue.js --apply
 用 `DB_NAME=临时库` 执行 init.sql 时，真库被删、建表全落在临时库，表现为「库存在但 0 表」。
 因此现在：① 默认遇库级 DDL 直接中止；② `--allow-db-ddl` 时校验库名必须等于 `DB_NAME`，并自动保留 USE、不在连接时预绑库（否则 DROP 后连接默认库失效，报 `No database selected`）。
 任何时候手工切库执行 SQL 文件，都要先确认输出首行的「目标库」再回车。
+
+## 14. Batch A/B/C/D 增量上线手册（031-035）
+
+### 14.1 迁移与冒烟
+
+```powershell
+# 已在本会话验证，存量库上线时只需重跑一次确认
+node scripts/migrate.js status   # 应看到 031-034 都为 ✓
+node scripts/migrate.js apply    # 幂等，新库上自动补齐
+npm test                         # 27 个用例全绿即可重启服务
+```
+
+涉及新表：`user_news_subscription`、`supplier_follow`；新列：`industry_news.featured/editor_note/editor_id/keywords`、`factory.verification_level/verified_at`。均默认 0/NULL，存量无影响。
+
+### 14.2 资讯订阅推送三件套（Batch B）
+
+1. 微信公众平台「订阅消息」申请新模板，建议字段：
+   - `thing1` 分类·标题（20字）
+   - `thing2` 摘要（20字）
+   - `time3` 推送时间（yyyy/M/d HH:mm:ss）
+2. `.env` 回填 `NEWS_SUBSCRIBE_TEMPLATE_ID=xxx`；`NEWS_PUSH_HOURS=8,20` 控制每日推送时区（默认早报 8 点 + 晚报 20 点，2h 容错窗口同窗口只推一次，靠 `sys_kv.news_digest_push_<hour>_<date>` 节流）。
+3. 小程序端：news 页点订阅后自动 `wx.requestSubscribeMessage`，未配模板 ID 时静默降级。后端 cron 下发前会先查 `enabled=1 AND openid IS NOT NULL`，未绑定微信 openid 的开发身份自动跳过。
+4. 验收：`SELECT k, v FROM sys_kv WHERE k LIKE 'news_digest_push_%'` 应看到当日已推窗口记录，v 包含 `{hour, results:[{cat,subscribers,sent}]}`。
+
+### 14.3 AI 一句话到位报价（Batch C）
+
+`POST /api/quote/nl` 默认 `useAI=true`，行为变化：
+- **以前**：仅当规则解析缺 quantity/lengthM 才拉 LLM，失败直接抛。
+- **现在**：规则先给一个基座 → LLM 一步产出完整 JSON 字段 → 非法枚举/越界自动丢弃 → 基座回补。
+- **风险**：LLM 服务挂时会在服务端 log `[nl] AI 解析失败回退规则结果`，不阻断主流程；确认没配 `AGNES_API_KEY`/`DEEPSEEK_API_KEY` 时也能用。排障时可传 `useAI=false` 回到旧行为。
+- few-shot 样本在 `src/parser/nl-parser.js` `parseByAI`，新增领域参数时同步补充样本。
+
+### 14.4 快递100 主动推送回调（Batch D）
+
+1. `.env` 确认 `KUAIDI100_KEY` 与 `KUAIDI100_CUSTOMER` 已填（同拉取查询共用）。
+2. 快递100 高级方案后台「任务推送」绑定回调 URL：`https://your-domain/api/logistics/kuaidi100/callback`（HTTPS 必需）。
+3. nginx 层建议加 IP 白名单（poll.kuaidi100.com 固定 egress IP 段，参考官方文档），防止未签名伪探。
+4. 签名算法：`MD5(param + KUAIDI100_KEY).toUpperCase()`，与拉取查询同一把钥匙。本端签名不匹定一律丢弃并回执 `{result:false,status:'500'}`。
+5. 验收：本地模拟 curl（把 `<key>` 替换为真 KEY，param 中的 `number` 需为已录入单号）：
+   ```bash
+   PARAM='{"company":"SF","number":"SF1234567890","state":"3","trail":[{"ftime":"2026-10-27 10:00:00","context":"已签收"}]}'
+   SIGN=$(printf '%s' "${PARAM}<key>" | md5sum | awk '{print toupper($1)}')
+   curl -s -X POST https://your-domain/api/logistics/kuaidi100/callback \
+     --data-urlencode "param=$PARAM" --data-urlencode "sign=$SIGN"
+   ```
+   预期返回 `{"result":true,"status":"200","message":"成功"}`，`order_logistics.status` 与 `order_main.logistics_status` 同步为 signed。
+
+### 14.5 同环比与 CSV 导出（Batch A 遗留）
+
+- `GET /api/factory/dashboard/compare?start=YYYY-MM-DD&end=YYYY-MM-DD`（需 `X-Factory-Id + X-Factory-Token`）：环比上期（长度相同的紧邻前一段）+ 同比去年（前推 365 天）；区间不传则默认本月至今。
+- `GET /api/factory/dashboard/export.csv?start=&end=`：同区间 CSV（含 BOM，Excel 直接中文不乱码），小程序下右上传到邮箱，无前端入口。
+- 无同环比/导出权限的工厂账号（viewer/finance）仍可读 summary，但不会看到派生 KPI。
+

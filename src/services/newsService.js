@@ -87,4 +87,50 @@ async function crawlAll() {
   return { total, sources: sources.length, perSource };
 }
 
-module.exports = { crawlAll, getSources };
+/**
+ * 035 订阅资讯每日推送（早报/晚报）：
+ *  - 按分类拉当日最新 3 条，拼接后调 wxService.notifyUser 下发
+ *  - templateId 从环境变量 NEWS_SUBSCRIBE_TEMPLATE_ID 读；未配置静默降级
+ *  - 仅推 enabled=1 且已绑定 openid 的订阅者；未授权微信一次性订阅会返 43101 静默失败
+ */
+async function pushDigest(category) {
+  const templateId = (process.env.NEWS_SUBSCRIBE_TEMPLATE_ID || '').trim();
+  if (!templateId) return { skipped: true, reason: 'no_template' };
+  const wx = require('./wxService');
+  if (!wx.isWxConfigured()) return { skipped: true, reason: 'no_wx_config' };
+
+  const [news] = await pool.query(
+    `SELECT id, title, summary, published_at FROM industry_news
+     WHERE category = ? AND published_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+     ORDER BY featured DESC, published_at DESC LIMIT 3`,
+    [category]
+  );
+  if (!news.length) return { skipped: true, reason: 'no_news' };
+
+  const [users] = await pool.query(
+    `SELECT ue.openid FROM user_news_subscription uns
+     JOIN c_end_user ue ON ue.id = uns.user_id
+     WHERE uns.category = ? AND uns.enabled = 1 AND ue.openid IS NOT NULL AND ue.openid <> ''`,
+    [category]
+  );
+  if (!users.length) return { skipped: true, reason: 'no_subscribers' };
+
+  const CAT_LABEL = { policy: '政策', market: '市场', tech: '技术', material: '材料' };
+  const catLabel = CAT_LABEL[category] || category;
+  let sent = 0;
+  for (const u of users) {
+    const r = await wx.sendSubscribe(u.openid, templateId, {
+      page: 'pages/news/news',
+      data: {
+        thing1: { value: (catLabel + ' · ' + news[0].title).slice(0, 20) },
+        thing2: { value: (news[0].summary || news[0].title).slice(0, 20) },
+        time3:  { value: new Date().toLocaleString('zh-CN', { hour12: false }) },
+      },
+    }).catch(() => ({ sent: false }));
+    if (r && r.sent) sent++;
+  }
+  console.log('[news] 订阅推送完成 cat=' + category + ' 命中订阅者=' + users.length + ' 成功=' + sent);
+  return { category, subscribers: users.length, sent };
+}
+
+module.exports = { crawlAll, getSources, pushDigest };

@@ -102,6 +102,11 @@ Page({
         wx.showToast({ title: '已取消订阅', icon: 'none' });
       } else {
         await api.request('/api/c/news/subscribe', { method: 'POST', data: { category: cat } });
+        // 035 新订阅后拉微信一次性订阅授权（未配置模板 ID 静默；用户拒绝不阻断订阅记录）
+        const tmplId = getApp().globalData.newsSubscribeTmplId;
+        if (tmplId) {
+          wx.requestSubscribeMessage({ tmplIds: [tmplId], success: () => {}, fail: () => {} });
+        }
         wx.showToast({ title: '已订阅 ' + this._catLabel(cat), icon: 'success' });
       }
       await this.loadSubscriptions();

@@ -21,7 +21,9 @@ router.get('/config', (req, res) => {
     subscribeTmplIds: [
       process.env.WX_TMPL_ORDER_ACCEPTED,
       process.env.WX_TMPL_ORDER_SHIPPED,
+      process.env.NEWS_SUBSCRIBE_TEMPLATE_ID,
     ].filter(Boolean),
+    newsSubscribeTmplId: process.env.NEWS_SUBSCRIBE_TEMPLATE_ID || '',
     // Stage9 产品类型联动配置（印刷方式/材料/工艺白名单），小程序端据此收窄可选项
     productConfig: catalog.baseData.productConfig || {},
     // 028：后道工艺清单随目录动态下发（仅 code/name，无价格），小程序端不再写死——

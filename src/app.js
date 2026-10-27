@@ -30,6 +30,7 @@ const issuesRoutes = require('./routes/issues');
 const newsRoutes = require('./routes/news');
 const factoryDashboardRoutes = require('./routes/factoryDashboard');
 const suppliersRoutes = require('./routes/suppliers');
+const logisticsCallbackRoutes = require('./routes/logisticsCallback');
 const wxpay = require('./services/wxpay');
 const { requireAdmin, requireAdminOrFactory, requireUser, requireFactory } = require('./middlewares/auth');
 const { ok, fail } = require('./utils/helpers');
@@ -205,6 +206,8 @@ app.use('/api/c', cQuoteRoutes);
 app.use('/api/c', designRoutes);
 // F-105 语音识别（第三方 ASR 通道，个人主体小程序的语音报价方案；匿名可用）
 app.use('/api/voice', voiceRoutes);
+// 035 快递100 主动推送回调（公开，靠签名验证 + 建议 IP 白名单）
+app.use('/api/logistics', logisticsCallbackRoutes);
 // 027 询价会话 IM（客户/工厂双视角，按请求头鉴权分流，路由内部强制归属校验）
 app.use('/api/messages', messagesRoutes);
 app.use('/api/factory', factoryPushRoutes);

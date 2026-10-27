@@ -223,11 +223,59 @@ function parseByRules(text) {
 }
 
 async function parseByAI(text) {
-  const prompt = '从以下印刷询价文本中提取JSON参数，字段：productType, printMode, lengthM,widthM,heightM(米), quantity, materialType, materialCode, colorCount, processes, boxType(normal/lidBase/drawer), nUp(拼版数), filmLayers(软包装层数), filmCodes(薄膜编码数组), patternCover(low/mid/high图案覆盖率), inkType(油墨编码NORMAL/UV/METALLIC/FLUOR/SOY), spotColors(专色数量0-6整数)。产品类型取值：carton纸箱/cardBox彩盒/card卡片/paperBag纸袋/sticker不干胶/flexiblePackaging软包装/nonWovenBag无纺布袋/antiCounterfeitLabel防伪标签/heatTransfer热转印。客户文本：' + text + ' 只返回JSON。';
-  const content = await llm.chat([{ role: 'user', content: prompt }], { temperature: 0.1, maxTokens: 512 });
+  // 035 强化 prompt：system 角色 + 3 个 few-shot 样本，推动 AI 一步产出完整参数。
+  // 输出字段与 parseByRules 对齐；下游 quote.js 会做 AI与规则的 fallback 合并。
+  const sys = '你是印刷行业报价专家。从用户中文描述中提取 JSON 参数（无把握的字段留空即可）。\n' +
+    '字段含义与默认值：\n' +
+    '- productType：carton|cardBox|card|paperBag|sticker|flexiblePackaging|nonWovenBag|antiCounterfeitLabel|heatTransfer\n' +
+    '- printMode：offset|flexo|gravure|digital|screen\n' +
+    '- lengthM/widthM/heightM：单位为米（毫米数字除以 1000）\n' +
+    '- quantity：整数件数\n' +
+    '- materialType：boardPaper|cardPaper|rawPaper|plasticFilm\n' +
+    '- materialCode：常见如 B_BC5/B_B3/CARD250/KRAFT300/STK_COPPER/NW_100/PP_40\n' +
+    '- colorCount：1/2/4；spotColors：0-6\n' +
+    '- processes：后道工艺 code 数组，常见 MATTE_FILM/GLOSS_FILM/HOT_STAMP/UV_COAT/DIE_CUT/EMBOSS_PROC/ROPE/PACK\n' +
+    '- boxType：normal|lidBase|drawer；nUp：1/2/4/6/8\n' +
+    '- filmLayers：1|2|3；patternCover：low|mid|high；inkType：NORMAL|UV|METALLIC|FLUOR|SOY\n' +
+    '只输出一个 JSON 对象，无多余文字。';
+  const examples = [
+    { role: 'user', content: '300×200×100mm 双坑五层瓦楞纸箱 5000个 四色胶印 表面覆光膜' },
+    { role: 'assistant', content: '{"productType":"carton","printMode":"offset","lengthM":0.3,"widthM":0.2,"heightM":0.1,"quantity":5000,"materialType":"boardPaper","materialCode":"B_BC5","colorCount":4,"processes":["GLOSS_FILM"],"patternCover":"mid","inkType":"NORMAL"}' },
+    { role: 'user', content: '250g 白卡彩盒 天地盖 10×8×5cm 一万件 四色 覆哑膜 烫金 logo' },
+    { role: 'assistant', content: '{"productType":"cardBox","printMode":"offset","lengthM":0.1,"widthM":0.08,"heightM":0.05,"quantity":10000,"materialType":"cardPaper","materialCode":"CARD250","colorCount":4,"boxType":"lidBase","processes":["MATTE_FILM","HOT_STAMP"]}' },
+    { role: 'user', content: '无纺布袋 35×40cm 加厚 100g 蓝色 一万五个 车缝 四色丝印' },
+    { role: 'assistant', content: '{"productType":"nonWovenBag","printMode":"screen","lengthM":0.35,"widthM":0.4,"heightM":0,"quantity":15000,"materialType":"cardPaper","materialCode":"NW_100","colorCount":4,"processes":["SEWING"]}' },
+  ];
+  const messages = [
+    { role: 'system', content: sys },
+    ...examples,
+    { role: 'user', content: text },
+  ];
+  const content = await llm.chat(messages, { temperature: 0.15, maxTokens: 800 });
   const m = content.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('AI 解析失败');
-  return JSON.parse(m[0]);
+  let obj;
+  try { obj = JSON.parse(m[0]); } catch (e) { throw new Error('AI 返回非 JSON'); }
+  // 字段合法域兵兵接兵—非法枚举/越界丢弃，交由上层 fallback 到规则解析结果
+  const PT = ['carton','cardBox','card','paperBag','sticker','flexiblePackaging','nonWovenBag','antiCounterfeitLabel','heatTransfer'];
+  const PM = ['offset','flexo','gravure','digital','screen'];
+  const MT = ['boardPaper','cardPaper','rawPaper','plasticFilm'];
+  const BX = ['normal','lidBase','drawer'];
+  const IC = ['NORMAL','UV','METALLIC','FLUOR','SOY'];
+  const PC = ['low','mid','high'];
+  if (obj.productType && !PT.includes(obj.productType)) delete obj.productType;
+  if (obj.printMode && !PM.includes(obj.printMode)) delete obj.printMode;
+  if (obj.materialType && !MT.includes(obj.materialType)) delete obj.materialType;
+  if (obj.boxType && !BX.includes(obj.boxType)) delete obj.boxType;
+  if (obj.inkType && !IC.includes(obj.inkType)) delete obj.inkType;
+  if (obj.patternCover && !PC.includes(obj.patternCover)) delete obj.patternCover;
+  if (obj.quantity != null) { obj.quantity = Math.max(1, parseInt(obj.quantity, 10) || 0) || undefined; if (!obj.quantity) delete obj.quantity; }
+  if (obj.colorCount != null) { const c = parseInt(obj.colorCount, 10); obj.colorCount = (c >= 1 && c <= 8) ? c : undefined; if (!obj.colorCount) delete obj.colorCount; }
+  if (obj.spotColors != null) { obj.spotColors = Math.min(6, Math.max(0, parseInt(obj.spotColors, 10) || 0)); }
+  if (obj.nUp != null) { obj.nUp = Math.max(1, parseInt(obj.nUp, 10) || 1); }
+  if (obj.filmLayers != null) { obj.filmLayers = Math.min(4, Math.max(1, parseInt(obj.filmLayers, 10) || 1)); }
+  if (obj.processes != null && !Array.isArray(obj.processes)) delete obj.processes;
+  return obj;
 }
 
 module.exports = { parseByRules, parseByAI };

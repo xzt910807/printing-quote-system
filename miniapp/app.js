@@ -6,6 +6,7 @@ App({
     userAuth: null,     // C端用户登录态 { userId, openid, nickname, avatarUrl, phone, token, devMode, role, factoryId }
     role: 'customer',   // stage14 身份分流：customer=普通客户 factory=工厂（tabBar 过滤依据）
     subscribeTmplIds: [], // 订阅消息模板ID（启动时从 /api/c/config 拉取，未配置时为空）
+    newsSubscribeTmplId: '', // 032 资讯订阅消息模板 ID（news 页订阅后弹授权）
     tabBadge: {},        // tabBar 徽标 { inquiry: 待接单数, mine: 未读消息数 }
     agreed: false,       // F-85：是否已同意用户协议+隐私政策（未同意不发起登录）
   },
@@ -43,6 +44,7 @@ App({
     api.request('/api/c/config')
       .then((res) => {
         this.globalData.subscribeTmplIds = (res.data && res.data.subscribeTmplIds) || [];
+        this.globalData.newsSubscribeTmplId = (res.data && res.data.newsSubscribeTmplId) || '';
       })
       .catch(() => { /* 后端未启动等情况：保持空数组 */ });
   },

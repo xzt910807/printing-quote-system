@@ -211,3 +211,5 @@ function csvEscape(v) {
 }
 
 module.exports = router;
+// 内部 helper 对外暴露给单测（不造成写入面 API 污染）
+module.exports._helpers = { resolveRange, deriveCompareRanges, csvEscape };

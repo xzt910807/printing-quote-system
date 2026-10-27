@@ -42,13 +42,28 @@ router.post('/save', requirePermission('calculator:use'), async (req, res) => {
 router.post('/nl', requirePermission('calculator:use'), async (req, res) => {
   try {
     const factoryId = resolveFactoryId(req);
-    const { text, useAI = false, save = false, customerId = null } = req.body;
+    // 035 默认 useAI=true：一句话到位直接走 LLM 一步产出完整参数；
+    // 规则解析作为 fallback（LLM 未配置 / 失败 / 非法域过滤后缺字段时自动补位）
+    const { text, useAI = true, save = false, customerId = null } = req.body;
     if (!text) throw new Error('缺少 text 参数');
 
     let parsed = parseByRules(text);
-    if (useAI && (!parsed.quantity || !parsed.lengthM)) {
-      const aiParsed = await parseByAI(text);
-      parsed = { ...parsed, ...aiParsed };
+    if (useAI) {
+      try {
+        const aiParsed = await parseByAI(text);
+        // AI 结果覆盖规则结果，但空值/未定义保留规则值；processes 取并集
+        for (const k of Object.keys(aiParsed)) {
+          if (aiParsed[k] == null || aiParsed[k] === '') continue;
+          if (k === 'processes') {
+            const merged = new Set([...(parsed.processes || []), ...(aiParsed.processes || [])]);
+            parsed.processes = Array.from(merged);
+          } else {
+            parsed[k] = aiParsed[k];
+          }
+        }
+      } catch (e) {
+        console.warn('[nl] AI 解析失败回退规则结果:', e.message);
+      }
     }
 
     const finalInput = {
