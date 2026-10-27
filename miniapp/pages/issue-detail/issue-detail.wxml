@@ -12,8 +12,8 @@
   </view>
 
   <view class="row"><text class="lbl">类型</text><text>{{typeLabel}}</text></view>
-  <view class="row"><text class="lbl">订单</text><text>#{{ticket.order_id}}</text></view>
-  <view class="row"><text class="lbl">工厂</text><text>#{{ticket.factory_id}}</text></view>
+  <view class="row"><text class="lbl">订单</text><text>{{ticket.order_no || ('#' + ticket.order_id)}}</text></view>
+  <view class="row"><text class="lbl">工厂</text><text>{{ticket.factory_name || ('#' + ticket.factory_id)}}</text></view>
   <view class="row"><text class="lbl">创建</text><text>{{ticket.timeText || ticket.created_at}}</text></view>
 
   <view class="card">

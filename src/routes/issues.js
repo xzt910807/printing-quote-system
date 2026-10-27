@@ -28,14 +28,19 @@ userRouter.post('/', async (req, res) => {
   }
 });
 
-// GET /?orderId= — 用户工单列表
+// GET /?orderId= — 用户工单列表（JOIN 带出订单号/厂名，前端不再显示裸 ID）
 userRouter.get('/', async (req, res) => {
   try {
     const orderId = parseInt(req.query.orderId, 10) || null;
-    let sql = 'SELECT id, ticket_no, order_id, factory_id, type, title, status, created_at, updated_at FROM issue_ticket WHERE user_id = ?';
+    let sql = `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.factory_id, f.name AS factory_name,
+                      t.type, t.title, t.status, t.created_at, t.updated_at
+               FROM issue_ticket t
+               LEFT JOIN order_main o ON o.id = t.order_id
+               LEFT JOIN factory f ON f.id = t.factory_id
+               WHERE t.user_id = ?`;
     const params = [req.user.id];
-    if (orderId) { sql += ' AND order_id = ?'; params.push(orderId); }
-    sql += ' ORDER BY created_at DESC LIMIT 50';
+    if (orderId) { sql += ' AND t.order_id = ?'; params.push(orderId); }
+    sql += ' ORDER BY t.created_at DESC LIMIT 50';
     const [rows] = await pool.query(sql, params);
     res.json(ok({ list: rows }));
   } catch (err) { res.status(400).json(fail(err.message)); }
@@ -45,7 +50,12 @@ userRouter.get('/', async (req, res) => {
 userRouter.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const [[ticket]] = await pool.query('SELECT * FROM issue_ticket WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    const [[ticket]] = await pool.query(
+      `SELECT t.*, o.order_no, f.name AS factory_name
+       FROM issue_ticket t
+       LEFT JOIN order_main o ON o.id = t.order_id
+       LEFT JOIN factory f ON f.id = t.factory_id
+       WHERE t.id = ? AND t.user_id = ?`, [id, req.user.id]);
     if (!ticket) return res.status(404).json(fail('工单不存在'));
     res.json(ok(ticket));
   } catch (err) { res.status(400).json(fail(err.message)); }
@@ -63,18 +73,22 @@ userRouter.put('/:id/close', async (req, res) => {
 const factoryRouter = express.Router();
 factoryRouter.use(requireFactory);
 
-// GET / — 本厂工单列表（默认 open+processing）
+// GET / — 本厂工单列表（默认 open+processing，JOIN 带出订单号）
 factoryRouter.get('/', async (req, res) => {
   try {
     const status = String(req.query.status || '').trim();
-    let sql = 'SELECT id, ticket_no, order_id, user_id, type, title, description, images, status, factory_reply, created_at, updated_at FROM issue_ticket WHERE factory_id = ?';
+    let sql = `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.user_id, t.type, t.title, t.description, t.images,
+                      t.status, t.factory_reply, t.created_at, t.updated_at
+               FROM issue_ticket t
+               LEFT JOIN order_main o ON o.id = t.order_id
+               WHERE t.factory_id = ?`;
     const params = [req.factory.id];
     if (status && ['open', 'processing', 'resolved', 'closed'].includes(status)) {
-      sql += ' AND status = ?'; params.push(status);
+      sql += ' AND t.status = ?'; params.push(status);
     } else {
-      sql += " AND status IN ('open','processing')";
+      sql += " AND t.status IN ('open','processing')";
     }
-    sql += ' ORDER BY created_at DESC LIMIT 100';
+    sql += ' ORDER BY t.created_at DESC LIMIT 100';
     const [rows] = await pool.query(sql, params);
     res.json(ok({ list: rows }));
   } catch (err) { res.status(400).json(fail(err.message)); }
@@ -84,7 +98,10 @@ factoryRouter.get('/', async (req, res) => {
 factoryRouter.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const [[ticket]] = await pool.query('SELECT * FROM issue_ticket WHERE id = ? AND factory_id = ?', [id, req.factory.id]);
+    const [[ticket]] = await pool.query(
+      `SELECT t.*, o.order_no FROM issue_ticket t
+       LEFT JOIN order_main o ON o.id = t.order_id
+       WHERE t.id = ? AND t.factory_id = ?`, [id, req.factory.id]);
     if (!ticket) return res.status(404).json(fail('工单不存在'));
     res.json(ok(ticket));
   } catch (err) { res.status(400).json(fail(err.message)); }
@@ -123,14 +140,18 @@ adminRouter.get('/', async (req, res) => {
     const size = Math.min(parseInt(req.query.size, 10) || 30, 100);
     const conditions = [];
     const params = [];
-    if (status && ['open', 'processing', 'resolved', 'closed'].includes(status)) { conditions.push('status = ?'); params.push(status); }
-    if (type && ['quality', 'delay', 'reprint', 'other'].includes(type)) { conditions.push('type = ?'); params.push(type); }
-    if (factoryId) { conditions.push('factory_id = ?'); params.push(parseInt(factoryId, 10)); }
+    if (status && ['open', 'processing', 'resolved', 'closed'].includes(status)) { conditions.push('t.status = ?'); params.push(status); }
+    if (type && ['quality', 'delay', 'reprint', 'other'].includes(type)) { conditions.push('t.type = ?'); params.push(type); }
+    if (factoryId) { conditions.push('t.factory_id = ?'); params.push(parseInt(factoryId, 10)); }
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-    const [[{ total }]] = await pool.query(`SELECT COUNT(*) total FROM issue_ticket ${where}`, params);
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) total FROM issue_ticket t ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT id, ticket_no, order_id, user_id, factory_id, type, title, status, admin_note, resolved_at, created_at, updated_at
-       FROM issue_ticket ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.user_id, t.factory_id, f.name AS factory_name,
+              t.type, t.title, t.status, t.admin_note, t.resolved_at, t.created_at, t.updated_at
+       FROM issue_ticket t
+       LEFT JOIN order_main o ON o.id = t.order_id
+       LEFT JOIN factory f ON f.id = t.factory_id
+       ${where} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`,
       [...params, size, (page - 1) * size]);
     res.json(ok({ list: rows, total, page, size }));
   } catch (err) { res.status(400).json(fail(err.message)); }
