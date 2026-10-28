@@ -7,10 +7,12 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { ok, fail } = require('../utils/helpers');
 
-/** 现有：历史合作供应商列表（合并手动关注，pinned 优先） */
+/** 现有：历史合作供应商列表（合并手动关注，pinned 优先）；keyword 过滤 + 分页 */
 router.get('/suppliers', async (req, res) => {
   try {
     const userId = req.user.id;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
     // 历史合作
     const [history] = await pool.query(
       `SELECT f.id, f.name, f.logo_url, f.rating, f.address, f.province, f.city, f.verification_level,
@@ -63,7 +65,18 @@ router.get('/suppliers', async (req, res) => {
       return Number(b.total_amount) - Number(a.total_amount);
     });
 
-    res.json(ok({ list: list.slice(0, 100) }));
+    // 业务排序在内存完成, 无法下推 SQL, 故 keyword 过滤与分页切片同样在内存做；
+    // 数据量=合作过工厂数(个位数量级), 全量聚合后切片成本可忽略
+    const keyword = String(req.query.keyword || '').trim().toLowerCase();
+    const filtered = keyword
+      ? list.filter((x) => String(x.name || '').toLowerCase().includes(keyword)
+          || String(x.address || '').toLowerCase().includes(keyword))
+      : list;
+    const total = filtered.length;
+    res.json(ok({
+      total, page, pageSize, hasMore: page * pageSize < total,
+      list: filtered.slice((page - 1) * pageSize, page * pageSize),
+    }));
   } catch (err) { res.status(500).json(fail(err.message)); }
 });
 

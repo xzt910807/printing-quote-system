@@ -150,12 +150,12 @@
     <view class="empty" wx:if="{{loading}}">
       <text class="empty-icon">⏳</text>加载中...
     </view>
-    <view class="empty" wx:elif="{{!displayList.length}}">
+    <view class="empty" wx:elif="{{!list.length}}">
       <view class="empty-ic"><view class="ic ic-quote"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的询价记录' : '暂无询价记录'}}
       <view class="empty-cta" wx:if="{{!searchKeyword}}" bindtap="goQuote">去发起报价</view>
     </view>
-    <view class="inq-card" wx:for="{{displayList}}" wx:key="id">
+    <view class="inq-card" wx:for="{{list}}" wx:key="id">
       <view class="row">
         <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.inquiry_no}}">{{item.inquiry_no}}<text class="inq-copy-ic">⧉</text></text>
         <view class="inq-badges">
@@ -193,7 +193,7 @@
       <view class="inq-actions">
         <!-- 已下单：直达订单 tab 并定位到该单（搜索框按订单号过滤, ✕ 清除回全部） -->
         <view class="btn-ghost inq-btn inq-go-order" wx:if="{{item.status === 'converted' || item.status === 'user_confirmed'}}"
-              data-inquiry-id="{{item.id}}" catchtap="goOrderTab">查看订单</view>
+              data-inquiry-id="{{item.id}}" data-inquiry-no="{{item.inquiry_no}}" catchtap="goOrderTab">查看订单</view>
         <view class="btn-ghost inq-btn" data-item="{{item}}" catchtap="repurchase">再次询价</view>
         <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
               data-inquiry-id="{{item.id}}" data-factory-id="{{item.matched_factory_id}}" data-name="{{item.factory_name}}" data-no="{{item.inquiry_no}}"
@@ -203,6 +203,9 @@
         <!-- 工厂详情入口不重复放按钮：上方蓝色工厂胶囊(带›)点击即跳同一页 -->
       </view>
     </view>
+    <!-- 分页脚注：触底加载中 / 全部加载完毕（服务端分页, 无「没有更多」会误以为列表截断是 bug） -->
+    <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+    <view class="list-end" wx:elif="{{list.length && !inq.hasMore}}">— 已加载全部 —</view>
   </block>
 
   <!-- 订单 -->
@@ -210,11 +213,11 @@
     <view class="empty" wx:if="{{ordersLoading}}">
       <text class="empty-icon">⏳</text>加载中...
     </view>
-    <view class="empty" wx:elif="{{!displayOrders.length}}">
+    <view class="empty" wx:elif="{{!orders.length}}">
       <view class="empty-ic"><view class="ic ic-box"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的订单' : '暂无订单，工厂接单后自动生成'}}
     </view>
-    <view class="inq-card" wx:for="{{displayOrders}}" wx:key="id">
+    <view class="inq-card" wx:for="{{orders}}" wx:key="id">
       <view class="row">
         <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.order_no}}">{{item.order_no}}<text class="inq-copy-ic">⧉</text></text>
         <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
@@ -266,6 +269,8 @@
         </view>
       </view>
     </view>
+    <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+    <view class="list-end" wx:elif="{{orders.length && !ord.hasMore}}">— 已加载全部 —</view>
   </block>
 
   <!-- 消息 -->
@@ -277,11 +282,11 @@
     <view class="empty" wx:if="{{msgLoading}}">
       <text class="empty-icon">⏳</text>加载中...
     </view>
-    <view class="empty" wx:elif="{{!displayMessages.length}}">
+    <view class="empty" wx:elif="{{!messages.length}}">
       <view class="empty-ic"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的消息' : '暂无消息，工厂接单后会在这里通知你'}}
     </view>
-    <view class="msg-card {{item.is_read ? '' : 'msg-card-unread'}}" wx:for="{{displayMessages}}" wx:key="id"
+    <view class="msg-card {{item.is_read ? '' : 'msg-card-unread'}}" wx:for="{{messages}}" wx:key="id"
           data-id="{{item.id}}" data-read="{{item.is_read}}" bindtap="tapMessage">
       <view class="msg-head">
         <view class="msg-ic msg-solid-{{item.tone}}"><text class="msg-char">{{item.char}}</text></view>
@@ -291,6 +296,8 @@
       </view>
       <view class="msg-content">{{item.content}}</view>
     </view>
+    <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+    <view class="list-end" wx:elif="{{messages.length && !msg.hasMore}}">— 已加载全部 —</view>
   </block>
 
   <!-- 026 供应商管理：历史合作工厂聚合 -->
@@ -298,11 +305,11 @@
     <view class="empty" wx:if="{{supplierLoading}}">
       <text class="empty-icon">⏳</text>加载中...
     </view>
-    <view class="empty" wx:elif="{{!displaySuppliers.length}}">
+    <view class="empty" wx:elif="{{!suppliers.length}}">
       <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的供应商' : '暂无合作供应商，完成订单后自动沉淀'}}
     </view>
-    <view class="inq-card" wx:for="{{displaySuppliers}}" wx:key="id"
+    <view class="inq-card" wx:for="{{suppliers}}" wx:key="id"
           data-id="{{item.id}}" bindtap="goFactoryDetail">
       <view class="row">
         <text class="sup-name">{{item.name}}</text>
@@ -332,6 +339,8 @@
         <text wx:else class="sup-act sup-act-primary" catchtap="onSupplierFollow" data-id="{{item.id}}">＋关注</text>
       </view>
     </view>
+    <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+    <view class="list-end" wx:elif="{{suppliers.length && !sup.hasMore}}">— 已加载全部 —</view>
   </block>
 
   <!-- 供应商标签自定义输入弹窗（替代原生 editable showModal；点遮罩/取消关闭，回车直接确定） -->

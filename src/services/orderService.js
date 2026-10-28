@@ -36,19 +36,35 @@ const STATUS_MESSAGE = {
 };
 
 /**
- * 用户端：我的订单
+ * 用户端：我的订单（分页 + 服务端搜索）
+ * keyword 命中：订单号 / 工厂名 / 来源询价单号（询价卡「查看订单」靠询价单号检索兼容翻页外定位）
  */
-async function listUserOrders(userId, status) {
-  let sql = `SELECT o.*, f.name AS factory_name, f.contact AS factory_contact, f.phone AS factory_phone,
-                    ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs
-             FROM order_main o LEFT JOIN factory f ON o.factory_id = f.id
-             LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id
-             WHERE o.user_id = ?`;
+async function listUserOrders(userId, { status, page = 1, pageSize = 20, keyword } = {}) {
+  const conditions = ['o.user_id = ?'];
   const params = [userId];
-  if (status) { sql += ' AND o.status = ?'; params.push(status); }
-  sql += ' ORDER BY o.created_at DESC, o.id DESC LIMIT 100';
-  const [rows] = await pool.query(sql, params);
-  return rows;
+  if (status) { conditions.push('o.status = ?'); params.push(status); }
+  if (keyword && String(keyword).trim()) {
+    const like = '%' + String(keyword).trim().slice(0, 50) + '%';
+    conditions.push('(o.order_no LIKE ? OR f.name LIKE ? OR ci.inquiry_no LIKE ?)');
+    params.push(like, like, like);
+  }
+  const where = 'WHERE ' + conditions.join(' AND ');
+  const [rows] = await pool.query(
+    `SELECT o.*, f.name AS factory_name, f.contact AS factory_contact, f.phone AS factory_phone,
+            ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs
+     FROM order_main o LEFT JOIN factory f ON o.factory_id = f.id
+     LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id
+     ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`,
+    [...params, parseInt(pageSize, 10), (parseInt(page, 10) - 1) * parseInt(pageSize, 10)]
+  );
+  const [cnt] = await pool.query(
+    `SELECT COUNT(*) AS total FROM order_main o
+     LEFT JOIN factory f ON o.factory_id = f.id
+     LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id ${where}`,
+    params
+  );
+  const total = Number(cnt[0].total);
+  return { total, page: parseInt(page, 10), pageSize: parseInt(pageSize, 10), hasMore: page * pageSize < total, list: rows };
 }
 
 /**

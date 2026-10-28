@@ -96,6 +96,9 @@ function msgStyle(type, title) {
   return { char: '知', tone: 'gray' };
 }
 
+// 每页条数（与后端 pageSize 上限内取值一致；下拉刷新/切 tab 重拉第一页）
+const PAGE_SIZE = 20;
+
 Page({
   data: {
     // Stage11 自定义导航栏高度（onLoad 计算）
@@ -109,11 +112,12 @@ Page({
     tab: 'inquiry',
     orderSteps: ORDER_STEPS,
     list: [],
-    // 搜索过滤后的展示列表（本地过滤，搜索词匹配单号/名称/内容）
-    displayList: [],
-    displayOrders: [],
-    displayMessages: [],
-    displaySuppliers: [],
+    // 分页状态（服务端 LIMIT/OFFSET, page=已加载到的页码）; hasMore 驱动无限滚动与「没有更多」
+    inq: { page: 1, hasMore: true },
+    ord: { page: 1, hasMore: true },
+    msg: { page: 1, hasMore: true },
+    sup: { page: 1, hasMore: true },
+    loadingMore: false,
     // 026 供应商管理：历史合作工厂聚合（完成订单自动沉淀）
     suppliers: [],
     supplierLoading: false,
@@ -590,13 +594,16 @@ Page({
     await Promise.all([this.loadInquiries(), this.loadMessages(), this.loadOrders(), this.loadChatUnread(), this.loadSuppliers()]);
   },
 
-  // 026 我的供应商（合作次数 / 累计金额 / 最近订单 / 平均评分）
-  async loadSuppliers() {
-    this.setData({ supplierLoading: true });
+  // 026 我的供应商（合作次数 / 累计金额 / 最近订单 / 平均评分）；分页 + 服务端 keyword
+  async loadSuppliers(reset = true) {
+    const page = reset ? 1 : this.data.sup.page + 1;
+    this.setData({ supplierLoading: reset });
     try {
-      const res = await api.request('/api/c/user/suppliers');
-      const list = (res.data && res.data.list) || res.data || [];
-      const enriched = list.map((s) => ({
+      const res = await api.request('/api/c/user/suppliers', {
+        data: { page, pageSize: PAGE_SIZE, keyword: (this.data.searchKeyword || '').trim() },
+      });
+      const list = (res.data && res.data.list) || [];
+      const mapped = list.map((s) => ({
         ...s,
         total_amount: Number(s.total_amount || 0).toFixed(2),
         avg_rating: s.avg_rating ? Number(s.avg_rating).toFixed(1) : '',
@@ -608,11 +615,13 @@ Page({
         tagsArr: String(s.tags || '').split(/[,，、\s]+/).filter(Boolean).slice(0, 6),
         note: s.note || '',
       }));
-      this.setData({ suppliers: enriched });
-      this.applyFilter();
+      this.setData({
+        suppliers: reset ? mapped : this.data.suppliers.concat(mapped),
+        sup: { page, hasMore: !!res.data.hasMore },
+      });
     } catch (err) {
-      // 接口未就绪时静默降级
-      this.setData({ suppliers: [] });
+      // 接口未就绪时静默降级（仅重置态清空, 翻页失败保留已加载数据）
+      if (reset) this.setData({ suppliers: [], sup: { page: 1, hasMore: false } });
     } finally {
       this.setData({ supplierLoading: false });
     }
@@ -737,50 +746,56 @@ Page({
   },
 
   // 已下单的询价卡：直达订单 tab 并定位到由它生成的那单
-  // 链路：c_inquiry.id ← order_main.inquiry_id → 订单号写入搜索框过滤（✕ 清除即回全部）
+  // 本地命中用订单号；翻页外未命中时用询价单号（服务端订单搜索支持 ci.inquiry_no）同样能定位
   goOrderTab(e) {
-    const inquiryId = e.currentTarget.dataset.inquiryId;
+    const { inquiryId, inquiryNo } = e.currentTarget.dataset;
     const order = inquiryId
       ? (this.data.orders || []).find((o) => Number(o.inquiry_id) === Number(inquiryId))
       : null;
-    if (order) {
-      this.setData({ tab: 'order', searchKeyword: order.order_no });
-      this.applyFilter();
-    } else {
-      // 找不到对应订单（历史数据 inquiry_id 缺失等）：退化为切 tab
-      this.setData({ tab: 'order' });
-    }
+    this.setData({ tab: 'order', searchKeyword: order ? order.order_no : (inquiryNo || '') });
+    this.reloadTab('order');
     wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
 
-  // 手动切 tab 一律清空搜索词：搜索框四 tab 共享，
-  // 否则「查看订单」写入的订单号会把其他 tab 过滤成空列表（程序定位走 goOrderTab 不经过这里）
+  // 手动切 tab 一律清空搜索词：搜索框四 tab 共享且搜索态为服务端过滤，
+  // 残留关键词会把其他 tab 过滤成空；旧词非空时目标 tab 数据已属过滤态, 需重拉全量首页
   switchTab(e) {
-    this.setData({ tab: e.currentTarget.dataset.tab, searchKeyword: '' });
-    this.applyFilter();
+    const tab = e.currentTarget.dataset.tab;
+    const hadKw = !!this.data.searchKeyword;
+    this.setData({ tab, searchKeyword: '' });
+    if (hadKw) this.reloadTab(tab);
   },
 
-  // 搜索输入：本地过滤三个 tab 的列表（询价单号/产品、订单单号/工厂名、消息标题/内容）
+  // 搜索：分页后本地过滤不可信, 改服务端 LIKE（防抖 400ms 避免逐字发请求）
   onSearchInput(e) {
     this.setData({ searchKeyword: e.detail.value });
-    this.applyFilter();
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => this.reloadTab(this.data.tab), 400);
   },
 
   clearSearch() {
+    if (!this.data.searchKeyword) return;
     this.setData({ searchKeyword: '' });
-    this.applyFilter();
+    this.reloadTab(this.data.tab);
   },
 
-  // 按 searchKeyword 生成展示列表（空关键词 = 全量）
-  applyFilter() {
-    const kw = (this.data.searchKeyword || '').trim().toLowerCase();
-    const match = (s) => !kw || String(s || '').toLowerCase().indexOf(kw) >= 0;
-    this.setData({
-      displayList: this.data.list.filter((x) => match(x.inquiry_no) || match(x.productText) || match(x.statusText)),
-      displayOrders: this.data.orders.filter((x) => match(x.order_no) || match(x.factory_name) || match(x.productText)),
-      displayMessages: this.data.messages.filter((x) => match(x.title) || match(x.content)),
-      displaySuppliers: (this.data.suppliers || []).filter((x) => match(x.name) || match(x.address)),
-    });
+  // 按当前 searchKeyword 重拉某 tab 第一页
+  reloadTab(tab) {
+    const fn = { inquiry: 'loadInquiries', order: 'loadOrders', message: 'loadMessages', supplier: 'loadSuppliers' }[tab];
+    if (fn) this[fn](true);
+  },
+
+  // 无限滚动：触底加载当前 tab 下一页（loadingMore 防并发重复拉）
+  onReachBottom() {
+    const conf = {
+      inquiry: { flag: 'inq', fn: 'loadInquiries' },
+      order: { flag: 'ord', fn: 'loadOrders' },
+      message: { flag: 'msg', fn: 'loadMessages' },
+      supplier: { flag: 'sup', fn: 'loadSuppliers' },
+    }[this.data.tab];
+    if (!conf || this.data.loadingMore || !this.data[conf.flag].hasMore) return;
+    this.setData({ loadingMore: true });
+    Promise.resolve(this[conf.fn](false)).finally(() => this.setData({ loadingMore: false }));
   },
 
   // 跳工厂详情（询价 matched_factory_id / 订单 factory_id）
@@ -790,11 +805,14 @@ Page({
     wx.navigateTo({ url: '/pages/factory-detail/factory-detail?id=' + id });
   },
 
-  async loadInquiries() {
-    this.setData({ loading: true });
+  async loadInquiries(reset = true) {
+    const page = reset ? 1 : this.data.inq.page + 1;
+    this.setData({ loading: reset });
     try {
-      const res = await api.request('/api/c/my-inquiries');
-      const list = (res.data.list || []).map((x) => ({
+      const res = await api.request('/api/c/my-inquiries', {
+        data: { page, pageSize: PAGE_SIZE, keyword: (this.data.searchKeyword || '').trim() },
+      });
+      const mapped = (res.data.list || []).map((x) => ({
         ...x,
         statusText: STATUS_TEXT[x.status] || x.status,
         badgeClass: badgeClass(x.status),
@@ -808,14 +826,11 @@ Page({
         canConfirmQuote: x.status === 'factory_quoted' && !x.factory_quote_expired,
       }));
       this.setData({
-        list,
-        stats: {
-          total: list.length,
-          active: list.filter((x) => ['quoted', 'matched', 'factory_quoted'].includes(x.status)).length,
-          accepted: list.filter((x) => ['accepted', 'converted', 'user_confirmed'].includes(x.status)).length,
-        },
+        list: reset ? mapped : this.data.list.concat(mapped),
+        inq: { page, hasMore: !!res.data.hasMore },
+        // 顶部统计改服务端全量口径（分页后不能再拿当页计数）
+        stats: res.data.stats || this.data.stats,
       });
-      this.applyFilter();
     } catch (err) {
       if (!this.handleAuthError(err)) {
         wx.showToast({ title: err.message, icon: 'none' });
@@ -825,11 +840,14 @@ Page({
     }
   },
 
-  async loadOrders() {
-    this.setData({ ordersLoading: true });
+  async loadOrders(reset = true) {
+    const page = reset ? 1 : this.data.ord.page + 1;
+    this.setData({ ordersLoading: reset });
     try {
-      const res = await api.request('/api/c/my-orders');
-      const orders = (res.data.list || []).map((o) => ({
+      const res = await api.request('/api/c/my-orders', {
+        data: { page, pageSize: PAGE_SIZE, keyword: (this.data.searchKeyword || '').trim() },
+      });
+      const mapped = (res.data.list || []).map((o) => ({
         ...o,
         statusText: ORDER_STATUS_TEXT[o.status] || o.status,
         badgeClass: badgeClass(o.status),
@@ -844,8 +862,10 @@ Page({
         // F-56：已支付且工厂未开始生产可申请退款（producing 需联系客服与工厂协商）
         canRefund: o.pay_status === 'paid' && ['pending', 'confirmed'].includes(o.status),
       }));
-      this.setData({ orders });
-      this.applyFilter();
+      this.setData({
+        orders: reset ? mapped : this.data.orders.concat(mapped),
+        ord: { page, hasMore: !!res.data.hasMore },
+      });
     } catch (err) {
       // 静默失败：与询价/消息共用 onShow 加载
     } finally {
@@ -1000,11 +1020,14 @@ Page({
     wx.navigateTo({ url: '/pages/logistics/logistics?orderId=' + id });
   },
 
-  async loadMessages() {
-    this.setData({ msgLoading: true });
+  async loadMessages(reset = true) {
+    const page = reset ? 1 : this.data.msg.page + 1;
+    this.setData({ msgLoading: reset });
     try {
-      const res = await api.request('/api/c/my-messages');
-      const messages = (res.data.list || []).map((m) => {
+      const res = await api.request('/api/c/my-messages', {
+        data: { page, pageSize: PAGE_SIZE, keyword: (this.data.searchKeyword || '').trim() },
+      });
+      const mapped = (res.data.list || []).map((m) => {
         const st = msgStyle(m.type, m.title);
         return {
           ...m,
@@ -1015,8 +1038,11 @@ Page({
           timeText: formatRelTime(m.created_at),
         };
       });
-      this.setData({ messages, unread: res.data.unread || 0 });
-      this.applyFilter();
+      this.setData({
+        messages: reset ? mapped : this.data.messages.concat(mapped),
+        msg: { page, hasMore: !!res.data.hasMore },
+        unread: res.data.unread || 0,
+      });
       // 写入 tabBar 徽标（我的 tab 显示未读消息数）
       this.syncMessageBadge(res.data.unread || 0);
     } catch (err) {
@@ -1033,10 +1059,9 @@ Page({
     try {
       await api.request('/api/c/my-messages/read', { method: 'POST', data: { id } });
       const messages = this.data.messages.map((m) => (m.id === id ? { ...m, is_read: true } : m));
-      const unread = messages.filter((m) => !m.is_read).length;
+      // 未读数以服务端全量计数为准（分页后本地 messages 只是部分）, 失败则保守 -1
+      const unread = Math.max((this.data.unread || 0) - 1, 0);
       this.setData({ messages, unread });
-      // 原缺陷：未 applyFilter + 未同步 tabBar 徽标，列表红点与「我的」红点都残留
-      this.applyFilter();
       this.syncMessageBadge(unread);
     } catch (err) {
       // 忽略单条已读失败
@@ -1049,8 +1074,6 @@ Page({
       await api.request('/api/c/my-messages/read', { method: 'POST', data: { all: true } });
       const messages = this.data.messages.map((m) => ({ ...m, is_read: true }));
       this.setData({ messages, unread: 0 });
-      // 原缺陷：未 applyFilter + 未同步 tabBar 徽标，列表红点与「我的」红点都残留
-      this.applyFilter();
       this.syncMessageBadge(0);
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
@@ -1125,9 +1148,5 @@ Page({
   callFactory(e) {
     const phone = e.currentTarget.dataset.phone;
     if (phone) wx.makePhoneCall({ phoneNumber: String(phone) });
-  },
-
-  onPullDownRefresh() {
-    this.loadAll().then(() => wx.stopPullDownRefresh());
   },
 });

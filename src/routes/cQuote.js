@@ -51,9 +51,21 @@ router.post('/quote', optionalUser, async (req, res) => {
 /**
  * GET /api/c/my-inquiries
  * 我的询价列表（需登录；工厂联系方式仅接单后下发）
+ * 分页 + 服务端搜索（单号/产品类型/工厂名）；顶部统计全量不受 keyword 影响
  */
 router.get('/my-inquiries', requireUser, async (req, res) => {
   try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
+    const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+    const where = ['ci.user_id = ?'];
+    const params = [req.user.id];
+    if (keyword) {
+      const like = '%' + keyword + '%';
+      where.push('(ci.inquiry_no LIKE ? OR ci.product_type LIKE ? OR f.name LIKE ?)');
+      params.push(like, like, like);
+    }
+    const whereSql = 'WHERE ' + where.join(' AND ');
     const [rows] = await pool.query(
       `SELECT ci.id, ci.inquiry_no, ci.product_type, ci.print_mode, ci.quantity,
               ci.length_m, ci.width_m, ci.height_m,
@@ -70,11 +82,25 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
               f.name AS factory_name, f.contact AS factory_contact, f.phone AS factory_phone
        FROM c_inquiry ci
        LEFT JOIN factory f ON ci.matched_factory_id = f.id
-       WHERE ci.user_id = ?
+       ${whereSql}
        ORDER BY ci.created_at DESC, ci.id DESC
-       LIMIT 100`,
+       LIMIT ? OFFSET ?`,
+      [...params, pageSize, (page - 1) * pageSize]
+    );
+    const [[cnt]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM c_inquiry ci
+       LEFT JOIN factory f ON ci.matched_factory_id = f.id ${whereSql}`,
+      params
+    );
+    // 顶部统计（询价数/进行中/已下单）全量口径, 分页后不能再用当页列表计数
+    const [statRows] = await pool.query(
+      'SELECT status, COUNT(*) AS c FROM c_inquiry WHERE user_id = ? GROUP BY status',
       [req.user.id]
     );
+    const byStatus = {};
+    statRows.forEach((s) => { byStatus[s.status] = Number(s.c); });
+    const sum = (keys) => keys.reduce((a, k) => a + (byStatus[k] || 0), 0);
+    const total = Number(cnt.total);
     rows.forEach((r) => {
       // 报价有效期（P1-8）：过期标记，前端显示「价格已失效，请重新报价」
       r.expired = !!(r.expires_at && new Date(r.expires_at) < new Date());
@@ -91,7 +117,15 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
       }
       if (!r.processes) r.processes = [];
     });
-    res.json(ok({ total: rows.length, list: rows }));
+    res.json(ok({
+      total, page, pageSize, hasMore: page * pageSize < total,
+      stats: {
+        total: sum(Object.keys(byStatus)),
+        active: sum(['quoted', 'matched', 'factory_quoted']),
+        accepted: sum(['accepted', 'converted', 'user_confirmed']),
+      },
+      list: rows,
+    }));
   } catch (err) {
     res.status(500).json(fail(err.message, 500));
   }
@@ -177,22 +211,37 @@ router.post('/bind-factory', requireUser, async (req, res) => {
 
 /**
  * GET /api/c/my-messages
- * 我的站内消息（需登录），返回未读数
+ * 我的站内消息（需登录），分页 + 服务端搜索（标题/内容），返回全量未读数
  */
 router.get('/my-messages', requireUser, async (req, res) => {
   try {
-    const pageSize = Math.min(parseInt(req.query.pageSize, 10) || 50, 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
+    const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+    const where = ['user_id = ?'];
+    const params = [req.user.id];
+    if (keyword) {
+      const like = '%' + keyword + '%';
+      where.push('(title LIKE ? OR content LIKE ?)');
+      params.push(like, like);
+    }
+    const whereSql = 'WHERE ' + where.join(' AND ');
     const [rows] = await pool.query(
       `SELECT id, type, title, content, ref_type, ref_id, is_read, created_at
-       FROM c_message WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
-      [req.user.id, pageSize]
+       FROM c_message ${whereSql} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+      [...params, pageSize, (page - 1) * pageSize]
     );
     const [[cnt]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM c_message ${whereSql}`,
+      params
+    );
+    const [[unreadCnt]] = await pool.query(
       'SELECT COUNT(*) AS unread FROM c_message WHERE user_id = ? AND is_read = 0',
       [req.user.id]
     );
     rows.forEach((r) => { r.is_read = !!r.is_read; });
-    res.json(ok({ total: rows.length, unread: cnt.unread, list: rows }));
+    const total = Number(cnt.total);
+    res.json(ok({ total, page, pageSize, hasMore: page * pageSize < total, unread: unreadCnt.unread, list: rows }));
   } catch (err) {
     res.status(500).json(fail(err.message, 500));
   }
@@ -225,17 +274,21 @@ router.post('/my-messages/read', requireUser, async (req, res) => {
 
 /**
  * GET /api/c/my-orders
- * 我的订单（需登录）
+ * 我的订单（需登录）：分页 + 服务端搜索（订单号/工厂名/来源询价单号）
  */
 router.get('/my-orders', requireUser, async (req, res) => {
   try {
-    const list = await orderService.listUserOrders(req.user.id, req.query.status);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
+    const data = await orderService.listUserOrders(req.user.id, {
+      status: req.query.status, page, pageSize, keyword: req.query.keyword,
+    });
     // F-30：订单列表态脱敏——收货人电话与工厂电话（详情/对家联系走归属通道明文）
-    list.forEach((o) => {
+    data.list.forEach((o) => {
       o.contact_phone = maskPhone(o.contact_phone);
       o.factory_phone = maskPhone(o.factory_phone);
     });
-    res.json(ok({ total: list.length, list }));
+    res.json(ok(data));
   } catch (err) {
     res.status(500).json(fail(err.message, 500));
   }
