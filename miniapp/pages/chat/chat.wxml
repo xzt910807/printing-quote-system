@@ -12,10 +12,12 @@
     还没有消息，发一条打个招呼吧
     <view class="msg-quick">常见开场：交期多久？/ 能否接这个量？/ 可以看看效果图吗？</view>
   </view>
-  <view class="msg-item {{item.mine ? 'msg-mine' : ''}}" wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}">
-    <view class="msg-bubble">
-      <text class="msg-text">{{item.content}}</text>
-      <text class="msg-time">{{item.timeText}}</text>
+  <view wx:for="{{messages}}" wx:key="id">
+    <view class="msg-divider" wx:if="{{item.showTime}}">{{item.timeText}}</view>
+    <view class="msg-item {{item.mine ? 'msg-mine' : ''}}" id="msg-{{item.id}}">
+      <view class="msg-bubble">
+        <text class="msg-text">{{item.content}}</text>
+      </view>
     </view>
   </view>
 </scroll-view>

@@ -4,11 +4,16 @@ const api = require('../../utils/api');
 const POLL_MS = 15000;
 const MAX_LEN = 500;
 
-function formatTime(t) {
-  if (!t) return '';
-  const d = new Date(t);
+// 微信式时间分级：今天 HH:mm / 昨天 HH:mm / 本年 M月D日 HH:mm / 跨年带年份
+function formatChatTime(d) {
   const p = (n) => (n < 10 ? '0' + n : '' + n);
-  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  const now = new Date();
+  const hm = p(d.getHours()) + ':' + p(d.getMinutes());
+  const dayDiff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if (dayDiff === 0) return hm;
+  if (dayDiff === 1) return '昨天 ' + hm;
+  if (d.getFullYear() === now.getFullYear()) return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
+  return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
 }
 
 Page({
@@ -91,12 +96,22 @@ Page({
       const res = await api.request('/api/messages/thread/' + this.data.inquiryId
         + '?factoryId=' + this.data.factoryId, { headers: this.authHeaders() });
       const viewerType = this.data.isFactory ? 'factory' : 'user';
-      const list = (res.data.list || []).map((m) => ({
-        id: m.id,
-        mine: m.sender_type === viewerType,
-        content: m.content,
-        timeText: formatTime(m.created_at),
-      }));
+      // 微信式时间分隔：与上一条间隔超 5 分钟才在气泡上方插入居中时间，连续消息不挂时间
+      const list = [];
+      let prevTs = 0;
+      for (const m of (res.data.list || [])) {
+        const d = new Date(m.created_at);
+        const ts = isNaN(d.getTime()) ? 0 : d.getTime();
+        const showTime = !prevTs || ts - prevTs > 5 * 60 * 1000;
+        if (ts) prevTs = ts;
+        list.push({
+          id: m.id,
+          mine: m.sender_type === viewerType,
+          content: m.content,
+          showTime,
+          timeText: showTime && ts ? formatChatTime(d) : '',
+        });
+      }
       const lastId = list.length ? list[list.length - 1].id : 0;
       this._tailId = lastId;
       // scroll-into-view 同值不重滚：先清 0 再回到末尾消息锚点

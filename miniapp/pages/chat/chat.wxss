@@ -60,14 +60,13 @@ page { background: #f1f5f9; }
   white-space: pre-wrap;
 }
 .msg-mine .msg-text { color: #fff; }
-.msg-time {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 20rpx;
+/* 微信式居中时间分隔线（仅间隔超 5 分钟时出现） */
+.msg-divider {
+  text-align: center;
+  font-size: 22rpx;
   color: #94a3b8;
-  text-align: right;
+  margin: 4rpx 0 20rpx;
 }
-.msg-mine .msg-time { color: rgba(255, 255, 255, 0.7); }
 
 /* 底部输入栏 */
 .input-bar {
