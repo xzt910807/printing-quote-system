@@ -65,7 +65,9 @@ async function listUserOrders(userId, { status, page = 1, pageSize = 20, keyword
     params
   );
   const total = Number(cnt[0].total);
-  return { total, page: parseInt(page, 10), pageSize: parseInt(pageSize, 10), hasMore: page * pageSize < total, list: rows };
+  // 下发生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）, 客户核对所订产品
+  const list = rows.map((r) => Object.assign(r, catalog.describeSpec(r)));
+  return { total, page: parseInt(page, 10), pageSize: parseInt(pageSize, 10), hasMore: page * pageSize < total, list };
 }
 
 /**

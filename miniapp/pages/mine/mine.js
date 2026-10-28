@@ -849,6 +849,8 @@ Page({
         stepIndex: ORDER_STEP_INDEX[o.status] || 0,
         payText: PAY_STATUS_TEXT[o.pay_status] || '未支付',
         productText: PRODUCT_TEXT[o.product_type] || o.product_type || '-',
+        // 生产参数标签（印刷方式/尺寸/材质/色数）, 后端已解析中文, 空项过滤
+        specTags: [o.printModeText, o.sizeText, o.materialText, o.colorText].filter(Boolean),
         timeText: formatRelTime(o.created_at),
         // F-70：评分展示（已评显示星级，未评显示评价入口）
         rated: !!o.rating,

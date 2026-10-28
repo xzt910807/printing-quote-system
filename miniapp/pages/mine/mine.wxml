@@ -226,6 +226,13 @@
         <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
         <text class="inq-price">¥{{item.total_price}}</text>
       </view>
+      <!-- 生产参数：印刷方式/尺寸/材质/色数 标签 + 后道工艺（后端解析中文下发） -->
+      <view class="inq-spec" wx:if="{{item.specTags.length || item.processText}}">
+        <view class="spec-tags" wx:if="{{item.specTags.length}}">
+          <text class="spec-tag" wx:for="{{item.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+        </view>
+        <view class="spec-craft" wx:if="{{item.processText}}">工艺：{{item.processText}}</view>
+      </view>
       <view class="inq-subfee" wx:if="{{item.sample_fee > 0}}">
         <text>打样费 ¥{{item.sample_fee}}</text>
       </view>
