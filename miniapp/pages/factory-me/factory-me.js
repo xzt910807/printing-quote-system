@@ -837,6 +837,26 @@ Page({
     }
   },
 
+  // 退出当前工厂账号：接单页头部只留「沟通」, 退出统一收在账号分区
+  async logout() {
+    const r = await new Promise((resolve) => wx.showModal({
+      title: '退出工厂账号',
+      content: '确认退出「' + ((this.data.factoryInfo && this.data.factoryInfo.name) || '工厂') + '」？退出后接单页需重新登录。',
+      confirmColor: '#e64340',
+      success: resolve,
+    }));
+    if (!r.confirm) return;
+    // 先作废服务端会话（与「我的」页退出同口径）, 失败也继续本地退出
+    try {
+      await api.request('/api/auth/factory-logout', { method: 'POST', data: {}, headers: this.authHeaders() });
+    } catch (e) { /* 服务端登出失败不影响本地退出 */ }
+    wx.removeStorageSync('factoryAuth');
+    this.setData({ auth: null });
+    wx.showToast({ title: '已退出工厂账号', icon: 'success' });
+    // 回接单页（tab 页 onShow 会同步为未登录态并展示登录卡）
+    setTimeout(() => wx.switchTab({ url: '/pages/factory/factory' }), 900);
+  },
+
   // 返回上一页（自定义导航栏无原生返回按钮）
   goBack() {
     wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/factory/factory' }) });

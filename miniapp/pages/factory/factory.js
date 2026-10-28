@@ -233,22 +233,6 @@ Page({
     } catch (err) { /* 静默 */ }
   },
 
-  logout() {
-    wx.showModal({
-      title: '退出登录',
-      content: '确认退出当前工厂账号？',
-      success: async (res) => {
-        if (!res.confirm) return;
-        // 先作废服务端会话（与 C 端退出同口径），失败（网络异常等）也继续本地退出
-        try {
-          await api.request('/api/auth/factory-logout', { method: 'POST', data: {}, headers: this.authHeaders() });
-        } catch (e) { /* 服务端登出失败不影响本地退出 */ }
-        wx.removeStorageSync('factoryAuth');
-        this.setData({ auth: null, inquiries: [], orders: [], needSetup: false });
-      },
-    });
-  },
-
   authHeaders() {
     const a = this.data.auth;
     return {

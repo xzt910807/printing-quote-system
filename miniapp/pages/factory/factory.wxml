@@ -35,15 +35,12 @@
 
   <!-- 已登录 -->
   <block wx:else>
-    <!-- 工厂信息卡：厂名居左、操作居右同排（内部编号不对用户展示）；
-         操作按主次分层（沟通白底主按钮/设置半透明/退出纯文本） -->
-    <view class="hero factory-hero">
-      <view class="factory-name">{{auth.factoryName || auth.name}}</view>
-      <view class="header-actions">
-        <view class="hero-btn hero-btn-main" bindtap="goChatThreads">沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
-        <view class="hero-btn" bindtap="goProfile">设置</view>
-        <view class="hero-btn-plain" bindtap="logout">退出</view>
-      </view>
+    <!-- 工厂信息卡：整卡可点=进工厂设置（厂名后带 › 提示）；右侧只保留高频主操作「沟通」，
+         设置/退出收进设置页「账号」分区, 头部不再堆三个按钮（内部编号不对用户展示） -->
+    <view class="hero factory-hero" bindtap="goProfile" hover-class="factory-hero-hover">
+      <view class="factory-name">{{auth.factoryName || auth.name}}<text class="factory-name-arrow">›</text></view>
+      <!-- 沟通用 catchtap 阻止冒泡：整卡 bindtap 跳设置, 点按钮只进会话列表 -->
+      <view class="hero-btn" catchtap="goChatThreads">沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
     </view>
 
     <!-- 生产能力未配置引导：不配置将无法收到询价派单 -->

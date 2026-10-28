@@ -326,6 +326,19 @@
       </view>
       <button class="btn-primary card-btn" bindtap="savePwd">修改密码</button>
     </view>
+
+    <!-- 退出登录：接单页头部只留「沟通」一个高频操作, 退出统一收进账号分区
+         （员工账号密码登录的人在「我的」页没有工厂身份卡, 这里是其退出入口） -->
+    <view class="card">
+      <view class="card-title">退出登录</view>
+      <view class="wxbind-row">
+        <view class="wxbind-info">
+          <view class="wxbind-status">当前账号 {{auth.username}}</view>
+          <view class="wxbind-tip">退出后需重新登录才能接收询价派单、处理订单</view>
+        </view>
+        <button class="btn-outline wxbind-btn" bindtap="logout">退出</button>
+      </view>
+    </view>
   </block>
 
   <!-- F-102 二维码弹层：大图展示 + 保存到相册（长按图片可转发/识别） -->
