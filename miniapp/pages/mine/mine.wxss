@@ -283,7 +283,7 @@
 /* 消息头部行：彩色单字徽章 + 标题 + 未读点 + 时间右靠 */
 .msg-head { display: flex; align-items: center; gap: 0; }
 .msg-ic {
-  width: 56rpx; height: 56rpx; border-radius: 16rpx; margin-right: 18rpx; flex: none;
+  width: 56rpx; height: 56rpx; border-radius: 50%; margin-right: 18rpx; flex: none;
   display: flex; align-items: center; justify-content: center;
 }
 .msg-char { font-size: 27rpx; font-weight: 700; color: #fff; line-height: 1; }
