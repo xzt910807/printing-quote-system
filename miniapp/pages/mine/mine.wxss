@@ -184,11 +184,14 @@
 
 .inq-time { font-size: 23rpx; color: #94a3b8; margin-top: 10rpx; }
 
-.inq-actions { display: flex; gap: 16rpx; margin-top: 18rpx; }
+.inq-actions { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 18rpx; }
 
-.inq-btn { flex: 1; font-size: 25rpx; padding: 12rpx 0; }
+.inq-btn { flex: 1 0 auto; min-width: 140rpx; font-size: 25rpx; padding: 12rpx 0; }
 
 .inq-call { color: #2563eb; }
+
+/* 已下单卡的主操作：浅蓝实心胶囊, 优先于其他灰色按钮 */
+.inq-go-order { color: #2563eb; font-weight: 600; background: #eff6ff; }
 
 /* ---------- 订单进度时间线 ---------- */
 .mini-steps {

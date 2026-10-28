@@ -1,12 +1,14 @@
 const api = require('../../utils/api');
 
+// 询价状态用户化文案：生命周期一条线——已报价(平台估价) → 已推送工厂 → 工厂已报价/工厂已接单 → 已下单
+// 原「已转化」是内部黑话; 「已确认下单」与它语义重叠, 统一说人话
 const STATUS_TEXT = {
   quoted: '已报价',
   matched: '已推送工厂',
   factory_quoted: '工厂已报价',
-  user_confirmed: '已确认下单',
+  user_confirmed: '已下单',
   accepted: '工厂已接单',
-  converted: '已转化',
+  converted: '已下单',
 };
 
 const PRODUCT_TEXT = {
@@ -722,6 +724,12 @@ Page({
       url: '/pages/chat/chat?inquiryId=' + inquiryId + '&factoryId=' + factoryId
         + '&title=' + encodeURIComponent(name || '工厂') + '&no=' + encodeURIComponent(no || ''),
     });
+  },
+
+  // 已下单的询价卡：直达订单 tab（页内切换 + 回顶）
+  goOrderTab() {
+    this.setData({ tab: 'order' });
+    wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
 
   switchTab(e) {
