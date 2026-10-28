@@ -35,15 +35,15 @@
 
   <!-- 已登录 -->
   <block wx:else>
-    <!-- 工厂信息卡：厂名独占一行完整展示；次行编号与操作统一为半透明标签，干净不拥挤 -->
+    <!-- 工厂信息卡：厂名独占一行；次行编号降为纯文本信息, 操作按主次分层（沟通白底主按钮/设置半透明/退出纯文本） -->
     <view class="hero factory-hero">
       <view class="factory-name">{{auth.factoryName || auth.name}}</view>
       <view class="factory-hero-bottom">
         <view class="factory-code">编号 {{auth.code}}</view>
         <view class="header-actions">
-          <view class="hero-btn" bindtap="goChatThreads">💬 沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
-          <view class="hero-btn" bindtap="goProfile">⚙ 工厂设置</view>
-          <view class="hero-btn" bindtap="logout">退出</view>
+          <view class="hero-btn hero-btn-main" bindtap="goChatThreads">沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
+          <view class="hero-btn" bindtap="goProfile">工厂设置</view>
+          <view class="hero-btn-plain" bindtap="logout">退出</view>
         </view>
       </view>
     </view>

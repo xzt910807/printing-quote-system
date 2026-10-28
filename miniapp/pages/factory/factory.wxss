@@ -18,19 +18,17 @@
   margin-top: 16rpx;
 }
 
+/* 编号：纯文本信息（不做胶囊, 避免与右侧真按钮混淆） */
 .factory-code {
   font-size: 24rpx;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999rpx;
-  padding: 8rpx 22rpx;
+  color: rgba(255, 255, 255, 0.75);
   flex-shrink: 0;
 }
 
-/* 操作区不收缩，「工厂设置/退出」恒定完整可点 */
+/* 操作区不收缩，按钮组恒定完整可点 */
 .header-actions { display: flex; align-items: center; gap: 14rpx; flex-shrink: 0; }
 
-/* 操作标签：白色半透明底、无边框，与编号标签同款，视觉干净统一 */
+/* 次级操作：白色半透明胶囊 */
 .hero-btn {
   font-size: 24rpx;
   color: #fff;
@@ -40,6 +38,24 @@
 }
 
 .hero-btn:active { background: rgba(255, 255, 255, 0.3); }
+
+/* 主操作（沟通）：白底蓝字第一级视觉重量 */
+.hero-btn-main {
+  background: #fff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.hero-btn-main:active { background: #eff6ff; }
+
+/* 低频/破坏性操作（退出）：纯文本最轻, 不与主操作争点击 */
+.hero-btn-plain {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 8rpx 12rpx;
+}
+
+.hero-btn-plain:active { color: #fff; }
 
 /* 沟通入口未读角标（嵌在 hero-btn 内的小红圆） */
 .hero-btn-dot {
