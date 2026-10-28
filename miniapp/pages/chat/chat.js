@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { getAvatarConfig } = require('../../utils/avatar');
 
 // 轮询间隔（无长连接依赖，页面在显示时定时拉取新消息）
 const POLL_MS = 15000;
@@ -25,6 +26,12 @@ Page({
     isFactory: false,  // 工厂视角（from=factory 且有接单登录态）
     title: '',         // 对家名称（客户看厂名，工厂看客户名）
     subTip: '',        // 副标题（询价单号等）
+    // 会话双方头像：对方按名称 hash 取首字底色, 我方优先真实头像（C 端）/首字（工厂端、无头像）
+    peerAvatarText: '对',
+    peerAvatarColor: '#64748b',
+    myAvatarText: '我',
+    myAvatarColor: '#334155',   // 固定中性底（不与右侧蓝气泡同色）, 仅无真实头像时用于首字底
+    myAvatarFull: '',
     messages: [],
     lastId: 0,         // scroll-into-view 锚点（末尾消息 id）
     inputText: '',
@@ -65,7 +72,24 @@ Page({
       loading: true,
     });
     wx.setNavigationBarTitle && wx.setNavigationBarTitle({ title: this.data.title });
+    this.syncAvatars();
     this.refresh(true);
+  },
+
+  // 会话双方头像：对家名与全站工厂首字头像同源（utils/avatar）, 我方优先真实头像
+  syncAvatars() {
+    const peer = getAvatarConfig(this.data.title || '');
+    const out = { peerAvatarText: peer.text, peerAvatarColor: peer.color, myAvatarFull: '' };
+    const src = (this.data.isFactory ? wx.getStorageSync('factoryAuth') : wx.getStorageSync('userAuth')) || {};
+    // C 端有真实头像就直接用图
+    if (!this.data.isFactory && src.avatarUrl) {
+      out.myAvatarFull = api.BASE_URL + src.avatarUrl;
+      return this.setData(out);
+    }
+    const name = this.data.isFactory ? (src.factoryName || src.name || '') : (src.nickname || '');
+    if (name) out.myAvatarText = getAvatarConfig(name).text;
+    // 我方底色固定中性深灰蓝：hash 调色板含 #2563eb/#4f46e5, 与右侧蓝色气泡同侧会糊成一片
+    this.setData(out);
   },
 
   onShow() {

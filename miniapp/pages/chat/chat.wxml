@@ -14,10 +14,17 @@
   </view>
   <view wx:for="{{messages}}" wx:key="id">
     <view class="msg-divider" wx:if="{{item.showTime}}">{{item.timeText}}</view>
-    <view class="msg-item {{item.mine ? 'msg-mine' : ''}}" id="msg-{{item.id}}">
+    <view class="msg-item {{item.mine ? 'msg-mine' : 'msg-peer'}}" id="msg-{{item.id}}">
+      <!-- 对方头像：对家名称 hash 首字（工厂视角下对家是客户, 同样取名字首字） -->
+      <view wx:if="{{!item.mine}}" class="msg-avatar msg-avatar-txt" style="background: {{peerAvatarColor}}">{{peerAvatarText}}</view>
       <view class="msg-bubble">
         <text class="msg-text">{{item.content}}</text>
       </view>
+      <!-- 我方头像：C 端优先真实头像, 工厂端与无头像时用首字 -->
+      <block wx:if="{{item.mine}}">
+        <image wx:if="{{myAvatarFull}}" class="msg-avatar" src="{{myAvatarFull}}" mode="aspectFill" />
+        <view wx:else class="msg-avatar msg-avatar-txt" style="background: {{myAvatarColor}}">{{myAvatarText}}</view>
+      </block>
     </view>
   </view>
 </scroll-view>
