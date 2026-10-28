@@ -23,7 +23,6 @@
         <text class="fd-cap fd-cap-{{capacity.status}}" wx:if="{{capacity}}">⚡ {{capacity.label}}</text>
       </view>
       <view class="fd-cap-note" wx:if="{{capacity && capacity.note}}">{{capacity.note}}</view>
-      <view class="fd-code">{{info.code}}</view>
       <view class="fd-addr" bindtap="copyAddress" wx:if="{{info.address}}">
         <view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{info.address}} <text class="fd-copy">复制</text>
       </view>

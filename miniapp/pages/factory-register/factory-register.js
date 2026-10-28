@@ -9,7 +9,6 @@ Page({
     submitting: false,
     success: false,
     bound: false,
-    code: '',
   },
 
   // 从「我的 → 我是工厂 → 申请入驻」进入时已登录：联系人/电话带入微信资料，减少填写
@@ -58,7 +57,7 @@ Page({
         },
       });
       const d = res.data || {};
-      this.setData({ success: true, code: d.code, bound: !!d.bound });
+      this.setData({ success: true, bound: !!d.bound });
       // 登录态下提交：服务端已把当前微信账号绑定为该厂（待审核），同步本地身份缓存，
       // 返回「我的」页后 tabBar 出现「接单」入口，审核通过即可微信一键登录
       if (d.bound) {

@@ -54,7 +54,6 @@
   <view wx:else class="card success-card">
     <view class="success-icon">✅</view>
     <view class="success-title">入驻申请已提交</view>
-    <view class="success-tip">您的工厂编号：<text class="code">{{code}}</text></view>
     <block wx:if="{{bound}}">
       <view class="success-tip">当前微信账号已关联该工厂（待审核）。审核通过后即可在「接单」页微信一键登录；也可使用注册账号密码登录</view>
     </block>
