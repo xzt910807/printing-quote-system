@@ -23,7 +23,7 @@ Page({
     media: [],           // 设备/车间图文图集
     avatarText: '厂',
     avatarColor: '#94a3b8',
-    // 033 供应商关注：工厂详情页是"关注"的唯一主动入口（供应商列表里只有取关）
+    // 033 供应商关注：详情页是带文案的关注入口（找厂列表是星标快关注, 供应商列表是取关/改标签）
     followed: false,
     followLoading: false,
   },
@@ -180,7 +180,13 @@ Page({
   },
 
   // 返回上一页（自定义导航栏无原生返回按钮）
+  // 不能只依赖 navigateBack 的 fail 回调：单页编译/reLaunch 进本页时页面栈只有 1 层,
+  // 部分基础库不回调 fail 而是静默返回, 表现就是"点左上角没反应"
   goBack() {
-    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/factories/factories' }) });
+    if (getCurrentPages().length > 1) {
+      wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/factories/factories' }) });
+    } else {
+      wx.switchTab({ url: '/pages/factories/factories' });
+    }
   },
 });

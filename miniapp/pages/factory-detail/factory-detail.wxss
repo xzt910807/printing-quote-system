@@ -1,17 +1,22 @@
 /* 返回按钮 */
 .navbar-back {
   position: absolute;
-  left: 24rpx;
-  bottom: 16rpx;
-  width: 56rpx;
-  height: 56rpx;
-  line-height: 52rpx;
+  left: 16rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  /* 热区放大到 88rpx 见方（箭头本身不变）, 避免"看着点到其实没点到" */
+  width: 88rpx;
+  height: 88rpx;
+  line-height: 84rpx;
   text-align: center;
   font-size: 44rpx;
   color: #0f172a;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.85);
 }
+
+/* 按压态：点击有反馈才能区分"热区没命中"和"逻辑没执行" */
+.navbar-back-hover { background: rgba(15, 23, 42, 0.08); }
 
 /* 头部卡片 */
 .hero-card {

@@ -1,7 +1,7 @@
 <!-- 自定义导航栏（带返回按钮） -->
 <view class="navbar" style="padding-top: {{statusBarHeight}}px;">
   <view class="navbar-inner" style="height: {{navBarHeight}}px;">
-    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-back" bindtap="goBack" hover-class="navbar-back-hover" hover-stay-time="80">‹</view>
     <view class="navbar-title">工厂详情</view>
   </view>
 </view>
