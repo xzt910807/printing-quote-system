@@ -158,19 +158,24 @@
     <view class="inq-card" wx:for="{{displayList}}" wx:key="id">
       <view class="row">
         <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.inquiry_no}}">{{item.inquiry_no}}<text class="inq-copy-ic">⧉</text></text>
-        <text class="badge badge-purple" wx:if="{{item.design_status === 'need'}}">需设计</text>
-        <text class="badge badge-blue" wx:if="{{item.design_status === 'public'}}">工厂公版</text>
-        <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
-        <text class="badge badge-gray" wx:if="{{item.expired}}">已失效</text>
+        <view class="inq-badges">
+          <text class="badge badge-purple" wx:if="{{item.design_status === 'need'}}">需设计</text>
+          <text class="badge badge-blue" wx:if="{{item.design_status === 'public'}}">工厂公版</text>
+          <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
+          <text class="badge badge-gray" wx:if="{{item.expired}}">已失效</text>
+        </view>
       </view>
       <view class="row inq-main">
         <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
         <text class="inq-price" wx:if="{{item.total_price}}">¥{{item.total_price}}</text>
       </view>
-      <!-- 工厂信息：询价卡片直接展示工厂名，未匹配时显示待匹配 -->
-      <view class="inq-factory-row" wx:if="{{item.factory_name}}"
-            data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name}} ›</view>
-      <view class="inq-factory-row inq-factory-wait" wx:elif="{{item.status === 'quoted' || item.status === 'matched'}}"><view class="ic-inline"><view class="ic ic-search"><view class="ic-a"></view></view></view>待匹配工厂</view>
+      <!-- 工厂与时间同排：厂名居左可点进详情，相对时间居右，卡片更紧凑 -->
+      <view class="inq-fac-line">
+        <view class="inq-factory-row" wx:if="{{item.factory_name}}"
+              data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name}} ›</view>
+        <view class="inq-factory-row inq-factory-wait" wx:elif="{{item.status === 'quoted' || item.status === 'matched'}}"><view class="ic-inline"><view class="ic ic-search"><view class="ic-a"></view></view></view>待匹配工厂</view>
+        <text class="inq-time">{{item.timeText}}</text>
+      </view>
       <!-- 017 工厂正式报价：金额 + 说明 + 有效期，未过期可一键确认下单 -->
       <view class="quote-box" wx:if="{{item.status === 'factory_quoted'}}">
         <view class="qb-row">
@@ -185,7 +190,6 @@
               data-id="{{item.id}}" data-price="{{item.factoryQuotedPrice}}" data-remark="{{item.factoryQuoteRemark}}"
               catchtap="confirmFactoryQuote">确认报价并下单</view>
       </view>
-      <view class="inq-time">{{item.timeText}}</view>
       <view class="inq-actions">
         <view class="btn-ghost inq-btn" data-item="{{item}}" catchtap="repurchase">再次询价</view>
         <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
@@ -229,12 +233,14 @@
           <view class="ms-label">{{s}}</view>
         </view>
       </view>
-      <!-- 工厂信息：订单卡片独立一行展示工厂名（可点击进工厂详情） -->
-      <view class="inq-factory-row" wx:if="{{item.factory_name || item.factory_id || item.matched_factory_id}}"
-            data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">
-        <view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name || '查看工厂'}} ›
+      <!-- 工厂与时间同排（可点击进工厂详情） -->
+      <view class="inq-fac-line">
+        <view class="inq-factory-row" wx:if="{{item.factory_name || item.factory_id || item.matched_factory_id}}"
+              data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">
+          <view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name || '查看工厂'}} ›
+        </view>
+        <text class="inq-time">{{item.timeText}}</text>
       </view>
-      <view class="inq-time">{{item.timeText}}</view>
       <!-- F-70：评分展示 / 评价入口 -->
       <view class="rate-row" wx:if="{{item.rated}}">
         <text class="rate-stars">{{item.ratingText}}</text>

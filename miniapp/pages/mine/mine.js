@@ -54,6 +54,21 @@ function formatTime(t) {
     + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 
+// 相对时间（与资讯页同风格）：1小时内“刚刚”/24小时内“N小时前”/7天内“N天前”/更早给日期；
+// 仅用于列表展示时间，报价有效期等需要精确日期的场景仍用 formatTime
+function formatRelTime(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return String(t).slice(0, 16).replace('T', ' ');
+  const diff = Date.now() - d.getTime();
+  if (diff >= 0 && diff < 3600e3) return '刚刚';
+  if (diff >= 0 && diff < 86400e3) return Math.floor(diff / 3600e3) + '小时前';
+  if (diff >= 0 && diff < 7 * 86400e3) return Math.floor(diff / 86400e3) + '天前';
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  const md = p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '-' + md;
+}
+
 Page({
   data: {
     // Stage11 自定义导航栏高度（onLoad 计算）
@@ -558,7 +573,7 @@ Page({
         ...s,
         total_amount: Number(s.total_amount || 0).toFixed(2),
         avg_rating: s.avg_rating ? Number(s.avg_rating).toFixed(1) : '',
-        lastOrderText: formatTime(s.last_order_at),
+        lastOrderText: formatRelTime(s.last_order_at),
         followed: !!s.followed,
         pinned: !!s.pinned,
         tags: s.tags || '',
@@ -735,7 +750,7 @@ Page({
         statusText: STATUS_TEXT[x.status] || x.status,
         badgeClass: badgeClass(x.status),
         productText: PRODUCT_TEXT[x.product_type] || x.product_type || '-',
-        timeText: formatTime(x.created_at),
+        timeText: formatRelTime(x.created_at),
         // 017 工厂正式报价：价格/说明/有效期，未过期可确认下单
         factoryQuotedPrice: x.factory_quoted_price != null ? Number(x.factory_quoted_price) : null,
         factoryQuoteRemark: x.factory_quote_remark || '',
@@ -772,7 +787,7 @@ Page({
         stepIndex: ORDER_STEP_INDEX[o.status] || 0,
         payText: PAY_STATUS_TEXT[o.pay_status] || '未支付',
         productText: PRODUCT_TEXT[o.product_type] || o.product_type || '-',
-        timeText: formatTime(o.created_at),
+        timeText: formatRelTime(o.created_at),
         // F-70：评分展示（已评显示星级，未评显示评价入口）
         rated: !!o.rating,
         ratingText: o.rating ? '★'.repeat(Math.max(1, Math.round(Number(o.rating)))) : '',
@@ -944,7 +959,7 @@ Page({
         ...m,
         // 旧消息内容可能带 ::ffff: 前缀（IPv4 映射地址，服务端已修源头），这里兜底剥掉
         content: typeof m.content === 'string' ? m.content.replace(/::ffff:/gi, '') : m.content,
-        timeText: formatTime(m.created_at),
+        timeText: formatRelTime(m.created_at),
       }));
       this.setData({ messages, unread: res.data.unread || 0 });
       this.applyFilter();
