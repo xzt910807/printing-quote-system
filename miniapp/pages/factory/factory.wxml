@@ -35,10 +35,15 @@
 
   <!-- 已登录 -->
   <block wx:else>
-    <!-- 工厂信息卡：纯身份条, 整卡可点进工厂设置（厂名后带 › 提示）；
+    <!-- 工厂身份卡：首字头像 + 厂名 + 待办摘要, 整卡可点进工厂设置；
          头部不放任何操作按钮, 沟通入口在下方搜索框右侧（内部编号不对用户展示） -->
     <view class="hero factory-hero" bindtap="goProfile" hover-class="factory-hero-hover">
-      <view class="factory-name">{{auth.factoryName || auth.name}}<text class="factory-name-arrow">›</text></view>
+      <view class="factory-avatar" style="color: {{avatarColor}}">{{avatarText}}</view>
+      <view class="factory-main">
+        <view class="factory-name">{{auth.factoryName || auth.name}}</view>
+        <view class="factory-meta">{{pendingCount ? '待处理询价 ' + pendingCount + ' 条' : '暂无待处理询价'}}{{chatUnread ? ' · 未读消息 ' + chatUnread : ''}}</view>
+      </view>
+      <view class="factory-arrow">›</view>
     </view>
 
     <!-- 生产能力未配置引导：不配置将无法收到询价派单 -->

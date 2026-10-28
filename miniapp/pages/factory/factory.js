@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const { productName } = require('../../utils/productText');
+const { getAvatarConfig } = require('../../utils/avatar');
 
 const ORDER_STATUS_TEXT = {
   pending: '待确认',
@@ -52,6 +53,8 @@ Page({
     wxBound: false,      // 当前微信已绑定工厂（我的 → 我是工厂），登录页引导一键登录
     showStaffLogin: false, // 021 员工账号密码区默认折叠，点「员工账号登录」展开
     needSetup: false,    // 生产能力未配置（接不到询价派单）时展示引导横幅
+    avatarText: '厂',    // 头部首字头像（utils/avatar 按厂名 hash）
+    avatarColor: '#2563eb',
     chatUnread: 0,       // IM 会话未读数（沟通消息入口徽标）
     pendingCount: 0,     // 待处理询价数（用于新询价红点）
     newInquiry: false,   // 有待处理询价增加时点亮红点
@@ -116,10 +119,18 @@ Page({
     }
     if (this.data.tab === 'orders') this.loadOrders();
     else this.loadInquiries();
+    this.syncAvatar();
     this.checkCapabilities();
     this.checkNewInquiries();
     this.loadChatUnread();
     this.syncTabBar();
+  },
+
+  // 头部首字头像：与找厂列表/工厂主页同一套 hash 配色（切换工厂账号后自动跟随厂名）
+  syncAvatar() {
+    const a = this.data.auth || {};
+    const cfg = getAvatarConfig(a.factoryName || a.name || '');
+    this.setData({ avatarText: cfg.text, avatarColor: cfg.color });
   },
 
   // 自定义 tabBar：同步选中项与待接单徽标
@@ -159,6 +170,7 @@ Page({
       wx.setStorageSync('factoryAuth', auth);
       this.setData({ auth, passwordInput: '' });
       wx.showToast({ title: '登录成功', icon: 'success' });
+      this.syncAvatar();
       this.loadInquiries();
       this.checkCapabilities();
       this.checkNewInquiries();
@@ -195,6 +207,7 @@ Page({
       wx.setStorageSync('factoryAuth', auth);
       this.setData({ auth, passwordInput: '' });
       wx.showToast({ title: '登录成功', icon: 'success' });
+      this.syncAvatar();
       this.loadInquiries();
       this.checkCapabilities();
       this.checkNewInquiries();
