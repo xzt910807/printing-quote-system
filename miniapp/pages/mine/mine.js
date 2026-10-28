@@ -71,20 +71,30 @@ function formatRelTime(t) {
   return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '-' + md;
 }
 
-// 消息类型 → 左侧图标块（复用全局 menu-ic 彩色风格 + ic-* 线性图标），告别纯文字堆叠
+// 消息分类徽章：彩色实底块 + 白色单字（线性小图标缩到 36rpx 发糊难辨, 单字徽章小尺寸最清晰）
 const MSG_STYLE = {
-  quote_accepted: { icon: 'quote', tone: 'green' },
-  factory_quoted: { icon: 'quote', tone: 'orange' },
-  quote_rematch: { icon: 'search', tone: 'orange' },
-  order_created: { icon: 'box', tone: 'blue' },
-  order_status: { icon: 'box', tone: 'blue' },
-  issue_new: { icon: 'bell', tone: 'purple' },
-  issue_reply: { icon: 'bell', tone: 'purple' },
-  chat_message: { icon: 'chat', tone: 'green' },
-  escrow_arbitrate: { icon: 'bell', tone: 'red' },
-  security: { icon: 'bell', tone: 'red' },
+  quote_accepted: { char: '报', tone: 'orange' },
+  factory_quoted: { char: '报', tone: 'orange' },
+  note_accepted: { char: '报', tone: 'orange' },
+  quote_rematch: { char: '报', tone: 'orange' },
+  order_created: { char: '订', tone: 'blue' },
+  order_status: { char: '订', tone: 'blue' },
+  issue_new: { char: '工', tone: 'purple' },
+  issue_reply: { char: '工', tone: 'purple' },
+  chat_message: { char: '聊', tone: 'green' },
+  escrow_arbitrate: { char: '仲', tone: 'red' },
+  security: { char: '安', tone: 'red' },
 };
-const MSG_DEFAULT = { icon: 'bell', tone: 'gray' };
+// type 笼统（system 等查不到映射）时按标题关键词推断语义，避免一排全灰兜底
+function msgStyle(type, title) {
+  if (MSG_STYLE[type]) return MSG_STYLE[type];
+  const t = String(title || '');
+  if (t.indexOf('工单') >= 0) return { char: '工', tone: 'purple' };
+  if (t.indexOf('发货') >= 0 || t.indexOf('物流') >= 0) return { char: '物', tone: 'green' };
+  if (t.indexOf('报价') >= 0) return { char: '报', tone: 'orange' };
+  if (t.indexOf('订单') >= 0) return { char: '订', tone: 'blue' };
+  return { char: '知', tone: 'gray' };
+}
 
 Page({
   data: {
@@ -995,10 +1005,10 @@ Page({
     try {
       const res = await api.request('/api/c/my-messages');
       const messages = (res.data.list || []).map((m) => {
-        const st = MSG_STYLE[m.type] || MSG_DEFAULT;
+        const st = msgStyle(m.type, m.title);
         return {
           ...m,
-          icon: st.icon,
+          char: st.char,
           tone: st.tone,
           // 旧消息内容可能带 ::ffff: 前缀（IPv4 映射地址，服务端已修源头），这里兜底剥掉
           content: typeof m.content === 'string' ? m.content.replace(/::ffff:/gi, '') : m.content,

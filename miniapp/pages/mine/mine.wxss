@@ -280,13 +280,19 @@
 
 .msg-card-unread { border-left: 6rpx solid #2563eb; }
 
-/* 消息头部行：彩色图标块 + 标题 + 未读点 + 时间右靠 */
+/* 消息头部行：彩色单字徽章 + 标题 + 未读点 + 时间右靠 */
 .msg-head { display: flex; align-items: center; gap: 0; }
-.msg-ic { width: 56rpx; height: 56rpx; border-radius: 16rpx; margin-right: 18rpx; }
-/* 内部 ic 尺寸继承全局 .menu-ic .ic（36rpx 画布）, 不自定义以免错位 */
-/* 补全局 menu-ic 色板缺的两色（工单紫/安全红） */
-.menu-ic-purple { background: #f5f3ff; color: #6d28d9; }
-.menu-ic-red { background: #fef2f2; color: #dc2626; }
+.msg-ic {
+  width: 56rpx; height: 56rpx; border-radius: 16rpx; margin-right: 18rpx; flex: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.msg-char { font-size: 27rpx; font-weight: 700; color: #fff; line-height: 1; }
+.msg-solid-blue { background: #2563eb; }
+.msg-solid-orange { background: #ea580c; }
+.msg-solid-green { background: #059669; }
+.msg-solid-purple { background: #7c3aed; }
+.msg-solid-red { background: #dc2626; }
+.msg-solid-gray { background: #94a3b8; }
 
 .msg-title { flex: 1; min-width: 0; font-size: 28rpx; font-weight: 600; color: #0f172a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 

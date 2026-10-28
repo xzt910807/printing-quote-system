@@ -285,7 +285,7 @@
     <view class="msg-card {{item.is_read ? '' : 'msg-card-unread'}}" wx:for="{{displayMessages}}" wx:key="id"
           data-id="{{item.id}}" data-read="{{item.is_read}}" bindtap="tapMessage">
       <view class="msg-head">
-        <view class="menu-ic msg-ic menu-ic-{{item.tone}}"><view class="ic ic-{{item.icon}}"><view class="ic-a"></view></view></view>
+        <view class="msg-ic msg-solid-{{item.tone}}"><text class="msg-char">{{item.char}}</text></view>
         <text class="msg-title">{{item.title}}</text>
         <text class="msg-dot" wx:if="{{!item.is_read}}"></text>
         <text class="msg-head-time">{{item.timeText}}</text>
