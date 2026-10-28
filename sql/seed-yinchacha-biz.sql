@@ -12,7 +12,7 @@
 --   ai_1792402077507_758.png→fm_equip_3.png ai_1792465613150_4.png→fm_sample_3.png
 --   tpl_1_1792400398005_84.png→tpl_preview.png（缺图不报错，仅详情图集/凭证预览404）
 -- 业务故事线（用户32 · 工厂1/4/9）：
---   询价CQ4条(报价中/工厂已报价/已转化/已推送) → 订单OD3条(生产中/已发货签收前/完成已放款)
+--   询价CQ4条(报价中/工厂已报价/已下单/已推送) → 订单OD3条(生产中/已发货签收前/完成已放款)
 --   → 物流2条(在途/已签收) → 工单3条(open/processing/closed) → 文件传输4条(issue+order)
 --   → IM 9条 → 分账台账 → 消息中心 → 地址簿 → 工厂图集
 -- =====================================================
@@ -45,10 +45,10 @@ INSERT INTO `c_inquiry`
    9, 14800.00, DATE_SUB(NOW(), INTERVAL 20 HOUR), 14800.00, DATE_SUB(NOW(), INTERVAL 22 HOUR),
    '天地盖精品盒含烫金，1500起做，交期12天；含设计费500', NULL, DATE_ADD(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 2 DAY),
    'high', 'UV', 1, 'need', '门店礼盒，深蓝色金logo，走文艺风'),
-  -- ③ 已转化为订单 OD202610200009
+  -- ③ 用户已确认工厂报价并生成订单 OD202610200009（真实流程终态 user_confirmed，converted 仅历史兼容）
   (13, 'CQ202610200019', 32, 'cardBox', 'offset', 0.12, 0.08, 0.03,
    '18958854112', '陈成', 10000, 'cardPaper', 'CARD250', 4,
-   'normal', 4, '["GLOSS_FILM","GLUE_BOX"]', '{"finalPrice":11800.00,"unitPrice":1.18}', 'converted', 4,
+   'normal', 4, '["GLOSS_FILM","GLUE_BOX"]', '{"finalPrice":11800.00,"unitPrice":1.18}', 'user_confirmed', 4,
    4, 12800.00, DATE_SUB(NOW(), INTERVAL 8 DAY), 12800.00, DATE_SUB(NOW(), INTERVAL 7 DAY),
    '拼版4-up，版费已含', DATE_SUB(NOW(), INTERVAL 7 DAY), DATE_ADD(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY),
    'mid', 'NORMAL', 0, 'none', NULL),
@@ -203,7 +203,7 @@ INSERT INTO `c_message` (`id`, `user_id`, `type`, `title`, `content`, `ref_type`
   (1, 32, 'note_accepted', '工厂已报价：天地盖礼盒 5000个', '博润印刷报价 ¥14,800（含烫金，交期12天），请在有效期内确认', 'inquiry', 12, 0, DATE_SUB(NOW(), INTERVAL 22 HOUR)),
   (2, 32, 'system',        '订单已发货',                   'OD202610260001 中通快递 75812345678901 派送中，签收后7天自动放款给工厂', 'order', 32, 0, DATE_SUB(NOW(), INTERVAL 3 DAY)),
   (3, 32, 'system',        '工单处理进展',                 'IT202610250001 工厂已回复：可补印200个或退差价600元，请选择方案', 'issue', 1, 1, DATE_SUB(NOW(), INTERVAL 8 HOUR)),
-  (4, 32, 'system',        '报价即将到期',                 'CQ202610200019 转化订单已进入生产，如需变更工艺请在24小时内联系工厂', 'inquiry', 13, 1, DATE_SUB(NOW(), INTERVAL 4 DAY))
+  (4, 32, 'system',        '报价即将到期',                 'CQ202610200019 已下单进入生产，如需变更工艺请在24小时内联系工厂', 'inquiry', 13, 1, DATE_SUB(NOW(), INTERVAL 4 DAY))
 ON DUPLICATE KEY UPDATE `content` = VALUES(`content`);
 
 -- ---------- 13) 工厂图集 factory_media（新雅1/鑫祥4/博润9） ----------
