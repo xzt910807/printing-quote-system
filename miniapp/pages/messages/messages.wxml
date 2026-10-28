@@ -1,7 +1,8 @@
 <view class="navbar" style="padding-top: {{statusBarHeight}}px;">
   <view class="navbar-inner" style="height: {{navBarHeight}}px;">
     <view class="navbar-back" bindtap="goBack">‹</view>
-    <view class="navbar-title">沟通消息<text class="navbar-sub" wx:if="{{unread}}">{{unread}} 条未读</text></view>
+    <!-- 工厂视角加后缀: 与「我的」tab 客户入口同页不同身份, 避免两边列表不一致被误认为 bug -->
+    <view class="navbar-title">沟通消息<text class="navbar-view-tag" wx:if="{{isFactory}}">· 工厂端</text><text class="navbar-sub" wx:if="{{unread}}">{{unread}} 条未读</text></view>
   </view>
 </view>
 
