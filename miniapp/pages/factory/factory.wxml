@@ -105,6 +105,13 @@
           <text class="type">{{item.productText}}</text>
           <text class="text-price">{{item.priceText}}</text>
         </view>
+        <!-- 生产参数：印刷方式/尺寸/材质/色数 标签 + 后道工艺（后端解析中文下发） -->
+        <view class="inq-spec" wx:if="{{item.specTags.length || item.processText}}">
+          <view class="spec-tags" wx:if="{{item.specTags.length}}">
+            <text class="spec-tag" wx:for="{{item.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+          </view>
+          <view class="spec-craft" wx:if="{{item.processText}}">工艺：{{item.processText}}</view>
+        </view>
         <view class="time">{{item.timeText}}<text class="inq-chat-link" data-inquiry-id="{{item.inquiry_id}}" data-no="{{item.inquiry_no}}" data-name="{{item.contact_name}}" catchtap="goChatInquiry">在线沟通</text></view>
 
         <!-- 021 设计需求三态：need=需设计（可单列设计费）/ public=用贵厂公版 / none=客户自带稿（图即设计稿） -->
@@ -170,6 +177,13 @@
         <view class="row" style="margin-top:16rpx">
           <text class="type">{{item.specText}}</text>
           <text class="text-price">{{item.priceText}}</text>
+        </view>
+        <!-- 生产参数：印刷方式/尺寸/材质/色数 标签 + 后道工艺（后端解析中文下发） -->
+        <view class="inq-spec" wx:if="{{item.specTags.length || item.processText}}">
+          <view class="spec-tags" wx:if="{{item.specTags.length}}">
+            <text class="spec-tag" wx:for="{{item.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+          </view>
+          <view class="spec-craft" wx:if="{{item.processText}}">工艺：{{item.processText}}</view>
         </view>
         <view class="time">{{item.timeText}}</view>
 

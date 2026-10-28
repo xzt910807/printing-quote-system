@@ -575,6 +575,8 @@ async function listFactoryInquiries(factoryId, { status, keyword, page = 1, page
   const [rows] = await pool.query(
     `SELECT fp.id AS push_id, fp.factory_quote, fp.response, fp.push_time,
            ci.id AS inquiry_id, ci.inquiry_no, ci.product_type, ci.quantity, ci.system_quote,
+           ci.print_mode, ci.length_m, ci.width_m, ci.height_m, ci.material_code,
+           ci.color_count, ci.spot_colors, ci.processes,
            ci.status AS inquiry_status, ci.matched_factory_id,
            ci.contact_name, ci.contact_phone,
            ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs,
@@ -607,6 +609,8 @@ async function listFactoryInquiries(factoryId, { status, keyword, page = 1, page
       try { r.design_pdfs = JSON.parse(r.design_pdfs); } catch (e) { r.design_pdfs = []; }
     }
     if (!r.design_pdfs) r.design_pdfs = [];
+    // 生产参数人读文案（尺寸/印刷方式/材质/色数/后道工艺）, 工厂据此报价
+    Object.assign(r, catalog.describeSpec(r));
     return r;
   });
   return { total: Number(cnt.total), list };

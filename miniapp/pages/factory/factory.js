@@ -288,6 +288,8 @@ Page({
         ...r,
         // 时间列后端直发 ISO 串, 前端统一格式化; 参考价缺失时给文字占位（不再 ¥null）
         productText: productName(r.product_type),
+        // 生产参数标签（印刷方式/尺寸/材质/色数）, 后端已解析中文, 空项过滤
+        specTags: [r.printModeText, r.sizeText, r.materialText, r.colorText].filter(Boolean),
         timeText: formatTime(r.inquiry_time),
         priceText: r.factory_quote != null ? '¥' + Number(r.factory_quote).toFixed(2).replace(/\.00$/, '') : '待定价',
       }));
@@ -359,6 +361,8 @@ Page({
         // 产品名 + 数量合并展示（历史单 product_type 可能为空, 缺名时只显数量, 避免前缀悬空）
         productText: productName(o.product_type),
         specText: (productName(o.product_type) ? productName(o.product_type) + ' · ' : '') + o.quantity + '个',
+        // 生产参数标签（印刷方式/尺寸/材质/色数）, 后端已解析中文, 空项过滤
+        specTags: [o.printModeText, o.sizeText, o.materialText, o.colorText].filter(Boolean),
         priceText: o.total_price != null ? '¥' + Number(o.total_price).toFixed(2).replace(/\.00$/, '') : '—',
         timeText: formatTime(o.created_at),
       }));

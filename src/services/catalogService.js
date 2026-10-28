@@ -94,6 +94,43 @@ class CatalogService {
   // 产品类型联动配置（{ printModes, materials, processes } 数组；未配置返回 null）
   getProductConfig(productType) { return this.baseData.productConfig[productType] || null; }
 
+  // 材料编码 → 中文名（跨卡纸/瓦楞/卷筒/薄膜四表查找, 未知回落原码）
+  materialName(code) {
+    if (!code) return '';
+    for (const t of ['cardPaper', 'boardPaper', 'rawPaper', 'plasticFilm']) {
+      const row = this.baseData[t][code];
+      if (row && row.name) return row.name;
+    }
+    return code;
+  }
+
+  /**
+   * 把询价/订单行的生产参数解析成人读文案, 供工厂端列表卡展示（工厂据此判断能否接单/如何报价）。
+   * 尺寸按 mm 显示（库内以米存, ×1000 取整）; 缺项返回空串, 前端自行隐藏。
+   * @param {Object} r 含 print_mode/length_m/width_m/height_m/material_code/color_count/spot_colors/processes
+   */
+  describeSpec(r) {
+    const mm = (v) => Math.round(Number(v) * 1000);
+    let sizeText = '';
+    if (Number(r.length_m) > 0 && Number(r.width_m) > 0) {
+      const h = Number(r.height_m) > 0 ? mm(r.height_m) : 0;
+      sizeText = h ? `${mm(r.length_m)}×${mm(r.width_m)}×${h}mm` : `${mm(r.length_m)}×${mm(r.width_m)}mm`;
+    }
+    const printModeText = (this.baseData.printingRate[r.print_mode] || {}).name || r.print_mode || '';
+    const materialText = this.materialName(r.material_code);
+    let colorText = '';
+    if (Number(r.color_count) > 0) {
+      colorText = r.color_count + '色';
+      if (Number(r.spot_colors) > 0) colorText += '+' + r.spot_colors + '专色';
+    }
+    let procArr = r.processes;
+    if (typeof procArr === 'string') { try { procArr = JSON.parse(procArr); } catch (e) { procArr = []; } }
+    const processText = (Array.isArray(procArr) ? procArr : [])
+      .map((c) => (this.baseData.finishing[c] || {}).name || c)
+      .filter(Boolean).join('、');
+    return { sizeText, printModeText, materialText, colorText, processText };
+  }
+
   getFullCatalog(factoryId = 0) {
     const merge = (type) => {
       const out = {};

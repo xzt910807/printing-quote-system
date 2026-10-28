@@ -1,5 +1,6 @@
 const { pool } = require('../config/db');
 const { round } = require('../utils/helpers');
+const catalog = require('./catalogService');
 const wxSubscribe = require('./wxService');
 const shippingService = require('./shippingService');
 const logisticsService = require('./logisticsService');
@@ -93,7 +94,9 @@ async function listFactoryOrders(factoryId, { status, keyword, page = 1, pageSiz
   const [[cnt]] = await pool.query(
     `SELECT COUNT(*) AS total FROM order_main o ${where}`, params
   );
-  return { total: Number(cnt.total), list: rows };
+  // 下发生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）, 工厂据此核对订单
+  const list = rows.map((r) => Object.assign(r, catalog.describeSpec(r)));
+  return { total: Number(cnt.total), list };
 }
 
 /**
