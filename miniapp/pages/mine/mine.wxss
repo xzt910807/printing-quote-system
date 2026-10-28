@@ -473,8 +473,8 @@
 
 .qb-confirm { text-align: center; margin-top: 18rpx; padding: 16rpx 0; font-size: 28rpx; }
 
-/* 033 供应商关注：公司名是卡片主角, 金额标签灰+数字重, 标签紫色 chip */
-.sup-name { font-size: 30rpx; font-weight: 600; color: #0f172a; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-right: 16rpx; }
+/* 033 供应商关注：公司名是卡片主角(主色蓝, 与询价卡工厂名同属可点击跳工厂详情的语义), 金额标签灰+数字重, 标签紫色 chip */
+.sup-name { font-size: 30rpx; font-weight: 600; color: #2563eb; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-right: 16rpx; }
 .sup-total { font-size: 26rpx; color: #64748b; }
 .sup-total-num { font-size: 32rpx; font-weight: 700; color: #0f172a; }
 .sup-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 14rpx; }
