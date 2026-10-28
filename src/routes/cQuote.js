@@ -62,7 +62,11 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
               ci.factory_quoted_price, ci.factory_quoted_at, ci.factory_quote_expires_at,
               ci.factory_quote_remark, ci.user_confirmed_at,
               ci.design_status,
-              JSON_UNQUOTE(JSON_EXTRACT(ci.system_quote, '$.totalPrice')) AS total_price,
+              -- 系统报价存的是 finalPrice(含税总价), 旧键 totalPrice 作兜底; CAST 统一两位小数
+              CAST(COALESCE(
+                JSON_UNQUOTE(JSON_EXTRACT(ci.system_quote, '$.finalPrice')),
+                JSON_UNQUOTE(JSON_EXTRACT(ci.system_quote, '$.totalPrice'))
+              ) AS DECIMAL(12,2)) AS total_price,
               f.name AS factory_name, f.contact AS factory_contact, f.phone AS factory_phone
        FROM c_inquiry ci
        LEFT JOIN factory f ON ci.matched_factory_id = f.id
