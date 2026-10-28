@@ -46,7 +46,7 @@ async function listUserOrders(userId, status) {
              WHERE o.user_id = ?`;
   const params = [userId];
   if (status) { sql += ' AND o.status = ?'; params.push(status); }
-  sql += ' ORDER BY o.id DESC LIMIT 100';
+  sql += ' ORDER BY o.created_at DESC, o.id DESC LIMIT 100';
   const [rows] = await pool.query(sql, params);
   return rows;
 }
@@ -62,7 +62,7 @@ async function listFactoryOrders(factoryId, status) {
              WHERE o.factory_id = ?`;
   const params = [factoryId];
   if (status) { sql += ' AND o.status = ?'; params.push(status); }
-  sql += ' ORDER BY o.id DESC LIMIT 100';
+  sql += ' ORDER BY o.created_at DESC, o.id DESC LIMIT 100';
   const [rows] = await pool.query(sql, params);
   return rows;
 }
@@ -90,7 +90,7 @@ async function listAllOrders({ page = 1, pageSize = 50, status, keyword, escrowS
      FROM order_main o LEFT JOIN factory f ON o.factory_id = f.id
      LEFT JOIN c_end_user u ON o.user_id = u.id
      LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id
-     ${where} ORDER BY o.id DESC LIMIT ? OFFSET ?`,
+     ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`,
     [...params, parseInt(pageSize, 10), (parseInt(page, 10) - 1) * parseInt(pageSize, 10)]
   );
   const [cnt] = await pool.query(`SELECT COUNT(*) AS total FROM order_main o ${where}`, params);

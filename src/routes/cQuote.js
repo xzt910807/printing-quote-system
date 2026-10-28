@@ -67,7 +67,7 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
        FROM c_inquiry ci
        LEFT JOIN factory f ON ci.matched_factory_id = f.id
        WHERE ci.user_id = ?
-       ORDER BY ci.id DESC
+       ORDER BY ci.created_at DESC, ci.id DESC
        LIMIT 100`,
       [req.user.id]
     );
@@ -180,7 +180,7 @@ router.get('/my-messages', requireUser, async (req, res) => {
     const pageSize = Math.min(parseInt(req.query.pageSize, 10) || 50, 100);
     const [rows] = await pool.query(
       `SELECT id, type, title, content, ref_type, ref_id, is_read, created_at
-       FROM c_message WHERE user_id = ? ORDER BY id DESC LIMIT ?`,
+       FROM c_message WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
       [req.user.id, pageSize]
     );
     const [[cnt]] = await pool.query(
