@@ -167,7 +167,7 @@
       </view>
       <view class="row inq-main">
         <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
-        <text class="inq-price" wx:if="{{item.total_price}}"><text class="inq-price-tag">参考</text>¥{{item.total_price}}</text>
+        <text class="inq-price" wx:if="{{item.total_price}}">¥{{item.total_price}}</text>
       </view>
       <!-- 工厂与时间同排：厂名居左可点进详情，相对时间居右，卡片更紧凑 -->
       <view class="inq-fac-line">
