@@ -191,9 +191,9 @@
               catchtap="confirmFactoryQuote">确认报价并下单</view>
       </view>
       <view class="inq-actions">
-        <!-- 已下单：主入口直达订单 tab -->
+        <!-- 已下单：直达订单 tab 并定位到该单（搜索框按订单号过滤, ✕ 清除回全部） -->
         <view class="btn-ghost inq-btn inq-go-order" wx:if="{{item.status === 'converted' || item.status === 'user_confirmed'}}"
-              catchtap="goOrderTab">查看订单</view>
+              data-inquiry-id="{{item.id}}" catchtap="goOrderTab">查看订单</view>
         <view class="btn-ghost inq-btn" data-item="{{item}}" catchtap="repurchase">再次询价</view>
         <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
               data-inquiry-id="{{item.id}}" data-factory-id="{{item.matched_factory_id}}" data-name="{{item.factory_name}}" data-no="{{item.inquiry_no}}"

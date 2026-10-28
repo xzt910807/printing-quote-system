@@ -726,9 +726,20 @@ Page({
     });
   },
 
-  // 已下单的询价卡：直达订单 tab（页内切换 + 回顶）
-  goOrderTab() {
-    this.setData({ tab: 'order' });
+  // 已下单的询价卡：直达订单 tab 并定位到由它生成的那单
+  // 链路：c_inquiry.id ← order_main.inquiry_id → 订单号写入搜索框过滤（✕ 清除即回全部）
+  goOrderTab(e) {
+    const inquiryId = e.currentTarget.dataset.inquiryId;
+    const order = inquiryId
+      ? (this.data.orders || []).find((o) => Number(o.inquiry_id) === Number(inquiryId))
+      : null;
+    if (order) {
+      this.setData({ tab: 'order', searchKeyword: order.order_no });
+      this.applyFilter();
+    } else {
+      // 找不到对应订单（历史数据 inquiry_id 缺失等）：退化为切 tab
+      this.setData({ tab: 'order' });
+    }
     wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
 
