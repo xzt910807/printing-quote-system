@@ -48,14 +48,16 @@ router.get('/suppliers', async (req, res) => {
     }
 
     // 合并关注字段
+    // 注意：不能用 `followMap[h.id] || {}` 再 `!!f` 判关注——空对象是 truthy，
+    // 会把所有"合作过但没关注"的工厂误判成已关注（列表显示"取关"、详情页显示"关注"两头对不上）
     const list = history.map((h) => {
-      const f = followMap[h.id] || {};
+      const f = followMap[h.id];
       return {
         ...h,
         followed: !!f,
-        tags: f.tags || '',
-        note: f.note || '',
-        pinned: f.pinned ? 1 : 0,
+        tags: (f && f.tags) || '',
+        note: (f && f.note) || '',
+        pinned: f && f.pinned ? 1 : 0,
       };
     });
     // 排序：置顶 → 合作次数 → 累计金额
