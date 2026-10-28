@@ -64,7 +64,10 @@ Page({
     sup: { page: 1, hasMore: true },
     loadingMore: false,
     // 026 供应商管理：历史合作工厂聚合（完成订单自动沉淀）
+    // suppliers 是合并后的完整列表（分页/搜索态都靠它）, 渲染时按关注态拆成两组
     suppliers: [],
+    supFollowed: [],   // 已关注：自己圈的, 可改标签/置顶/取关
+    supHistory: [],    // 合作过：订单完成后自动沉淀, 未关注
     supplierLoading: false,
     // 自定义输入弹窗（供应商标签；替代原生 editable showModal 丑输入框）
     inputModal: { show: false, mode: 'tag', title: '', placeholder: '', value: '', factoryId: 0, pinned: false },
@@ -560,13 +563,17 @@ Page({
         tagsArr: String(s.tags || '').split(/[,，、\s]+/).filter(Boolean).slice(0, 6),
         note: s.note || '',
       }));
+      // 全局排序（置顶 → 合作次数 → 金额）由服务端给出, 这里只按关注态切两组, 组内相对顺序不变
+      const merged = reset ? mapped : this.data.suppliers.concat(mapped);
       this.setData({
-        suppliers: reset ? mapped : this.data.suppliers.concat(mapped),
+        suppliers: merged,
+        supFollowed: merged.filter((x) => x.followed),
+        supHistory: merged.filter((x) => !x.followed),
         sup: { page, hasMore: !!res.data.hasMore },
       });
     } catch (err) {
       // 接口未就绪时静默降级（仅重置态清空, 翻页失败保留已加载数据）
-      if (reset) this.setData({ suppliers: [], sup: { page: 1, hasMore: false } });
+      if (reset) this.setData({ suppliers: [], supFollowed: [], supHistory: [], sup: { page: 1, hasMore: false } });
     } finally {
       this.setData({ supplierLoading: false });
     }
