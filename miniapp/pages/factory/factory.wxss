@@ -1,25 +1,25 @@
 /* ---------- 工厂 Hero 卡 ---------- */
-.factory-hero { padding: 32rpx; }
+/* 厂名与操作同排：左名右按钮垂直居中, 编号移除后不再留大片空白 */
+.factory-hero {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 28rpx 30rpx;
+}
 
-/* 厂名独占一行：不再单行省略，超长时自然换行（最多两行） */
+/* 厂名占满剩余宽度：超长时自然换行（最多两行）, 不与右侧按钮争位 */
 .factory-name {
-  font-size: 34rpx;
+  flex: 1;
+  min-width: 0;
+  font-size: 32rpx;
   font-weight: 700;
   color: #fff;
   line-height: 1.4;
   word-break: break-all;
 }
 
-/* 次行：仅放操作按钮，保持靠右（厂名独占上一行） */
-.factory-hero-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 16rpx;
-}
-
-/* 操作区不收缩，按钮组恒定完整可点 */
-.header-actions { display: flex; align-items: center; gap: 14rpx; flex-shrink: 0; }
+/* 操作区不收缩，按钮组恒定完整可点（间距收紧, 给左侧厂名留足宽度） */
+.header-actions { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
 
 /* 次级操作：白色半透明胶囊 */
 .hero-btn {
@@ -27,7 +27,7 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.16);
   border-radius: 999rpx;
-  padding: 8rpx 22rpx;
+  padding: 8rpx 20rpx;
 }
 
 .hero-btn:active { background: rgba(255, 255, 255, 0.3); }
