@@ -41,7 +41,7 @@ INSERT INTO `c_inquiry`
   -- ② 工厂已报价（待用户确认）——IM 与推送的主场景
   (12, 'CQ202610260002', 32, 'cardBox', 'offset', 0.25, 0.20, 0.08,
    '18958854112', '陈成', 5000, 'cardPaper', 'CARD350', 4,
-   'lidBase', 1, '["MATTE_FILM","EMBOSS","HOT_FOIL"]', '{"finalPrice":16500.00,"unitPrice":3.30}', 'factory_quoted', 9,
+   'lidBase', 1, '["MATTE_FILM","EMBOSS_PROC","HOT_STAMP"]', '{"finalPrice":16500.00,"unitPrice":3.30}', 'factory_quoted', 9,
    9, 14800.00, DATE_SUB(NOW(), INTERVAL 20 HOUR), 14800.00, DATE_SUB(NOW(), INTERVAL 22 HOUR),
    '天地盖精品盒含烫金，1500起做，交期12天；含设计费500', NULL, DATE_ADD(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 2 DAY),
    'high', 'UV', 1, 'need', '门店礼盒，深蓝色金logo，走文艺风'),
@@ -132,7 +132,7 @@ INSERT INTO `order_main`
   -- ③ 历史单 · 完成已放款已评价
   (33, 'OD202609250006', NULL, 32, 9, 1,
    'cardBox', 'offset', 0.25, 0.20, 0.08, 3000,
-   'cardPaper', 'CARD350', 4, '["MATTE_FILM","EMBOSS"]',
+   'cardPaper', 'CARD350', 4, '["MATTE_FILM","EMBOSS_PROC"]',
    3.6000, 10800.00, 'completed', 'paid', 'wechat', DATE_SUB(NOW(), INTERVAL 32 DAY),
    '陈成', '18958854112', '浙江省温州市龙港市世纪大道新雅工业园40号楼 一楼仓库', 1, '首发礼盒批次',
    0.00, 180.200, DATE_SUB(NOW(), INTERVAL 24 DAY), 'signed',

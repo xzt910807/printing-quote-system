@@ -197,11 +197,24 @@
   margin-top: 16rpx;
 }
 
-/* 询价/订单卡生产参数：浅灰标签 + 工艺行（工厂据此判断能否接单/报价） */
-.inq-spec { margin-top: 16rpx; }
+/* 询价/订单卡生产参数：浅灰分组面板 + 白底描边标签 + 虚线分隔工艺行 */
+.inq-spec {
+  margin-top: 16rpx;
+  background: #f8fafc;
+  border-radius: 14rpx;
+  padding: 16rpx 18rpx;
+}
 .spec-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.spec-tag { font-size: 22rpx; color: #475569; background: #f1f5f9; border-radius: 8rpx; padding: 6rpx 14rpx; }
-.spec-craft { margin-top: 10rpx; font-size: 22rpx; color: #64748b; line-height: 1.5; }
+.spec-tag {
+  font-size: 22rpx; color: #334155; line-height: 1.6;
+  background: #fff; border: 2rpx solid #e8edf3;
+  border-radius: 8rpx; padding: 4rpx 14rpx;
+}
+.spec-craft {
+  margin-top: 12rpx; padding-top: 12rpx;
+  border-top: 2rpx dashed #e2e8f0;
+  font-size: 22rpx; color: #64748b; line-height: 1.5;
+}
 
 /* 询价卡内在线沟通链接（印查查式 IM 入口） */
 .inq-chat-link {

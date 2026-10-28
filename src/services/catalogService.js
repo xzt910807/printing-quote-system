@@ -1,5 +1,11 @@
 const { pool } = require('../config/db');
 
+// 历史/演示数据里的工艺错码 → finishing_process 目录标准码（仅用于展示归一, 不改库）
+const PROCESS_ALIAS = {
+  EMBOSS: 'EMBOSS_PROC', // 击凸
+  HOT_FOIL: 'HOT_STAMP', // 烫金
+};
+
 class CatalogService {
   constructor() {
     this.baseData = {
@@ -126,7 +132,10 @@ class CatalogService {
     let procArr = r.processes;
     if (typeof procArr === 'string') { try { procArr = JSON.parse(procArr); } catch (e) { procArr = []; } }
     const processText = (Array.isArray(procArr) ? procArr : [])
-      .map((c) => (this.baseData.finishing[c] || {}).name || c)
+      .map((c) => {
+        const std = PROCESS_ALIAS[c] || c; // 历史/演示错码归一到标准码, 避免展示英文原码
+        return (this.baseData.finishing[std] || {}).name || std;
+      })
       .filter(Boolean).join('、');
     return { sizeText, printModeText, materialText, colorText, processText };
   }

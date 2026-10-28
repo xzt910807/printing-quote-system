@@ -42,7 +42,7 @@
         <view class="factory-code">编号 {{auth.code}}</view>
         <view class="header-actions">
           <view class="hero-btn hero-btn-main" bindtap="goChatThreads">沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
-          <view class="hero-btn" bindtap="goProfile">工厂设置</view>
+          <view class="hero-btn" bindtap="goProfile">设置</view>
           <view class="hero-btn-plain" bindtap="logout">退出</view>
         </view>
       </view>
