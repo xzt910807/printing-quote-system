@@ -44,6 +44,9 @@
 
     <view class="card">
       <view class="card-title">{{dashRange.start ? (dashRange.start + ' 至 ' + dashRange.end) : '本月经营'}}</view>
+      <!-- 首次进入即拉经营数据：加载期间不铺一排 0，避免"全是 0"的误读 -->
+      <view class="dash-loading" wx:if="{{dashLoading && !dashLoaded}}">数据加载中…</view>
+      <block wx:else>
       <view class="dash-grid">
         <view class="dash-cell"><text class="dash-num">{{dashSummary.monthlyOrders || 0}}</text><text class="dash-lbl">本月接单</text></view>
         <view class="dash-cell"><text class="dash-num dash-num-money">¥{{dashSummary.monthlyRevenue || 0}}</text><text class="dash-lbl">本月金额</text></view>
@@ -56,6 +59,7 @@
         <view class="dash-cell"><text class="dash-num">{{dashSummary.totalAccepts || 0}}/{{dashSummary.totalPushes || 0}}</text><text class="dash-lbl">接单/推送</text></view>
         <view class="dash-cell" bindtap="onIssuesTap"><text class="dash-num {{dashSummary.activeIssues > 0 ? 'dash-num-warn' : ''}}">{{dashSummary.activeIssues || 0}}</text><text class="dash-lbl">待处理工单 ›</text></view>
       </view>
+      </block>
     </view>
 
     <view class="card" wx:if="{{dashTrend.length}}">
@@ -66,7 +70,7 @@
         <text class="bar-val">{{item.cnt}}单 · ¥{{item.amtText}}</text>
       </view>
     </view>
-    <view class="card" wx:else><view class="card-title">近 6 月接单量</view><view class="empty">暂无订单数据</view></view>
+    <view class="card" wx:else><view class="card-title">近 6 月接单量</view><view class="empty">{{dashLoading ? '数据加载中…' : '暂无订单数据'}}</view></view>
 
     <view class="card" wx:if="{{dashTopProducts.length}}">
       <view class="card-title">品类分布</view>

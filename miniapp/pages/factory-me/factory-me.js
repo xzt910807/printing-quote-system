@@ -205,13 +205,14 @@ Page({
     qrLoading: false,
     qrcodeUrl: '',
     qrcodeTip: '',
-    // 分区切换：默认资料分区，只渲染当前分区
-    section: 'profile',
-    // 029 经营概览数据（当前只在 section='dashboard' 时拉取）
+    // 分区切换：默认经营概览（onLoad 会按上次停留的分区覆盖）
+    section: 'dashboard',
+    // 029 经营概览数据（进入页面时若落在经营分区即拉取，其他分区首次切到时懒加载）
     dashSummary: {},
     dashTrend: [],
     dashTopProducts: [],
     dashLoaded: false,
+    dashLoading: false,
     // 034 日期区间 + 同环比
     dashRange: { start: '', end: '' },
     dashCompare: null,
@@ -227,7 +228,7 @@ Page({
     mediaMax: MAX_MEDIA_COUNT,
   },
 
-  onLoad() {
+  onLoad(options) {
     // 自定义导航栏高度（与其他页面同一套算法）
     try {
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
@@ -254,7 +255,18 @@ Page({
       ? auth.permissions.indexOf('price:edit') >= 0
       : (auth.role ? (auth.role === 'owner' || auth.role === 'manager') : true);
     this.setData({ canManageStaff, canEditPrice });
+    // 默认落在「经营」概览（进"我的工厂"最想看的是生意情况，且导航里经营本就排第一），
+    // 落地分区优先级：URL 指定（如生产能力引导直达「能力」）> 上次停留的分区 > 经营
+    // 员工分区只对 owner 开放，避免恢复到看不见的空白分区
+    const allowed = ['dashboard', 'profile', 'price', 'cap', 'trust', 'account'];
+    if (canManageStaff) allowed.push('staff');
+    const picked = (options && options.section) || '';
+    const last = wx.getStorageSync('factoryMeSection');
+    const section = allowed.indexOf(picked) >= 0 ? picked
+      : (allowed.indexOf(last) >= 0 ? last : 'dashboard');
+    this.setData({ section });
     this.loadAll();
+    if (section === 'dashboard') this.loadDashboard();
   },
 
   authHeaders() {
@@ -262,17 +274,19 @@ Page({
     return { 'X-Factory-Id': String(a.factoryId), 'X-Factory-Token': a.token };
   },
 
-  // 分区导航切换：只展示选中的分区（导航选中项高亮），回到页面顶部
+  // 分区导航切换：只展示选中的分区（导航选中项高亮），回到页面顶部，并记住本次选择
   switchSection(e) {
     const s = e.currentTarget.dataset.section;
     if (!s || s === this.data.section) return;
     this.setData({ section: s });
+    wx.setStorageSync('factoryMeSection', s);
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     if (s === 'dashboard' && !this.data.dashLoaded) this.loadDashboard();
   },
 
   // 029 经营概览：汇总 / 趋势 / 品类（均拉失败不卡页面，汇总中默认 0）
   async loadDashboard() {
+    this.setData({ dashLoading: true });
     try {
       const rangeQs = this.data.dashRange.start && this.data.dashRange.end
         ? ('?start=' + encodeURIComponent(this.data.dashRange.start) + '&end=' + encodeURIComponent(this.data.dashRange.end))
@@ -317,7 +331,9 @@ Page({
         dashCompare: cmp,
         dashLoaded: true,
       });
-    } catch (e) { /* 静默 */ }
+    } catch (e) { /* 静默 */ } finally {
+      this.setData({ dashLoading: false });
+    }
   },
 
   onDashStartDate(e) {

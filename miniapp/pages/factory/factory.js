@@ -218,8 +218,10 @@ Page({
     }
   },
 
-  goProfile() {
-    wx.navigateTo({ url: '/pages/factory-me/factory-me' });
+  // 进工厂设置：可带 data-section 指定落地分区（生产能力引导横幅直接落到「能力」）
+  goProfile(e) {
+    const s = (e && e.currentTarget && e.currentTarget.dataset.section) || '';
+    wx.navigateTo({ url: '/pages/factory-me/factory-me' + (s ? '?section=' + s : '') });
   },
 
   // 沟通会话列表（工厂视角，携接单登录态）

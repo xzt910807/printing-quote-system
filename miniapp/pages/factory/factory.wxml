@@ -47,7 +47,7 @@
     </view>
 
     <!-- 生产能力未配置引导：不配置将无法收到询价派单 -->
-    <view class="setup-banner" wx:if="{{needSetup}}" bindtap="goProfile">
+    <view class="setup-banner" wx:if="{{needSetup}}" bindtap="goProfile" data-section="cap">
       <view class="setup-title">⚠️ 尚未配置生产能力</view>
       <view class="setup-sub">询价按「产品/印刷/材料/工艺」匹配工厂，配置后才能收到派单 → 去设置</view>
     </view>
