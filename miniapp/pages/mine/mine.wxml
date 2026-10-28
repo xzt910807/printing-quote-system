@@ -200,8 +200,7 @@
               catchtap="goChat">在线沟通</view>
         <view class="btn-ghost inq-btn inq-call" wx:if="{{item.factory_phone}}"
               data-phone="{{item.factory_phone}}" catchtap="callFactory">联系工厂</view>
-        <view class="btn-ghost inq-btn" wx:if="{{item.matched_factory_id}}"
-              data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail">工厂详情</view>
+        <!-- 工厂详情入口不重复放按钮：上方蓝色工厂胶囊(带›)点击即跳同一页 -->
       </view>
     </view>
   </block>
