@@ -5,7 +5,7 @@ const { pool } = require('../config/db');
 const capabilityService = require('../services/capabilityService');
 const catalog = require('../services/catalogService');
 const { ok, fail, maskPhone, capacityOf } = require('../utils/helpers');
-const { requireAdmin } = require('../middlewares/auth');
+const { requireAdmin, optionalUser } = require('../middlewares/auth');
 const { requirePermission } = require('../config/permissions');
 const { hashPassword } = require('../utils/password');
 
@@ -19,8 +19,9 @@ const { hashPassword } = require('../utils/password');
  *   materialCode=B_BC5     只看有这种材料的
  *   keyword=鑫             按工厂名称/地址模糊搜索
  *   sort=rating|accepts|response  排序：评分/接单量/响应速度（缺省综合：接单量+评分）
+ * 携带 C 端登录头时，列表项额外返回 followed（该用户是否已关注此厂）
  */
-router.get('/list', async (req, res) => {
+router.get('/list', optionalUser, async (req, res) => {
   try {
     const { productType, printMode, process, materialCode, keyword, sort, province, city } = req.query;
 
@@ -82,6 +83,18 @@ router.get('/list', async (req, res) => {
         (Number(b.rating) || 0) - (Number(a.rating) || 0) ||
         (Number(b.total_accepts) || 0) - (Number(a.total_accepts) || 0)
       );
+    }
+
+    // 关注标记：登录用户已关注的工厂在列表卡上直接显示 ★（撮合排序对这些工厂同样加权优先）
+    // 匿名访问或关注查询失败都不影响列表本身
+    if (req.user && list.length) {
+      try {
+        const [fs] = await pool.query(
+          'SELECT factory_id FROM supplier_follow WHERE user_id = ?', [req.user.id]
+        );
+        const followedIds = new Set(fs.map((r) => r.factory_id));
+        list.forEach((f) => { f.followed = followedIds.has(f.id); });
+      } catch (e) { /* 静默 */ }
     }
 
     res.json(ok({ total: list.length, list, names: buildNames() }));

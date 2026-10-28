@@ -83,6 +83,12 @@
           <text class="fi-stat" wx:if="{{item.acceptsText}}">已接 {{item.acceptsText}}</text>
         </view>
       </view>
+      <!-- 关注：列表内直接收藏（catchtap 防冒泡进详情页）, 关注后撮合优先派单 -->
+      <view class="fi-follow {{item.followed ? 'fi-follow-on' : ''}}" catchtap="toggleFollow"
+            data-id="{{item.id}}" data-name="{{item.name}}">
+        <text class="fi-follow-ic">{{item.followed ? '★' : '☆'}}</text>
+        <text class="fi-follow-tx">{{item.followed ? '已关注' : '关注'}}</text>
+      </view>
       <view class="fi-more"></view>
     </view>
     <view class="cap-row">

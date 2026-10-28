@@ -271,6 +271,8 @@ Page({
           acceptsText: x.total_accepts ? x.total_accepts + ' 单' : '',
           // 印查查式：已核验 + 产能状态（后端 capacityStatus 为 idle/normal/busy 才展示）
           verified: !!x.verified,
+          // 关注态由后端按登录用户下发（匿名访问恒 false）
+          followed: !!x.followed,
           capacityLabel: x.capacityStatus && x.capacityStatus !== 'unknown' ? x.capacityLabel : '',
           capacityStatus: x.capacityStatus || '',
           capNameList: [
@@ -291,6 +293,43 @@ Page({
   goFactoryDetail(e) {
     const { id } = e.currentTarget.dataset;
     wx.navigateTo({ url: '/pages/factory-detail/factory-detail?id=' + id });
+  },
+
+  // 关注/取关：逛找厂列表时直接收藏, 不必进详情页；关注过的工厂在询价撮合时优先派单
+  async toggleFollow(e) {
+    const ds = e.currentTarget.dataset;
+    const id = Number(ds.id);
+    const u = wx.getStorageSync('userAuth');
+    if (!u || !u.userId || !u.token) {
+      wx.showModal({
+        title: '请先登录',
+        content: '关注后可在「我的 → 供应商」里管理，询价时这家厂优先接单',
+        confirmText: '去登录',
+        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
+      });
+      return;
+    }
+    const idx = this.data.factories.findIndex((x) => Number(x.id) === id);
+    if (idx < 0 || this._followBusy) return;
+    this._followBusy = true;
+    const next = !this.data.factories[idx].followed;
+    try {
+      if (next) {
+        await api.request('/api/c/user/suppliers/follow', { method: 'POST', data: { factoryId: id, tags: '' } });
+      } else {
+        await api.request('/api/c/user/suppliers/follow/' + id, { method: 'DELETE' });
+      }
+      // 就地改标记：不重拉列表，避免长列表收藏后跳回顶部
+      this.setData({ ['factories[' + idx + '].followed']: next });
+      wx.showToast({
+        title: next ? '已关注「' + (ds.name || '该厂') + '」' : '已取消关注',
+        icon: 'none',
+      });
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    } finally {
+      this._followBusy = false;
+    }
   },
 
   quickQuote(e) {
