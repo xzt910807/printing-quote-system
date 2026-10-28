@@ -26,16 +26,21 @@ function resolveFactoryId(req) {
     : parseInt((req.query.factoryId != null ? req.query.factoryId : (req.body || {}).factoryId), 10) || 0;
 }
 
-// GET /api/messages/threads 我的会话列表（双方通用）
+// GET /api/messages/threads 我的会话列表（双方通用, 分页：page/pageSize/total/hasMore）
 router.get('/threads', byIdentity, async (req, res) => {
   try {
-    const list = req.factory
-      ? await chat.listFactoryThreads(req.factory.id)
-      : await chat.listUserThreads(req.user.id);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
+    const r = req.factory
+      ? await chat.listFactoryThreads(req.factory.id, { page, pageSize })
+      : await chat.listUserThreads(req.user.id, { page, pageSize });
     const unread = req.factory
       ? await chat.factoryUnread(req.factory.id)
       : await chat.userUnread(req.user.id);
-    res.json(ok({ total: list.length, unread, list }));
+    res.json(ok({
+      total: r.total, page, pageSize, hasMore: page * pageSize < r.total,
+      unread, list: r.list,
+    }));
   } catch (err) {
     res.status(err.status || 500).json(fail(err.message, err.status || 500));
   }

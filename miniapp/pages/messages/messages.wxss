@@ -35,36 +35,32 @@ page { background: #f5f5f5; }
   align-items: center;
   background: #fff;
   border-radius: 20rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
+  padding: 22rpx;
+  margin-bottom: 16rpx;
 }
+/* 头像包层：未读角标挂右上角（微信式） */
+.th-avatar-wrap { position: relative; flex: none; margin-right: 20rpx; }
 .th-avatar {
-  flex: none;
-  width: 88rpx;
-  height: 88rpx;
+  width: 84rpx;
+  height: 84rpx;
   border-radius: 50%;
-  background: #2563eb;
   color: #fff;
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20rpx;
 }
-.th-main { flex: 1; min-width: 0; }
-.th-row { display: flex; align-items: center; }
-.th-name {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #0f172a;
-  max-width: 60%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+/* 对家名 hash 配色：同厂恒同色, 避免整排同蓝无区分度 */
+.th-av-blue { background: #2563eb; }
+.th-av-orange { background: #ea580c; }
+.th-av-green { background: #059669; }
+.th-av-purple { background: #7c3aed; }
+.th-av-cyan { background: #0891b2; }
 .th-badge {
-  margin-left: 12rpx;
+  position: absolute;
+  top: -8rpx;
+  right: -10rpx;
   min-width: 34rpx;
   height: 34rpx;
   line-height: 34rpx;
@@ -74,14 +70,34 @@ page { background: #f5f5f5; }
   color: #fff;
   font-size: 20rpx;
   text-align: center;
+  border: 3rpx solid #fff;
+  box-sizing: content-box;
 }
-.th-time { margin-left: auto; font-size: 22rpx; color: #94a3b8; }
-.th-sub { margin-top: 6rpx; font-size: 22rpx; color: #94a3b8; }
+.th-main { flex: 1; min-width: 0; }
+.th-row { display: flex; align-items: center; }
+.th-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.th-time { flex: none; margin-left: 16rpx; font-size: 22rpx; color: #94a3b8; }
+/* 预览行：询价单号(浅灰) · 最后消息(slate), 单行省略 */
 .th-last {
-  margin-top: 8rpx;
+  margin-top: 10rpx;
   font-size: 26rpx;
   color: #64748b;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.th-last-no { color: #94a3b8; font-size: 23rpx; }
+.th-last-sep { color: #cbd5e1; margin: 0 10rpx; }
+.th-last-msg { color: #475569; }
+
+/* 分页脚注：与「我的」页同风格 */
+.list-end { text-align: center; font-size: 23rpx; color: #94a3b8; padding: 8rpx 0 40rpx; }

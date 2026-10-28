@@ -10,12 +10,24 @@ function formatTime(t) {
   return (d.getMonth() + 1) + '月' + d.getDate() + '日';
 }
 
+// 头像配色：对家名 hash 取 5 色（同一工厂恒同色, 避免整排同蓝无区分度）
+const AV_TONES = ['blue', 'orange', 'green', 'purple', 'cyan'];
+function avatarTone(name) {
+  const s = String(name || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return AV_TONES[h % AV_TONES.length];
+}
+
 Page({
   data: {
     statusBarHeight: 20,
     navBarHeight: 44,
     isFactory: false,   // 工厂视角（from=factory 且有接单登录态）
     list: [],
+    page: 1,
+    hasMore: true,
+    loadingMore: false,
     unread: 0,
     loading: true,
   },
@@ -42,24 +54,41 @@ Page({
     return { 'X-Factory-Id': String(a.factoryId), 'X-Factory-Token': a.token };
   },
 
-  async load() {
+  async load(reset = true) {
+    const page = reset ? 1 : this.data.page + 1;
     try {
-      const res = await api.request('/api/messages/threads', { headers: this.authHeaders() });
+      const res = await api.request('/api/messages/threads', {
+        headers: this.authHeaders(), data: { page, pageSize: 20 },
+      });
       const d = res.data || {};
       // 会话进入即清零角标（tabBar 徽标同步）
       const app = getApp();
       app.globalData.tabBadge = { ...(app.globalData.tabBadge || {}), chat: d.unread || 0 };
-      const list = (d.list || []).map((x) => ({
+      const mapped = (d.list || []).map((x) => ({
         ...x,
         // 客户视角对家是厂名，工厂视角对家是客户名
         showName: x.factoryName || x.customerName || '会话',
+        avTone: avatarTone(x.factoryName || x.customerName || ''),
         lastTimeText: formatTime(x.lastTime),
       }));
-      this.setData({ list, unread: d.unread || 0, loading: false });
+      this.setData({
+        list: reset ? mapped : this.data.list.concat(mapped),
+        page,
+        hasMore: !!d.hasMore,
+        unread: d.unread || 0,
+        loading: false,
+      });
     } catch (err) {
       this.setData({ loading: false });
       wx.showToast({ title: err.message || '加载失败', icon: 'none' });
     }
+  },
+
+  // 触底加载下一页（服务端分页, 与「我的」页四列表同契约）
+  onReachBottom() {
+    if (this.data.loadingMore || !this.data.hasMore) return;
+    this.setData({ loadingMore: true });
+    Promise.resolve(this.load(false)).finally(() => this.setData({ loadingMore: false }));
   },
 
   // 打开会话：客户带对家工厂ID；工厂侧服务端按令牌识别本厂

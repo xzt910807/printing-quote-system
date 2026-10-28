@@ -115,11 +115,42 @@ async function listThread(p) {
   return { list: rows, readNow: Number(unread.c) || 0 };
 }
 
+/** 批量补齐会话最后一条消息/时间/未读（修复原 N+1：逐会话单发一条 SQL） */
+async function attachLastInfo(rows, selfType) {
+  if (!rows.length) return rows;
+  const ids = rows.map((r) => r.lastId).filter(Boolean);
+  const map = {};
+  if (ids.length) {
+    const [lasts] = await pool.query(
+      'SELECT id, sender_type, content, created_at FROM inquiry_message WHERE id IN (?)', [ids]
+    );
+    lasts.forEach((l) => { map[l.id] = l; });
+  }
+  for (const r of rows) {
+    const last = map[r.lastId];
+    r.lastMessage = last ? (last.sender_type === selfType ? '我：' : '') + last.content : '';
+    r.lastTime = last ? last.created_at : null;
+    r.unread = Number(r.unread) || 0;
+  }
+  return rows;
+}
+
+/** 会话总数（inquiry×factory 维度, 与分页列表 GROUP BY 口径一致） */
+async function countThread(whereSql, params) {
+  const [[cnt]] = await pool.query(
+    `SELECT COUNT(DISTINCT im.inquiry_id, im.factory_id) AS total FROM inquiry_message im ${whereSql}`,
+    params
+  );
+  return Number(cnt.total) || 0;
+}
+
 /**
- * 客户的会话列表：我发起的、有消息往来且工厂有回复的询价
+ * 客户的会话列表（分页）：我发起的、有消息往来的询价
  * 返回每个会话的工厂、最后一条消息、未读数（工厂发来且我未读）
  */
-async function listUserThreads(userId) {
+async function listUserThreads(userId, { page = 1, pageSize = 20 } = {}) {
+  const limit = parseInt(pageSize, 10);
+  const offset = (parseInt(page, 10) - 1) * limit;
   const [rows] = await pool.query(
     `SELECT im.factory_id AS factoryId, im.inquiry_id AS inquiryId, ci.inquiry_no AS inquiryNo,
             f.name AS factoryName,
@@ -130,25 +161,21 @@ async function listUserThreads(userId) {
      JOIN factory f ON f.id = im.factory_id
      WHERE ci.user_id = ?
      GROUP BY im.factory_id, im.inquiry_id, ci.inquiry_no, f.name
-     ORDER BY lastId DESC LIMIT 100`,
-    [userId]
+     ORDER BY lastId DESC LIMIT ? OFFSET ?`,
+    [userId, limit, offset]
   );
-  for (const r of rows) {
-    const [[last]] = await pool.query(
-      'SELECT sender_type, content, created_at FROM inquiry_message WHERE id = ?', [r.lastId]
-    );
-    r.lastMessage = last ? (last.sender_type === 'user' ? '我：' : '') + last.content : '';
-    r.lastTime = last ? last.created_at : null;
-    r.unread = Number(r.unread) || 0;
-  }
-  return rows;
+  await attachLastInfo(rows, 'user');
+  const total = await countThread('JOIN c_inquiry ci ON ci.id = im.inquiry_id WHERE ci.user_id = ?', [userId]);
+  return { total, list: rows };
 }
 
 /**
- * 工厂的会话列表：推送给我厂且有消息往来的询价
+ * 工厂的会话列表（分页）：推送给我厂且有消息往来的询价
  * 未读 = 客户发来且未读
  */
-async function listFactoryThreads(factoryId) {
+async function listFactoryThreads(factoryId, { page = 1, pageSize = 20 } = {}) {
+  const limit = parseInt(pageSize, 10);
+  const offset = (parseInt(page, 10) - 1) * limit;
   const [rows] = await pool.query(
     `SELECT im.inquiry_id AS inquiryId, ci.inquiry_no AS inquiryNo,
             ci.product_type AS productType, ci.quantity AS quantity,
@@ -158,8 +185,8 @@ async function listFactoryThreads(factoryId) {
      JOIN c_inquiry ci ON ci.id = im.inquiry_id
      WHERE im.factory_id = ?
      GROUP BY im.inquiry_id, ci.inquiry_no, ci.product_type, ci.quantity
-     ORDER BY lastId DESC LIMIT 100`,
-    [factoryId]
+     ORDER BY lastId DESC LIMIT ? OFFSET ?`,
+    [factoryId, limit, offset]
   );
   // 客户昵称需经 c_end_user 关联；会话发起方可能是匿名（user_id 为 NULL）
   const inquiryIds = rows.map((r) => r.inquiryId);
@@ -175,16 +202,10 @@ async function listFactoryThreads(factoryId) {
       nameMap[u.inquiryId] = u.nickname || u.contact_name || (u.phone || u.contact_phone || '客户');
     }
   }
-  for (const r of rows) {
-    const [[last]] = await pool.query(
-      'SELECT sender_type, content, created_at FROM inquiry_message WHERE id = ?', [r.lastId]
-    );
-    r.lastMessage = last ? (last.sender_type === 'factory' ? '我：' : '') + last.content : '';
-    r.lastTime = last ? last.created_at : null;
-    r.unread = Number(r.unread) || 0;
-    r.customerName = nameMap[r.inquiryId] || '客户';
-  }
-  return rows;
+  await attachLastInfo(rows, 'factory');
+  rows.forEach((r) => { r.customerName = nameMap[r.inquiryId] || '客户'; });
+  const total = await countThread('JOIN c_inquiry ci ON ci.id = im.inquiry_id WHERE im.factory_id = ?', [factoryId]);
+  return { total, list: rows };
 }
 
 /** 客户未读会话消息总数（用于 tab 徽标） */
