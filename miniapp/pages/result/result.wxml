@@ -102,6 +102,7 @@
           <view class="fc-name-wrap">
             <text class="factory-name">{{item.factoryName}}</text>
             <text class="badge badge-orange" wx:if="{{index === 0 && !statusData.factory}}">推荐</text>
+            <text class="badge badge-purple" wx:if="{{item.followed}}">★ 已关注</text>
             <text class="badge badge-blue" wx:if="{{item.isPreferred}}">✓ 已推送</text>
           </view>
           <view class="fc-addr"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{item.address}}</view>

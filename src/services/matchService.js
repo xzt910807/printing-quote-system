@@ -190,6 +190,15 @@ async function createCInquiry(input) {
     [capableIds]
   );
   
+  // 033 供应商关注：已关注工厂在撮合结果中优先置顶（取关 = 放弃优先权），结果页打「已关注」角标
+  let followedSet = new Set();
+  if (input.userId) {
+    const [foll] = await pool.query(
+      'SELECT factory_id FROM supplier_follow WHERE user_id = ?', [input.userId]
+    );
+    followedSet = new Set(foll.map((r) => Number(r.factory_id)));
+  }
+
   // 存储匹配的工厂信息（去价：评分/接单率/响应时长/能力标签）
   const matches = [];
   const cfg = catalog.getProductConfig(input.productType);
@@ -229,10 +238,12 @@ async function createCInquiry(input) {
       // 印查查式信任/产能信号（C 端卡片徽章 + 排序加权）
       verified: !!f.license_verified,
       capacity: cap,
+      followed: followedSet.has(Number(f.id)),
     });
   }
-  // F-05：排序优先闲置产能（空闲>正常>饱和/未填报），再按评分降序、接单率降序、工艺命中数降序（不按价格）
+  // F-05：排序优先已关注工厂（033 供应商关系沉淀），再闲置产能（空闲>正常>饱和/未填报）、评分降序、接单率降序、工艺命中数降序（不按价格）
   matches.sort((a, b) =>
+    ((b.followed ? 1 : 0) - (a.followed ? 1 : 0)) ||
     (b.capacity.weight - a.capacity.weight) ||
     b.rating - a.rating ||
     b.acceptRate - a.acceptRate ||
@@ -373,6 +384,7 @@ async function createCInquiry(input) {
         capabilityTags: [productName],
         verified: false,
         capacity: { status: 'unknown', label: '', note: null, fresh: false, weight: 0 },
+        followed: followedSet.has(Number(preferredId)),
       });
     }
     matches[0].isPreferred = true;
@@ -611,7 +623,18 @@ async function rematchAfterDecline(conn, inquiryId) {
   const [pushed] = await conn.query(
     'SELECT factory_id FROM factory_inquiry_push WHERE inquiry_id = ?', [inquiryId]);
   const pushedSet = new Set(pushed.map((r) => r.factory_id));
-  const candidates = capableIds.filter((id) => !pushedSet.has(id)).slice(0, 3);
+  // 033：重新匹配时用户已关注工厂优先入推（稳定排序，其余维持原能力集顺序）
+  let followedSet = new Set();
+  if (inquiry.user_id) {
+    const [foll] = await conn.query(
+      'SELECT factory_id FROM supplier_follow WHERE user_id = ?', [inquiry.user_id]
+    );
+    followedSet = new Set(foll.map((r) => Number(r.factory_id)));
+  }
+  const candidates = capableIds
+    .filter((id) => !pushedSet.has(id))
+    .sort((a, b) => (followedSet.has(Number(b)) ? 1 : 0) - (followedSet.has(Number(a)) ? 1 : 0))
+    .slice(0, 3);
   if (!candidates.length) {
     return notifyUser(`询价 ${inquiry.inquiry_no} 推送的工厂暂时无法接单，当前也没有新的工厂可推荐，可调整需求后重新询价。`);
   }
