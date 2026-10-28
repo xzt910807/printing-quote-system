@@ -385,7 +385,7 @@
   flex: none;
 }
 
-/* 列表卡片的工厂名行：与时间同排（厂名居左可点进详情），去背景色块轻量化，超长省略 */
+/* 列表卡片的工厂名行：浅蓝胶囊包裹, 可点击边界清晰, 与右侧时间同排; 超长截断 */
 .inq-fac-line { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-top: 14rpx; }
 .inq-fac-line .inq-time { margin-top: 0; margin-left: auto; flex: none; }
 
@@ -393,14 +393,20 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  font-size: 25rpx;
+  max-width: 72%;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: #eff6ff;
+  font-size: 24rpx;
   color: #2563eb;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
-.inq-factory-wait { color: #94a3b8; }
+.inq-factory-row .ic-inline { flex: none; margin-right: 4rpx; }
+
+/* 待匹配：灰胶囊占位, 不可点 */
+.inq-factory-wait { color: #94a3b8; background: #f1f5f9; }
 
 /* 订单卡片里的内联工厂名（保留旧引用） */
 .inq-factory { color: #2563eb; }
