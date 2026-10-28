@@ -303,6 +303,28 @@ router.get('/my-orders', requireUser, async (req, res) => {
 });
 
 /**
+ * GET /api/c/order/list
+ * 管理端：全部订单列表
+ * ⚠️ 必须写在 /order/:id 之前，否则 'list' 会被当成 :id 捕获，
+ *    命中 /order/:id 的 requireUser → 管理端带 X-Admin-Token 被 401「请先登录」，
+ *    前端全局 401 处理器随即清令牌，表现为「admin 登录成功但立刻被弹回登录框」
+ */
+router.get('/order/list', requireAdmin, requirePermission('order:view'), async (req, res) => {
+  try {
+    const data = await orderService.listAllOrders({
+      page: parseInt(req.query.page, 10) || 1,
+      pageSize: parseInt(req.query.pageSize, 10) || 50,
+      status: req.query.status,
+      keyword: req.query.keyword,
+      escrowStatus: req.query.escrowStatus,
+    });
+    res.json(ok(data));
+  } catch (err) {
+    res.status(500).json(fail(err.message, 500));
+  }
+});
+
+/**
  * GET /api/c/order/:id
  * 订单详情（本人）：完整规格/设计稿/地址快照/金额明细, 供订单详情页
  */
@@ -499,25 +521,6 @@ router.post('/pay/notify', async (req, res) => {
   } catch (err) {
     console.error('[PAY] 回调处理失败:', err.message);
     res.status(500).json({ code: 'FAIL', message: err.message });
-  }
-});
-
-/**
- * GET /api/c/order/list
- * 管理端：全部订单列表
- */
-router.get('/order/list', requireAdmin, requirePermission('order:view'), async (req, res) => {
-  try {
-    const data = await orderService.listAllOrders({
-      page: parseInt(req.query.page, 10) || 1,
-      pageSize: parseInt(req.query.pageSize, 10) || 50,
-      status: req.query.status,
-      keyword: req.query.keyword,
-      escrowStatus: req.query.escrowStatus,
-    });
-    res.json(ok(data));
-  } catch (err) {
-    res.status(500).json(fail(err.message, 500));
   }
 });
 
