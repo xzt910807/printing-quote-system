@@ -25,7 +25,7 @@ page { background: #f1f5f9; }
 .navbar-title {
   max-width: 60%;
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 400;
   color: #0f172a;
   overflow: hidden;
   white-space: nowrap;

@@ -6,7 +6,23 @@
   </view>
 </view>
 
-<view class="page">
+<view class="page" style="padding-top: {{statusBarHeight + navBarHeight + 10}}px;">
+
+  <!-- 搜索 + 状态筛选（服务端过滤, 与我的页/找厂页同款交互） -->
+  <view class="search-bar">
+    <view class="search-box">
+      <view class="search-icon"><view class="ic ic-search"><view class="ic-a"></view></view></view>
+      <input class="search-input" value="{{searchKeyword}}" placeholder="搜索工单号 / 标题 / 订单号 / 工厂"
+             placeholder-class="search-ph" confirm-type="search" bindinput="onSearchInput" />
+      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+    </view>
+  </view>
+  <scroll-view class="chip-row" scroll-x enhanced show-scrollbar="{{false}}">
+    <view wx:for="{{statusChips}}" wx:key="key"
+          class="chip {{status === item.key ? 'chip-on' : ''}}"
+          data-k="{{item.key}}" bindtap="setStatus">{{item.label}}</view>
+  </scroll-view>
+
 
   <!-- 新建表单（底部弹层，scroll-view 可滚动防内容裁切；点遮罩关闭） -->
   <view class="form-mask" wx:if="{{showForm}}" bindtap="toggleForm">
@@ -61,7 +77,9 @@
   </view>
   
   <!-- 工单列表 -->
-  <view wx:if="{{!list.length && !loading}}" class="empty">暂无工单，点右下角“发起工单”申请售后</view>
+  <view wx:if="{{!list.length && !loading}}" class="empty">
+    {{searchKeyword ? '没有匹配的工单' : (status ? '该状态下暂无工单' : '暂无工单，点右下角“发起工单”申请售后')}}
+  </view>
 
   <view class="tk-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
     <view class="tk-head">
@@ -71,10 +89,12 @@
     <view class="tk-title">{{item.title}}</view>
     <view class="tk-meta">
       <text class="tk-type">{{item.typeLabel}}</text>
-      <text>订单 {{item.order_no || ('#' + item.order_id)}}</text>
-      <text>{{item.timeText}}</text>
+      <text class="tk-order">订单 {{item.order_no || ('#' + item.order_id)}}</text>
+      <text class="tk-time">{{item.timeText}}</text>
     </view>
   </view>
+  <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+  <view class="list-end" wx:elif="{{list.length && !hasMore}}">— 已加载全部 —</view>
 
   <!-- 新建入口悬浮按钮（避开右上角胶囊遮挡） -->
   <view class="fab" wx:if="{{!showForm}}" bindtap="toggleForm">＋ 发起工单</view>

@@ -1,23 +1,69 @@
 .navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
 .navbar-inner { display: flex; align-items: center; position: relative; }
 .navbar-back { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #333; margin-left: 12rpx; }
-.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 600; }
+.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 400; color: #0f172a; }
 /* 右侧占位与返回键等宽，保证标题真居中（新建入口已改右下角 FAB，避免胶囊遮挡） */
 .navbar-space { width: 44rpx; margin-right: 12rpx; }
 
-.page { padding: 20rpx; padding-top: 200rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
+.page { padding: 20rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
 
-.tk-card { background: #fff; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx; }
-.tk-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
-.tk-no { font-size: 26rpx; color: #666; font-family: monospace; }
-.tk-status { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 6rpx; }
-.st-open { background: #fef3cd; color: #856404; }
-.st-processing { background: #cfe2ff; color: #084298; }
-.st-resolved { background: #d1e7dd; color: #0f5132; }
-.st-closed { background: #e9ecef; color: #6c757d; }
-.tk-title { font-size: 30rpx; color: #222; font-weight: 500; margin: 8rpx 0; }
-.tk-meta { display: flex; justify-content: space-between; font-size: 22rpx; color: #999; }
-.tk-type { background: #eef3ff; color: #2563eb; padding: 2rpx 10rpx; border-radius: 6rpx; }
+/* 搜索框（与我的页/找厂页同款） */
+.search-bar { padding: 16rpx 0 4rpx; }
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 0 28rpx;
+  height: 72rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+.search-icon { display: flex; align-items: center; margin-right: 14rpx; color: #94a3b8; }
+.search-input { flex: 1; font-size: 27rpx; color: #0f172a; height: 72rpx; }
+.search-ph { color: #94a3b8; font-size: 27rpx; }
+.search-clear {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 22rpx;
+  flex: none;
+}
+
+/* 状态筛选 chips（横滑, 找厂排序条同款语义） */
+.chip-row { white-space: nowrap; padding: 14rpx 0 6rpx; }
+.chip {
+  display: inline-block;
+  font-size: 25rpx;
+  color: #475569;
+  background: #fff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  padding: 10rpx 30rpx;
+  margin-right: 14rpx;
+}
+.chip-on { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+
+/* 工单卡：与全局列表卡同一视觉语言（20rpx 圆角 + 轻投影） */
+.tk-card { background: #fff; border-radius: 20rpx; padding: 24rpx; margin-bottom: 16rpx; box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05); }
+.tk-head { display: flex; justify-content: space-between; align-items: center; }
+.tk-no { font-size: 24rpx; color: #94a3b8; font-family: monospace; }
+.tk-status { font-size: 21rpx; padding: 4rpx 18rpx; border-radius: 999rpx; }
+.st-open { background: #fef3cd; color: #b45309; }
+.st-processing { background: #cfe2ff; color: #1d4ed8; }
+.st-resolved { background: #d1e7dd; color: #15803d; }
+.st-closed { background: #e9ecef; color: #64748b; }
+.tk-title { font-size: 30rpx; color: #0f172a; font-weight: 600; margin: 14rpx 0 0; }
+.tk-meta { display: flex; align-items: center; gap: 14rpx; margin-top: 14rpx; font-size: 22rpx; color: #94a3b8; }
+.tk-type { color: #2563eb; background: #eff6ff; padding: 4rpx 18rpx; border-radius: 999rpx; flex: none; }
+.tk-order { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tk-time { flex: none; }
+
+/* 分页脚注（全局列表统一） */
+.list-end { text-align: center; font-size: 23rpx; color: #94a3b8; padding: 8rpx 0 40rpx; }
 
 .empty { text-align: center; color: #999; padding: 100rpx 0; font-size: 26rpx; }
 

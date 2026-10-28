@@ -7,6 +7,15 @@ const TYPES = [
   { key: 'other', label: '其他' },
 ];
 const STATUS_LABEL = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
+// 状态筛选 chips（key 空 = 全部）
+const STATUS_CHIPS = [
+  { key: '', label: '全部' },
+  { key: 'open', label: '待处理' },
+  { key: 'processing', label: '处理中' },
+  { key: 'resolved', label: '已解决' },
+  { key: 'closed', label: '已关闭' },
+];
+const PAGE_SIZE = 20;
 
 // 后端返回 UTC ISO 串，new Date 自动转本地时区
 function formatTime(t) {
@@ -24,6 +33,13 @@ Page({
     navBarHeight: 44,
     list: [],
     loading: false,
+    // 服务端分页/搜索/状态筛（与我的页、会话列表同契约）
+    statusChips: STATUS_CHIPS,
+    status: '',
+    searchKeyword: '',
+    page: 1,
+    hasMore: true,
+    loadingMore: false,
     // 新建表单
     showForm: false,
     formTypes: TYPES,
@@ -54,22 +70,58 @@ Page({
   onShow() { this.loadList(); },
   onPullDownRefresh() { this.loadList().finally(() => wx.stopPullDownRefresh()); },
 
-  async loadList() {
-    this.setData({ loading: true });
+  async loadList(reset = true) {
+    const page = reset ? 1 : this.data.page + 1;
+    if (reset) this.setData({ loading: true });
     try {
-      const res = await api.request('/api/c/issue');
-      const rows = (res.data && res.data.list) || [];
+      const res = await api.request('/api/c/issue', {
+        data: {
+          page,
+          pageSize: PAGE_SIZE,
+          keyword: (this.data.searchKeyword || '').trim(),
+          status: this.data.status,
+        },
+      });
+      const d = res.data || {};
+      const mapped = (d.list || []).map((r) => ({
+        ...r,
+        statusLabel: STATUS_LABEL[r.status] || r.status,
+        typeLabel: (TYPES.find((t) => t.key === r.type) || {}).label || r.type,
+        timeText: formatTime(r.created_at),
+      }));
       this.setData({
-        list: rows.map((r) => ({
-          ...r,
-          statusLabel: STATUS_LABEL[r.status] || r.status,
-          typeLabel: (TYPES.find((t) => t.key === r.type) || {}).label || r.type,
-          timeText: formatTime(r.created_at),
-        })),
+        list: reset ? mapped : this.data.list.concat(mapped),
+        page,
+        hasMore: !!d.hasMore,
       });
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     } finally { this.setData({ loading: false }); }
+  },
+
+  // 触底加载下一页
+  onReachBottom() {
+    if (this.data.loadingMore || !this.data.hasMore) return;
+    this.setData({ loadingMore: true });
+    Promise.resolve(this.loadList(false)).finally(() => this.setData({ loadingMore: false }));
+  },
+
+  // 搜索 400ms 防抖走服务端（分页后本地过滤不可信）
+  onSearchInput(e) {
+    this.setData({ searchKeyword: e.detail.value });
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => this.loadList(true), 400);
+  },
+  clearSearch() {
+    clearTimeout(this._searchTimer);
+    this.setData({ searchKeyword: '' });
+    this.loadList(true);
+  },
+  setStatus(e) {
+    const st = e.currentTarget.dataset.k || '';
+    if (st === this.data.status) return;
+    this.setData({ status: st });
+    this.loadList(true);
   },
 
   openDetail(e) {

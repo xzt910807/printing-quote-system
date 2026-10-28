@@ -28,21 +28,43 @@ userRouter.post('/', async (req, res) => {
   }
 });
 
-// GET /?orderId= — 用户工单列表（JOIN 带出订单号/厂名，前端不再显示裸 ID）
+// GET / — 用户工单列表（分页+搜索+状态筛：page/pageSize/keyword/status, 返回 total/hasMore）
 userRouter.get('/', async (req, res) => {
   try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
+    const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+    const status = String(req.query.status || '').trim();
     const orderId = parseInt(req.query.orderId, 10) || null;
-    let sql = `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.factory_id, f.name AS factory_name,
-                      t.type, t.title, t.status, t.created_at, t.updated_at
-               FROM issue_ticket t
-               LEFT JOIN order_main o ON o.id = t.order_id
-               LEFT JOIN factory f ON f.id = t.factory_id
-               WHERE t.user_id = ?`;
+    const where = ['t.user_id = ?'];
     const params = [req.user.id];
-    if (orderId) { sql += ' AND t.order_id = ?'; params.push(orderId); }
-    sql += ' ORDER BY t.created_at DESC LIMIT 50';
-    const [rows] = await pool.query(sql, params);
-    res.json(ok({ list: rows }));
+    if (orderId) { where.push('t.order_id = ?'); params.push(orderId); }
+    if (['open', 'processing', 'resolved', 'closed'].includes(status)) {
+      where.push('t.status = ?'); params.push(status);
+    }
+    if (keyword) {
+      const like = '%' + keyword + '%';
+      where.push('(t.ticket_no LIKE ? OR t.title LIKE ? OR o.order_no LIKE ? OR f.name LIKE ?)');
+      params.push(like, like, like, like);
+    }
+    const whereSql = 'WHERE ' + where.join(' AND ');
+    const [rows] = await pool.query(
+      `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.factory_id, f.name AS factory_name,
+              t.type, t.title, t.status, t.created_at, t.updated_at
+       FROM issue_ticket t
+       LEFT JOIN order_main o ON o.id = t.order_id
+       LEFT JOIN factory f ON f.id = t.factory_id
+       ${whereSql} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, pageSize, (page - 1) * pageSize]
+    );
+    const [[cnt]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM issue_ticket t
+       LEFT JOIN order_main o ON o.id = t.order_id
+       LEFT JOIN factory f ON f.id = t.factory_id ${whereSql}`,
+      params
+    );
+    const total = Number(cnt.total);
+    res.json(ok({ total, page, pageSize, hasMore: page * pageSize < total, list: rows }));
   } catch (err) { res.status(400).json(fail(err.message)); }
 });
 
