@@ -2,15 +2,15 @@
   <view class="navbar-inner" style="height: {{navBarHeight}}px;">
     <view class="navbar-back" bindtap="goBack">‹</view>
     <view class="navbar-title">售后工单</view>
-    <view class="navbar-action" bindtap="toggleForm">{{showForm ? '关闭' : '新建'}}</view>
+    <view class="navbar-space"></view>
   </view>
 </view>
 
 <view class="page">
 
-  <!-- 新建表单（浮层） -->
-  <view class="form-mask" wx:if="{{showForm}}">
-    <view class="form-panel">
+  <!-- 新建表单（底部弹层，scroll-view 可滚动防内容裁切；点遮罩关闭） -->
+  <view class="form-mask" wx:if="{{showForm}}" bindtap="toggleForm">
+    <scroll-view class="form-panel" scroll-y catchtap="noop">
       <view class="form-title">新建工单</view>
 
       <view class="form-row">
@@ -57,11 +57,11 @@
           {{submitting ? '提交中…' : '提交工单'}}
         </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
-
+  
   <!-- 工单列表 -->
-  <view wx:if="{{!list.length && !loading}}" class="empty">暂无工单，点击右上角"新建"发起售后</view>
+  <view wx:if="{{!list.length && !loading}}" class="empty">暂无工单，点右下角“发起工单”申请售后</view>
 
   <view class="tk-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
     <view class="tk-head">
@@ -75,5 +75,8 @@
       <text>{{item.timeText}}</text>
     </view>
   </view>
+
+  <!-- 新建入口悬浮按钮（避开右上角胶囊遮挡） -->
+  <view class="fab" wx:if="{{!showForm}}" bindtap="toggleForm">＋ 发起工单</view>
 
 </view>

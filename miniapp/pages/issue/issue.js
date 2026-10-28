@@ -78,6 +78,7 @@ Page({
   },
 
   toggleForm() { this.setData({ showForm: !this.data.showForm }); },
+  noop() {}, // 弹层 catchtap 占位：点面板内部不冒泡到遮罩关闭
   setFormType(e) { this.setData({ formType: e.currentTarget.dataset.k }); },
   onInputOrderId(e) { this.setData({ formOrderId: e.detail.value }); },
   onInputTitle(e) { this.setData({ formTitle: e.detail.value }); },
