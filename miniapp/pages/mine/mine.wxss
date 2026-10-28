@@ -403,8 +403,6 @@
   white-space: nowrap;
 }
 
-.inq-factory-row .ic-inline { flex: none; margin-right: 4rpx; }
-
 /* 待匹配：灰胶囊占位, 不可点 */
 .inq-factory-wait { color: #94a3b8; background: #f1f5f9; }
 

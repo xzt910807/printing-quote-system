@@ -172,8 +172,8 @@
       <!-- 工厂与时间同排：厂名居左可点进详情，相对时间居右，卡片更紧凑 -->
       <view class="inq-fac-line">
         <view class="inq-factory-row" wx:if="{{item.factory_name}}"
-              data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name}} ›</view>
-        <view class="inq-factory-row inq-factory-wait" wx:elif="{{item.status === 'quoted' || item.status === 'matched'}}"><view class="ic-inline"><view class="ic ic-search"><view class="ic-a"></view></view></view>待匹配工厂</view>
+              data-id="{{item.matched_factory_id}}" catchtap="goFactoryDetail">{{item.factory_name}} ›</view>
+        <view class="inq-factory-row inq-factory-wait" wx:elif="{{item.status === 'quoted' || item.status === 'matched'}}">待匹配工厂</view>
         <text class="inq-time">{{item.timeText}}</text>
       </view>
       <!-- 017 工厂正式报价：金额 + 说明 + 有效期，未过期可一键确认下单 -->
@@ -236,9 +236,7 @@
       <!-- 工厂与时间同排（可点击进工厂详情） -->
       <view class="inq-fac-line">
         <view class="inq-factory-row" wx:if="{{item.factory_name || item.factory_id || item.matched_factory_id}}"
-              data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">
-          <view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>{{item.factory_name || '查看工厂'}} ›
-        </view>
+              data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">{{item.factory_name || '查看工厂'}} ›</view>
         <text class="inq-time">{{item.timeText}}</text>
       </view>
       <!-- F-70：评分展示 / 评价入口 -->
