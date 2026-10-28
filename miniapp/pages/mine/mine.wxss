@@ -277,13 +277,21 @@
 
 .msg-card-unread { border-left: 6rpx solid #2563eb; }
 
-.msg-title { font-size: 28rpx; font-weight: 600; color: #0f172a; }
+/* 消息头部行：彩色图标块 + 标题 + 未读点 + 时间右靠 */
+.msg-head { display: flex; align-items: center; gap: 0; }
+.msg-ic { width: 56rpx; height: 56rpx; border-radius: 16rpx; margin-right: 18rpx; }
+/* 内部 ic 尺寸继承全局 .menu-ic .ic（36rpx 画布）, 不自定义以免错位 */
+/* 补全局 menu-ic 色板缺的两色（工单紫/安全红） */
+.menu-ic-purple { background: #f5f3ff; color: #6d28d9; }
+.menu-ic-red { background: #fef2f2; color: #dc2626; }
 
-.msg-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #ef4444; }
+.msg-title { flex: 1; min-width: 0; font-size: 28rpx; font-weight: 600; color: #0f172a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-.msg-content { font-size: 26rpx; color: #475569; margin-top: 8rpx; }
+.msg-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #ef4444; flex: none; margin-left: 12rpx; }
 
-.msg-time { font-size: 22rpx; color: #94a3b8; margin-top: 10rpx; }
+.msg-head-time { font-size: 22rpx; color: #94a3b8; flex: none; margin-left: 16rpx; }
+
+.msg-content { font-size: 26rpx; color: #475569; margin-top: 14rpx; line-height: 1.6; }
 
 /* ---------- stage14 收货地址/我是工厂入口（独立卡片行 + 彩色图标块） ---------- */
 .menu-card { padding: 4rpx 28rpx; margin-bottom: 16rpx; }
@@ -465,9 +473,12 @@
 
 .qb-confirm { text-align: center; margin-top: 18rpx; padding: 16rpx 0; font-size: 28rpx; }
 
-/* 033 供应商关注：徽章横排 / 标签行 / 操作按钮组 */
-.sup-badges { display: flex; gap: 8rpx; align-items: center; }
-.sup-tags { font-size: 24rpx; color: #6d28d9; margin-top: 8rpx; }
+/* 033 供应商关注：公司名是卡片主角, 金额标签灰+数字重, 标签紫色 chip */
+.sup-name { font-size: 30rpx; font-weight: 600; color: #0f172a; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-right: 16rpx; }
+.sup-total { font-size: 26rpx; color: #64748b; }
+.sup-total-num { font-size: 32rpx; font-weight: 700; color: #0f172a; }
+.sup-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 14rpx; }
+.sup-tag { font-size: 22rpx; color: #6d28d9; background: #f5f3ff; border-radius: 8rpx; padding: 6rpx 18rpx; }
 .sup-acts { display: flex; gap: 24rpx; margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid #f1f5f9; }
 .sup-act { font-size: 24rpx; color: #475569; padding: 6rpx 16rpx; background: #f1f5f9; border-radius: 8rpx; }
 .sup-act-primary { color: #2563eb; background: #eff6ff; }

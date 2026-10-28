@@ -69,6 +69,21 @@ function formatRelTime(t) {
   return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '-' + md;
 }
 
+// 消息类型 → 左侧图标块（复用全局 menu-ic 彩色风格 + ic-* 线性图标），告别纯文字堆叠
+const MSG_STYLE = {
+  quote_accepted: { icon: 'quote', tone: 'green' },
+  factory_quoted: { icon: 'quote', tone: 'orange' },
+  quote_rematch: { icon: 'search', tone: 'orange' },
+  order_created: { icon: 'box', tone: 'blue' },
+  order_status: { icon: 'box', tone: 'blue' },
+  issue_new: { icon: 'bell', tone: 'purple' },
+  issue_reply: { icon: 'bell', tone: 'purple' },
+  chat_message: { icon: 'chat', tone: 'green' },
+  escrow_arbitrate: { icon: 'bell', tone: 'red' },
+  security: { icon: 'bell', tone: 'red' },
+};
+const MSG_DEFAULT = { icon: 'bell', tone: 'gray' };
+
 Page({
   data: {
     // Stage11 自定义导航栏高度（onLoad 计算）
@@ -577,6 +592,8 @@ Page({
         followed: !!s.followed,
         pinned: !!s.pinned,
         tags: s.tags || '',
+        // 标签拆数组：渲染成多个紫色 chip，比逗号长串精致
+        tagsArr: String(s.tags || '').split(/[,，、\s]+/).filter(Boolean).slice(0, 6),
         note: s.note || '',
       }));
       this.setData({ suppliers: enriched });
@@ -955,12 +972,17 @@ Page({
     this.setData({ msgLoading: true });
     try {
       const res = await api.request('/api/c/my-messages');
-      const messages = (res.data.list || []).map((m) => ({
-        ...m,
-        // 旧消息内容可能带 ::ffff: 前缀（IPv4 映射地址，服务端已修源头），这里兜底剥掉
-        content: typeof m.content === 'string' ? m.content.replace(/::ffff:/gi, '') : m.content,
-        timeText: formatRelTime(m.created_at),
-      }));
+      const messages = (res.data.list || []).map((m) => {
+        const st = MSG_STYLE[m.type] || MSG_DEFAULT;
+        return {
+          ...m,
+          icon: st.icon,
+          tone: st.tone,
+          // 旧消息内容可能带 ::ffff: 前缀（IPv4 映射地址，服务端已修源头），这里兜底剥掉
+          content: typeof m.content === 'string' ? m.content.replace(/::ffff:/gi, '') : m.content,
+          timeText: formatRelTime(m.created_at),
+        };
+      });
       this.setData({ messages, unread: res.data.unread || 0 });
       this.applyFilter();
       // 写入 tabBar 徽标（我的 tab 显示未读消息数）

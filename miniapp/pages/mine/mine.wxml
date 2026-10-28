@@ -283,12 +283,13 @@
     </view>
     <view class="msg-card {{item.is_read ? '' : 'msg-card-unread'}}" wx:for="{{displayMessages}}" wx:key="id"
           data-id="{{item.id}}" data-read="{{item.is_read}}" bindtap="tapMessage">
-      <view class="row">
+      <view class="msg-head">
+        <view class="menu-ic msg-ic menu-ic-{{item.tone}}"><view class="ic ic-{{item.icon}}"><view class="ic-a"></view></view></view>
         <text class="msg-title">{{item.title}}</text>
         <text class="msg-dot" wx:if="{{!item.is_read}}"></text>
+        <text class="msg-head-time">{{item.timeText}}</text>
       </view>
       <view class="msg-content">{{item.content}}</view>
-      <view class="msg-time">{{item.timeText}}</view>
     </view>
   </block>
 
@@ -304,19 +305,21 @@
     <view class="inq-card" wx:for="{{displaySuppliers}}" wx:key="id"
           data-id="{{item.id}}" bindtap="goFactoryDetail">
       <view class="row">
-        <text class="inq-no">{{item.name}}</text>
-        <view class="sup-badges">
+        <text class="sup-name">{{item.name}}</text>
+        <view class="inq-badges">
           <text class="badge badge-orange" wx:if="{{item.pinned}}">置顶</text>
           <text class="badge badge-blue" wx:if="{{item.followed && !item.order_count}}">已关注</text>
           <text class="badge badge-green" wx:if="{{item.order_count}}">合作 {{item.order_count}} 次</text>
         </view>
       </view>
       <view class="row inq-main">
-        <text class="inq-desc">累计金额 ¥{{item.total_amount}}</text>
+        <text class="sup-total">累计金额 <text class="sup-total-num">¥{{item.total_amount}}</text></text>
         <text class="inq-price" wx:if="{{item.avg_rating}}">⭐ {{item.avg_rating}}</text>
       </view>
       <view class="inq-time" wx:if="{{item.last_order_at}}">最近合作 {{item.lastOrderText}}</view>
-      <view class="sup-tags" wx:if="{{item.tags}}">🏷 {{item.tags}}</view>
+      <view class="sup-tags" wx:if="{{item.tagsArr.length}}">
+        <text class="sup-tag" wx:for="{{item.tagsArr}}" wx:for-item="tg" wx:key="*this">{{tg}}</text>
+      </view>
       <view class="sup-acts">
         <block wx:if="{{item.followed}}">
           <text class="sup-act" catchtap="onSupplierTagEdit"
