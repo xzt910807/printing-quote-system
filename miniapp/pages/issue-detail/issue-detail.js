@@ -170,6 +170,16 @@ Page({
     } finally { this.setData({ closing: false }); }
   },
 
+  // 工单号一键复制（与列表/我的页单号同交互）
+  copyTicketNo(e) {
+    const no = e.currentTarget.dataset.no;
+    if (!no) return;
+    wx.setClipboardData({
+      data: String(no),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'success' }),
+    });
+  },
+
   goBack() { wx.navigateBack({ fail: () => wx.redirectTo({ url: '/pages/issue/issue' }) }); },
 });
 

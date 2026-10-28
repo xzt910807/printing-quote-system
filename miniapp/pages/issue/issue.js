@@ -129,6 +129,16 @@ Page({
     wx.navigateTo({ url: '/pages/issue-detail/issue-detail?id=' + id });
   },
 
+  // 工单号一键复制（与我的页询价/订单单号同交互）
+  copyTicketNo(e) {
+    const no = e.currentTarget.dataset.no;
+    if (!no) return;
+    wx.setClipboardData({
+      data: String(no),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'success' }),
+    });
+  },
+
   toggleForm() { this.setData({ showForm: !this.data.showForm }); },
   noop() {}, // 弹层 catchtap 占位：点面板内部不冒泡到遮罩关闭
   setFormType(e) { this.setData({ formType: e.currentTarget.dataset.k }); },

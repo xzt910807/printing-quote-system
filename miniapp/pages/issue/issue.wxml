@@ -2,7 +2,6 @@
   <view class="navbar-inner" style="height: {{navBarHeight}}px;">
     <view class="navbar-back" bindtap="goBack">‹</view>
     <view class="navbar-title">售后工单</view>
-    <view class="navbar-space"></view>
   </view>
 </view>
 
@@ -83,7 +82,8 @@
 
   <view class="tk-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
     <view class="tk-head">
-      <text class="tk-no">{{item.ticket_no}}</text>
+      <!-- 工单号可复制（与询价/订单单号同交互, catchtap 不触发卡片跳转） -->
+      <text class="tk-no tk-no-copy" catchtap="copyTicketNo" data-no="{{item.ticket_no}}">{{item.ticket_no}}<text class="tk-copy-ic">⧉</text></text>
       <text class="tk-status st-{{item.status}}">{{item.statusLabel}}</text>
     </view>
     <view class="tk-title">{{item.title}}</view>

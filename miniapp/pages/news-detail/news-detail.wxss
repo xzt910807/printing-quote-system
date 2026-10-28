@@ -1,7 +1,20 @@
 .navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
-.navbar-inner { display: flex; align-items: center; position: relative; }
-.navbar-back { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #333; margin-left: 12rpx; }
-.navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 400; margin-right: 56rpx; }
+.navbar-inner { display: flex; align-items: center; justify-content: center; position: relative; }
+/* 返回按钮：绝对定位贴最左 + 圆形浅灰底（与沟通消息页同款） */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(241, 245, 249, 0.9);
+}
+.navbar-title { text-align: center; font-size: 32rpx; font-weight: 400; color: #0f172a; }
 
 .page { padding: 20rpx; padding-top: 200rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
 .news-title { font-size: 38rpx; font-weight: 700; color: #222; line-height: 1.4; padding: 20rpx; background: #fff; border-radius: 12rpx; }

@@ -7,7 +7,7 @@
 
 <view class="page" wx:if="{{ticket}}">
   <view class="hd">
-    <view class="hd-no">{{ticket.ticket_no}}</view>
+    <view class="hd-no" catchtap="copyTicketNo" data-no="{{ticket.ticket_no}}">{{ticket.ticket_no}}<text class="hd-copy-ic">⧉</text></view>
     <view class="hd-status st-{{ticket.status}}">{{statusLabel}}</view>
   </view>
 
