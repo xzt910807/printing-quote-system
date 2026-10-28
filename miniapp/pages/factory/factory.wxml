@@ -35,12 +35,10 @@
 
   <!-- 已登录 -->
   <block wx:else>
-    <!-- 工厂信息卡：整卡可点=进工厂设置（厂名后带 › 提示）；右侧只保留高频主操作「沟通」，
-         设置/退出收进设置页「账号」分区, 头部不再堆三个按钮（内部编号不对用户展示） -->
+    <!-- 工厂信息卡：纯身份条, 整卡可点进工厂设置（厂名后带 › 提示）；
+         头部不放任何操作按钮, 沟通入口在下方搜索框右侧（内部编号不对用户展示） -->
     <view class="hero factory-hero" bindtap="goProfile" hover-class="factory-hero-hover">
       <view class="factory-name">{{auth.factoryName || auth.name}}<text class="factory-name-arrow">›</text></view>
-      <!-- 沟通用 catchtap 阻止冒泡：整卡 bindtap 跳设置, 点按钮只进会话列表 -->
-      <view class="hero-btn" catchtap="goChatThreads">沟通<text class="hero-btn-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text></view>
     </view>
 
     <!-- 生产能力未配置引导：不配置将无法收到询价派单 -->
@@ -59,7 +57,8 @@
             data-tab="orders" bindtap="switchTab">订单</view>
     </view>
 
-    <!-- 搜索框：询价/订单共用, 语义随 tab 切换（服务端 LIKE, 400ms 防抖） -->
+    <!-- 搜索框：询价/订单共用, 语义随 tab 切换（服务端 LIKE, 400ms 防抖）；
+         右侧圆形按钮是沟通会话列表入口（未读数挂在图标角标上） -->
     <view class="search-bar">
       <view class="search-box">
         <view class="search-icon"><view class="ic ic-search"><view class="ic-a"></view></view></view>
@@ -67,6 +66,10 @@
                placeholder="{{tab === 'orders' ? '搜索订单号 / 联系人 / 电话' : '搜索询价单号 / 联系人'}}"
                placeholder-class="search-ph" confirm-type="search" bindinput="onSearchInput" />
         <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+      </view>
+      <view class="chat-entry" bindtap="goChatThreads" hover-class="chat-entry-hover">
+        <view class="ic ic-chat"><view class="ic-a"></view></view>
+        <text class="chat-entry-dot" wx:if="{{chatUnread}}">{{chatUnread}}</text>
       </view>
     </view>
 
