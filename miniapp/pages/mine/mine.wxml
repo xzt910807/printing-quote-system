@@ -298,7 +298,7 @@
     </view>
     <view class="empty" wx:elif="{{!suppliers.length}}">
       <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
-      {{searchKeyword ? '没有匹配的供应商' : '暂无合作供应商，完成订单后自动沉淀'}}
+      {{searchKeyword ? '没有匹配的供应商' : '暂无供应商：完成订单会自动沉淀，也可在工厂详情页点「☆ 关注」手动添加'}}
     </view>
     <view class="inq-card" wx:for="{{suppliers}}" wx:key="id"
           data-id="{{item.id}}" bindtap="goFactoryDetail">

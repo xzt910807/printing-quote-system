@@ -23,6 +23,9 @@ Page({
     media: [],           // 设备/车间图文图集
     avatarText: '厂',
     avatarColor: '#94a3b8',
+    // 033 供应商关注：工厂详情页是"关注"的唯一主动入口（供应商列表里只有取关）
+    followed: false,
+    followLoading: false,
   },
 
   onLoad(options) {
@@ -38,11 +41,18 @@ Page({
 
     const factoryId = parseInt(options.id, 10) || 0;
     this.setData({ factoryId });
-    if (factoryId) this.loadDetail(factoryId);
-    else {
+    if (factoryId) {
+      this.loadDetail(factoryId);
+      this.loadFollowState(factoryId);
+    } else {
       this.setData({ loading: false });
       wx.showToast({ title: '参数错误', icon: 'none' });
     }
+  },
+
+  onShow() {
+    // 从「我的 → 供应商」里关注/取关后返回本页, 需要把状态同步回来（首屏 loading 中跳过）
+    if (this.data.factoryId && !this.data.loading) this.loadFollowState(this.data.factoryId);
   },
 
   async loadDetail(id) {
@@ -115,6 +125,51 @@ Page({
     const urls = this.data.media.map((m) => this.data.apiBase + m.url);
     if (!urls.length) return;
     wx.previewImage({ current: urls[index], urls });
+  },
+
+  // 关注状态：复用单供应商详情接口的 follow 字段（未登录/接口异常一律按未关注渲染）
+  async loadFollowState(id) {
+    const u = wx.getStorageSync('userAuth');
+    if (!u || !u.userId || !u.token) return;
+    try {
+      const res = await api.request('/api/c/user/suppliers/' + id);
+      this.setData({ followed: !!(res.data && res.data.follow) });
+    } catch (err) { /* 静默 */ }
+  },
+
+  // 关注/取关本厂：关注后进「我的 → 供应商」可打标签、置顶、直达复购
+  async toggleFollow() {
+    const u = wx.getStorageSync('userAuth');
+    if (!u || !u.userId || !u.token) {
+      wx.showModal({
+        title: '请先登录',
+        content: '关注后可在「我的 → 供应商」里集中管理这家工厂',
+        confirmText: '去登录',
+        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
+      });
+      return;
+    }
+    if (this.data.followLoading) return;
+    this.setData({ followLoading: true });
+    const name = (this.data.info && this.data.info.name) || '该工厂';
+    try {
+      if (this.data.followed) {
+        await api.request('/api/c/user/suppliers/follow/' + this.data.factoryId, { method: 'DELETE' });
+        this.setData({ followed: false });
+        wx.showToast({ title: '已取消关注「' + name + '」', icon: 'none' });
+      } else {
+        await api.request('/api/c/user/suppliers/follow', {
+          method: 'POST',
+          data: { factoryId: this.data.factoryId, tags: '' },
+        });
+        this.setData({ followed: true });
+        wx.showToast({ title: '已关注，可在「我的 → 供应商」管理', icon: 'none' });
+      }
+    } catch (err) {
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
+    } finally {
+      this.setData({ followLoading: false });
+    }
   },
 
   // 向该工厂询价：带目标工厂回到报价页

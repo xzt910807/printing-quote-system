@@ -135,13 +135,38 @@
 
 .fd-empty-cap { font-size: 26rpx; color: #94a3b8; text-align: center; padding: 20rpx 0; }
 
-/* 底部询价按钮（避让 tabBar 由 page-tab 的 padding-bottom 承担） */
+/* 底部操作条（避让 tabBar 由 page-tab 的 padding-bottom 承担） */
 .fd-footer {
   margin-top: 8rpx;
   padding-bottom: 20rpx;
 }
 
+/* 关注 + 询价同排：关注是"以后还想找这家"的沉淀动作, 用弱描边胶囊, 不抢询价的主色 */
+.fd-foot-row { display: flex; align-items: center; gap: 20rpx; }
+
+.fd-follow {
+  flex: none;
+  width: 176rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid #dbe3ee;
+  background: #fff;
+  color: #64748b;
+  font-size: 26rpx;
+}
+
+.fd-follow-ic { font-size: 30rpx; line-height: 1; }
+
+/* 已关注：琥珀色实心星 + 同色系描边, 一眼看出当前状态 */
+.fd-follow-on { color: #f59e0b; border-color: #fcd34d; background: #fffbeb; }
+
 .fd-quote-btn {
+  flex: 1;
+  min-width: 0;
   text-align: center;
   font-size: 30rpx;
   font-weight: 600;
