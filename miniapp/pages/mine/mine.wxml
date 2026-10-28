@@ -61,7 +61,7 @@
     </view>
     <view class="menu-row" bindtap="goChatThreads">
       <view class="menu-row-left">
-        <view class="menu-ic menu-ic-green"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+        <view class="menu-ic menu-ic-green"><view class="ic ic-chat"><view class="ic-a"></view></view></view>
         <text class="menu-row-label">沟通消息</text>
         <text class="chat-badge" wx:if="{{chatUnread}}">{{chatUnread}}</text>
       </view>

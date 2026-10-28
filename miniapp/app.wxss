@@ -377,6 +377,25 @@ button::after { border: none; }
   width: 8rpx; height: 8rpx; background: currentColor; border-radius: 50%;
 }
 
+/* 聊天气泡（沟通消息/会话）：描边圆角框 + 左下实心小尾 + 三点，与铃铛（售后工单/站内信）区分 */
+.ic-chat .ic-a {
+  left: 4rpx; top: 7rpx; width: 32rpx; height: 23rpx;
+  border: 3rpx solid currentColor; border-radius: 8rpx;
+}
+
+.ic-chat .ic-a::before {
+  content: ''; position: absolute; left: 6rpx; bottom: -8rpx;
+  width: 11rpx; height: 10rpx; background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  border-radius: 0 0 0 3rpx;
+}
+
+.ic-chat .ic-a::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 4rpx; height: 4rpx; background: currentColor; border-radius: 50%;
+  box-shadow: -9rpx 0 0 currentColor, 9rpx 0 0 currentColor;
+}
+
 /* 空状态插画块：浅灰圆角块 + 灰色线性图标（替代 empty-icon 的 emoji 插画） */
 .empty-ic {
   width: 140rpx;

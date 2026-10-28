@@ -10,7 +10,7 @@
     <text class="empty-icon">⏳</text>加载中...
   </view>
   <view class="empty" wx:elif="{{!list.length}}">
-    <view class="empty-ic"><view class="ic ic-bell"><view class="ic-a"></view></view></view>
+    <view class="empty-ic"><view class="ic ic-chat"><view class="ic-a"></view></view></view>
     {{isFactory ? '暂无会话，处理询价时可与客户在线沟通' : '暂无会话，在「我的询价」里点在线沟通即可发起'}}
   </view>
 
