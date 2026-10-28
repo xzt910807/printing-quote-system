@@ -324,4 +324,18 @@
       </view>
     </view>
   </block>
+
+  <!-- 供应商标签自定义输入弹窗（替代原生 editable showModal；点遮罩/取消关闭，回车直接确定） -->
+  <view class="inp-mask" wx:if="{{inputModal.show}}" bindtap="closeTagModal">
+    <view class="inp-dialog" catchtap="noop">
+      <view class="inp-title">{{inputModal.title}}</view>
+      <input class="inp-field" value="{{inputModal.value}}" placeholder="{{inputModal.placeholder}}"
+             placeholder-class="inp-ph" focus="{{inputModal.show}}" confirm-type="done"
+             bindinput="onTagInput" bindconfirm="confirmTagModal" />
+      <view class="inp-btns">
+        <view class="inp-btn" bindtap="closeTagModal">取消</view>
+        <view class="inp-btn inp-btn-primary" bindtap="confirmTagModal">确定</view>
+      </view>
+    </view>
+  </view>
 </view>

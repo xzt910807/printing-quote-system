@@ -75,6 +75,8 @@ Page({
     // 026 供应商管理：历史合作工厂聚合（完成订单自动沉淀）
     suppliers: [],
     supplierLoading: false,
+    // 自定义输入弹窗（供应商标签；替代原生 editable showModal 丑输入框）
+    inputModal: { show: false, mode: 'tag', title: '', placeholder: '', value: '', factoryId: 0, pinned: false },
     searchKeyword: '',
     stats: { total: 0, active: 0, accepted: 0 },
     messages: [],
@@ -572,51 +574,45 @@ Page({
     }
   },
 
-  // 033 供应商关注：手动关注 / 打标签 / 置顶 / 取消关注
+  // 033 供应商关注：手动关注 / 打标签 / 置顶 / 取消关注（标签输入统一用自定义弹窗）
   onSupplierFollow(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
-    wx.showModal({
-      title: '关注标签（可选）',
-      placeholderText: '如：主力/备用/待评估，多标签用逗号分隔',
-      editable: true,
-      success: async (r) => {
-        if (!r.confirm) return;
-        try {
-          await api.request('/api/c/user/suppliers/follow', {
-            method: 'POST',
-            data: { factoryId: id, tags: (r.content || '').trim() },
-          });
-          wx.showToast({ title: '已关注', icon: 'success' });
-          this.loadSuppliers();
-        } catch (err) {
-          wx.showToast({ title: err.message || '关注失败', icon: 'none' });
-        }
-      },
-    });
+    this.setData({ inputModal: {
+      show: true, mode: 'follow', factoryId: id, pinned: false, value: '',
+      title: '关注标签（可选）', placeholder: '如：主力 / 备用 / 待评估，逗号分隔',
+    } });
   },
 
   onSupplierTagEdit(e) {
     const { id, tags, pinned } = e.currentTarget.dataset;
-    wx.showModal({
-      title: pinned ? '置顶中 · 修改标签' : '修改标签',
-      placeholderText: '标签，逗号分隔',
-      content: tags || '',
-      editable: true,
-      success: async (r) => {
-        if (!r.confirm) return;
-        try {
-          await api.request('/api/c/user/suppliers/follow', {
-            method: 'POST',
-            data: { factoryId: id, tags: (r.content || '').trim(), pinned: !!pinned },
-          });
-          wx.showToast({ title: '已更新', icon: 'success' });
-          this.loadSuppliers();
-        } catch (err) {
-          wx.showToast({ title: err.message || '更新失败', icon: 'none' });
-        }
-      },
-    });
+    this.setData({ inputModal: {
+      show: true, mode: 'tag', factoryId: id, pinned: !!pinned, value: tags || '',
+      title: pinned ? '置顶中 · 修改标签' : '修改标签', placeholder: '标签，逗号分隔',
+    } });
+  },
+
+  onTagInput(e) { this.setData({ 'inputModal.value': e.detail.value }); },
+  closeTagModal() { this.setData({ 'inputModal.show': false }); },
+  noop() {}, // 弹窗面板 catchtap 占位：点内部不冒泡到遮罩关闭
+
+  async confirmTagModal() {
+    const m = this.data.inputModal;
+    if (!m.show) return;
+    const tags = (m.value || '').trim();
+    this.setData({ 'inputModal.show': false });
+    try {
+      await api.request('/api/c/user/suppliers/follow', {
+        method: 'POST',
+        data: m.mode === 'follow'
+          ? { factoryId: m.factoryId, tags }
+          : { factoryId: m.factoryId, tags, pinned: !!m.pinned },
+      });
+      wx.showToast({ title: m.mode === 'follow' ? '已关注' : '已更新', icon: 'success' });
+      this.loadSuppliers();
+    } catch (err) {
+      wx.showToast({ title: err.message || (m.mode === 'follow' ? '关注失败' : '更新失败'), icon: 'none' });
+    }
   },
 
   async onSupplierTogglePin(e) {
