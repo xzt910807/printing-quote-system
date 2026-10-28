@@ -15,6 +15,11 @@
   <block wx:elif="{{info}}">
     <!-- 头部：首字头像 + 名称 + 地址 -->
     <view class="card hero-card">
+      <!-- 关注：收藏动作放头部卡右上角（与找厂列表卡角星标同语义）, 底部条只留询价这一个主操作 -->
+      <view class="fd-fav {{followed ? 'fd-fav-on' : ''}}" bindtap="toggleFollow">
+        <text class="fd-fav-ic">{{followed ? '★' : '☆'}}</text>
+        <text class="fd-fav-tx">{{followed ? '已关注' : '关注'}}</text>
+      </view>
       <view class="fd-avatar" style="background: {{avatarColor}}">{{avatarText}}</view>
       <view class="fd-title">{{info.name}}</view>
       <!-- 印查查式信任位：已核验徽章 + 闲置产能胶囊 -->
@@ -95,14 +100,8 @@
     工厂不存在或已停用
   </view>
 
-  <!-- 底部操作条：关注（沉淀到「我的 → 供应商」）+ 询价 -->
+  <!-- 底部操作条：只留「向 TA 询价」这一个主操作, 关注是弱动作已上提到头部卡 -->
   <view class="fd-footer" wx:if="{{info}}">
-    <view class="fd-foot-row">
-      <view class="fd-follow {{followed ? 'fd-follow-on' : ''}}" bindtap="toggleFollow">
-        <text class="fd-follow-ic">{{followed ? '★' : '☆'}}</text>
-        <text class="fd-follow-tx">{{followed ? '已关注' : '关注'}}</text>
-      </view>
-      <view class="btn-primary fd-quote-btn" bindtap="quoteToFactory">向 TA 询价</view>
-    </view>
+    <view class="btn-primary fd-quote-btn" bindtap="quoteToFactory">向 TA 询价</view>
   </view>
 </view>

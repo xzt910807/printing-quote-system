@@ -23,7 +23,7 @@ Page({
     media: [],           // 设备/车间图文图集
     avatarText: '厂',
     avatarColor: '#94a3b8',
-    // 033 供应商关注：详情页是带文案的关注入口（找厂列表是星标快关注, 供应商列表是取关/改标签）
+    // 033 供应商关注：头部卡右上角星标（底部只保留询价主操作）
     followed: false,
     followLoading: false,
   },

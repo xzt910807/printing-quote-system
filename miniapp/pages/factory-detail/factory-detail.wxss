@@ -20,11 +20,30 @@
 
 /* 头部卡片 */
 .hero-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 44rpx 28rpx 36rpx;
 }
+
+/* 关注：卡右上角收藏按钮（与找厂列表卡角星标同一套语义）, 灰态待关注, 已关注转琥珀 */
+.fd-fav {
+  position: absolute;
+  top: 26rpx;
+  right: 20rpx;
+  width: 92rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #94a3b8;
+}
+
+.fd-fav-ic { font-size: 40rpx; line-height: 1.1; }
+
+.fd-fav-tx { font-size: 20rpx; margin-top: 2rpx; }
+
+.fd-fav-on { color: #f59e0b; }
 
 .fd-avatar {
   width: 140rpx;
@@ -146,38 +165,5 @@
   padding-bottom: 20rpx;
 }
 
-/* 关注 + 询价同排：关注是"以后还想找这家"的沉淀动作, 用弱描边胶囊, 不抢询价的主色 */
-.fd-foot-row { display: flex; align-items: center; gap: 20rpx; }
-
-.fd-follow {
-  flex: none;
-  width: 176rpx;
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6rpx;
-  border-radius: 999rpx;
-  border: 2rpx solid #dbe3ee;
-  background: #fff;
-  color: #64748b;
-  font-size: 26rpx;
-}
-
-.fd-follow-ic { font-size: 30rpx; line-height: 1; }
-
-/* 已关注：琥珀色实心星 + 同色系描边, 一眼看出当前状态 */
-.fd-follow-on { color: #f59e0b; border-color: #fcd34d; background: #fffbeb; }
-
-.fd-quote-btn {
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-  font-size: 30rpx;
-  font-weight: 600;
-  padding: 24rpx 0;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #fff;
-  box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.3);
-}
+/* 询价主按钮：整宽, 只在全局 .btn-primary 上加深投影 */
+.fd-quote-btn { box-shadow: 0 8rpx 24rpx rgba(37, 99, 235, 0.3); }
