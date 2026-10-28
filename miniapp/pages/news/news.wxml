@@ -15,24 +15,26 @@
 
   <!-- 032 订阅 chips（排除“全部”） -->
   <view class="sub-bar">
-    <text class="sub-hint">订阅：</text>
+    <text class="sub-hint">订阅</text>
     <view wx:for="{{categories}}" wx:key="key"
           wx:if="{{item.key}}"
           class="sub-chip {{subscribedMap[item.key] ? 'sub-on' : ''}}"
-          data-cat="{{item.key}}" bindtap="onToggleSubscribe">
-      <text wx:if="{{subscribedMap[item.key]}}">✓ </text>{{item.label}}
-    </view>
+          data-cat="{{item.key}}" bindtap="onToggleSubscribe">{{item.label}}</view>
   </view>
 
-  <!-- 031 编辑精选 banner -->
+  <!-- 031 编辑精选 banner（品牌蓝渐变卡，白字） -->
   <swiper wx:if="{{featured.length}}" class="feat-swiper" indicator-dots="{{true}}"
+          indicator-color="rgba(255,255,255,.35)" indicator-active-color="#ffffff"
           autoplay="{{true}}" interval="4000" circular="{{true}}">
     <swiper-item wx:for="{{featured}}" wx:key="id"
                  data-id="{{item.id}}" bindtap="openDetail">
       <view class="feat-item">
         <image wx:if="{{item.cover_image}}" class="feat-cover" src="{{item.cover_image}}" mode="aspectFill"/>
         <view class="feat-body">
-          <view class="feat-tag">★ 编辑精选 · {{item.catLabel || item.category}}</view>
+          <view class="feat-top">
+            <text class="feat-badge">★ 编辑精选</text>
+            <text class="feat-cat">{{item.catLabel}}</text>
+          </view>
           <view class="feat-title">{{item.title}}</view>
           <view class="feat-note" wx:if="{{item.editor_note}}">{{item.editor_note}}</view>
         </view>
@@ -47,12 +49,15 @@
     <image wx:if="{{item.cover_image}}" class="news-cover" src="{{item.cover_image}}" mode="aspectFill"/>
     <view class="news-body">
       <view class="news-title">
-        <text wx:if="{{item.featured}}" class="news-featured">★</text>{{item.title}}
+        <text wx:if="{{item.featured}}" class="news-feat-tag">精选</text>{{item.title}}
       </view>
       <view class="news-sum" wx:if="{{item.summary}}">{{item.summary}}</view>
       <view class="news-editor" wx:if="{{item.editor_note}}">{{item.editor_note}}</view>
       <view class="news-meta">
-        <text class="news-src">{{item.source_name || '来源'}}</text>
+        <view class="meta-left">
+          <text class="news-cat news-cat-{{item.category}}">{{item.catLabel}}</text>
+          <text class="news-src">{{item.source_name || '来源'}}</text>
+        </view>
         <text class="news-time">{{item.timeText}}</text>
       </view>
     </view>

@@ -71,7 +71,7 @@ Page({
       const qs = `?page=${page}&size=${this.data.size}${this.data.activeCat ? '&category=' + this.data.activeCat : ''}`;
       const res = await api.request('/api/c/news' + qs);
       const d = res.data || {};
-      const newList = (d.list || []).map((x) => ({ ...x, timeText: formatNewsTime(x.published_at) }));
+      const newList = (d.list || []).map((x) => ({ ...x, catLabel: this._catLabel(x.category), timeText: formatNewsTime(x.published_at) }));
       this.setData({
         list: reset ? newList : this.data.list.concat(newList),
         page: page + 1,
