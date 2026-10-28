@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { getAvatarConfig } = require('../../utils/avatar');
 
 function formatTime(t) {
   if (!t) return '';
@@ -10,14 +11,7 @@ function formatTime(t) {
   return (d.getMonth() + 1) + '月' + d.getDate() + '日';
 }
 
-// 头像配色：对家名 hash 取 5 色（同一工厂恒同色, 避免整排同蓝无区分度）
-const AV_TONES = ['blue', 'orange', 'green', 'purple', 'cyan'];
-function avatarTone(name) {
-  const s = String(name || '');
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return AV_TONES[h % AV_TONES.length];
-}
+// 头像与找厂工厂卡同款：utils/avatar 按名称 hash 配色, 去行政区划/公司后缀取首字
 
 Page({
   data: {
@@ -64,13 +58,18 @@ Page({
       // 会话进入即清零角标（tabBar 徽标同步）
       const app = getApp();
       app.globalData.tabBadge = { ...(app.globalData.tabBadge || {}), chat: d.unread || 0 };
-      const mapped = (d.list || []).map((x) => ({
-        ...x,
+      const mapped = (d.list || []).map((x) => {
         // 客户视角对家是厂名，工厂视角对家是客户名
-        showName: x.factoryName || x.customerName || '会话',
-        avTone: avatarTone(x.factoryName || x.customerName || ''),
-        lastTimeText: formatTime(x.lastTime),
-      }));
+        const showName = x.factoryName || x.customerName || '会话';
+        const avatar = getAvatarConfig(showName);
+        return {
+          ...x,
+          showName,
+          avatarText: avatar.text,
+          avatarColor: avatar.color,
+          lastTimeText: formatTime(x.lastTime),
+        };
+      });
       this.setData({
         list: reset ? mapped : this.data.list.concat(mapped),
         page,
