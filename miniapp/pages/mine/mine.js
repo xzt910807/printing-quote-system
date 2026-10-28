@@ -593,6 +593,17 @@ Page({
   },
 
   onTagInput(e) { this.setData({ 'inputModal.value': e.detail.value }); },
+
+  // 询价/订单单号一键复制（卡片头部加粗单号）
+  copyNo(e) {
+    const no = e.currentTarget.dataset.no;
+    if (!no) return;
+    wx.setClipboardData({
+      data: String(no),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'success' }),
+    });
+  },
+
   closeTagModal() { this.setData({ 'inputModal.show': false }); },
   noop() {}, // 弹窗面板 catchtap 占位：点内部不冒泡到遮罩关闭
 

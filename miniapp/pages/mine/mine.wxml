@@ -157,7 +157,7 @@
     </view>
     <view class="inq-card" wx:for="{{displayList}}" wx:key="id">
       <view class="row">
-        <text class="inq-no">{{item.inquiry_no}}</text>
+        <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.inquiry_no}}">{{item.inquiry_no}}<text class="inq-copy-ic">⧉</text></text>
         <text class="badge badge-purple" wx:if="{{item.design_status === 'need'}}">需设计</text>
         <text class="badge badge-blue" wx:if="{{item.design_status === 'public'}}">工厂公版</text>
         <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
@@ -210,7 +210,7 @@
     </view>
     <view class="inq-card" wx:for="{{displayOrders}}" wx:key="id">
       <view class="row">
-        <text class="inq-no">{{item.order_no}}</text>
+        <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.order_no}}">{{item.order_no}}<text class="inq-copy-ic">⧉</text></text>
         <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
       </view>
       <view class="row inq-main">
