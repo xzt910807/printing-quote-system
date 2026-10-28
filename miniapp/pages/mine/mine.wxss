@@ -509,8 +509,20 @@
 .sup-tag { font-size: 22rpx; color: #6d28d9; background: #f5f3ff; border-radius: 8rpx; padding: 6rpx 18rpx; }
 .sup-acts { display: flex; gap: 24rpx; margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid #f1f5f9; }
 .sup-act { font-size: 24rpx; color: #475569; padding: 6rpx 16rpx; background: #f1f5f9; border-radius: 8rpx; }
-.sup-act-primary { color: #2563eb; background: #eff6ff; }
 .sup-act-danger { color: #dc2626; background: #fef2f2; }
+
+/* 未关注卡的「☆ 关注」：描边胶囊, 与实心状态徽标区分开（它是动作不是状态）, 尺寸对齐 .badge */
+.sup-follow {
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: #2563eb;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 999rpx;
+  padding: 5rpx 16rpx;
+  background: #fff;
+}
+
+.sup-follow:active { background: #eff6ff; }
 
 /* ===== 自定义输入弹窗（供应商标签，替代原生 editable showModal） ===== */
 .inp-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, .45); z-index: 500; display: flex; align-items: center; justify-content: center; }

@@ -344,6 +344,9 @@
       <view class="inq-badges">
         <text class="badge badge-orange" wx:if="{{item.pinned}}">置顶</text>
         <text class="badge badge-green" wx:if="{{item.order_count}}">合作 {{item.order_count}} 次</text>
+        <!-- 未关注：关注动作上提到标题行右端, 与找厂列表星标的"卡角快关注"语义一致,
+             也避免为单个按钮拉起一整行分割线 -->
+        <text class="sup-follow" wx:if="{{!item.followed}}" catchtap="onSupplierFollow" data-id="{{item.id}}">☆ 关注</text>
       </view>
     </view>
     <view class="row inq-main">
@@ -355,16 +358,14 @@
     <view class="sup-tags" wx:if="{{item.tagsArr.length}}">
       <text class="sup-tag" wx:for="{{item.tagsArr}}" wx:for-item="tg" wx:key="*this">{{tg}}</text>
     </view>
-    <view class="sup-acts">
-      <block wx:if="{{item.followed}}">
-        <text class="sup-act" catchtap="onSupplierTagEdit"
-              data-id="{{item.id}}" data-tags="{{item.tags}}" data-pinned="{{item.pinned}}">改标签</text>
-        <text class="sup-act" catchtap="onSupplierTogglePin"
-              data-id="{{item.id}}" data-tags="{{item.tags}}" data-note="{{item.note}}" data-pinned="{{item.pinned}}">{{item.pinned ? '取消置顶' : '置顶'}}</text>
-        <text class="sup-act sup-act-danger" catchtap="onSupplierUnfollow"
-              data-id="{{item.id}}" data-name="{{item.name}}">取关</text>
-      </block>
-      <text wx:else class="sup-act sup-act-primary" catchtap="onSupplierFollow" data-id="{{item.id}}">＋关注</text>
+    <!-- 已关注才有管理动作（标签/置顶/取关）, 未关注的卡不留空动作行 -->
+    <view class="sup-acts" wx:if="{{item.followed}}">
+      <text class="sup-act" catchtap="onSupplierTagEdit"
+            data-id="{{item.id}}" data-tags="{{item.tags}}" data-pinned="{{item.pinned}}">改标签</text>
+      <text class="sup-act" catchtap="onSupplierTogglePin"
+            data-id="{{item.id}}" data-tags="{{item.tags}}" data-note="{{item.note}}" data-pinned="{{item.pinned}}">{{item.pinned ? '取消置顶' : '置顶'}}</text>
+      <text class="sup-act sup-act-danger" catchtap="onSupplierUnfollow"
+            data-id="{{item.id}}" data-name="{{item.name}}">取关</text>
     </view>
   </view>
 </template>
