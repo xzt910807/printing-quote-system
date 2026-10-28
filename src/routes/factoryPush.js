@@ -18,11 +18,22 @@ const ACTION_LOG_MAP = {
   confirmSample: 'order_sample_confirm',
 };
 
+// 分页参数统一收口：页码≥1, 每页默认 20 上限 50, 关键词截 50 字符（与 C 端列表同契约）
+function pageParams(req) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
+  const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+  return { page, pageSize, keyword };
+}
+
 // 工厂查看自己的询价列表（令牌对应工厂必须与 :factoryId 一致，防冒充）
 router.get('/:factoryId/inquiries', requireFactory, requirePermission('inquiry:view'), async (req, res) => {
   try {
-    const data = await matchService.listFactoryInquiries(req.factory.id, req.query.status);
-    res.json(ok(data));
+    const { page, pageSize, keyword } = pageParams(req);
+    const data = await matchService.listFactoryInquiries(req.factory.id, {
+      status: req.query.status, keyword, page, pageSize,
+    });
+    res.json(ok({ total: data.total, page, pageSize, hasMore: page * pageSize < data.total, list: data.list }));
   } catch (err) { res.status(500).json(fail(err.message, 500)); }
 });
 
@@ -76,11 +87,14 @@ router.post('/inquiry/:pushId/quote', requireFactory, requirePermission('inquiry
   } catch (err) { res.status(400).json(fail(err.message)); }
 });
 
-// 工厂订单列表（本厂订单）
+// 工厂订单列表（本厂订单, 服务端分页 + 订单号/联系人搜索）
 router.get('/:factoryId/orders', requireFactory, requirePermission('order:view'), async (req, res) => {
   try {
-    const list = await orderService.listFactoryOrders(req.factory.id, req.query.status);
-    res.json(ok({ total: list.length, list }));
+    const { page, pageSize, keyword } = pageParams(req);
+    const data = await orderService.listFactoryOrders(req.factory.id, {
+      status: req.query.status, keyword, page, pageSize,
+    });
+    res.json(ok({ total: data.total, page, pageSize, hasMore: page * pageSize < data.total, list: data.list }));
   } catch (err) { res.status(500).json(fail(err.message, 500)); }
 });
 

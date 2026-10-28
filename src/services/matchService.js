@@ -341,7 +341,9 @@ async function createCInquiry(input) {
         `INSERT INTO factory_inquiry_push (inquiry_id, factory_id, factory_quote, response)
          VALUES (?, ?, ?, 'pending')
          ON DUPLICATE KEY UPDATE factory_quote = VALUES(factory_quote)`,
-        [inquiryId, preferredId, fQuote.totalPrice]
+        // 回退链修复：generateQuote 抛错降级到 system_quote 时其结构只有 finalPrice 无 totalPrice,
+        // 旧代码取 totalPrice 得 undefined 被 mysql2 写成 NULL（工厂端 ¥null 的根因）
+        [inquiryId, preferredId, quotePriceOf(fQuote)]
       );
       // F-72：推送计数
       await pool.query('UPDATE factory SET total_pushes = total_pushes + 1 WHERE id = ?', [preferredId]);
@@ -412,16 +414,28 @@ function parseSystemQuote(raw) {
 }
 
 /**
+ * 报价对象实际总价统一取价：generateQuote 返回 totalPrice,
+ * 而存量 c_inquiry.system_quote 精简结构只有 finalPrice——两处结构统一回退链
+ */
+function quotePriceOf(q) {
+  if (!q) return null;
+  if (q.totalPrice != null) return Number(q.totalPrice);
+  if (q.finalPrice != null) return Number(q.finalPrice);
+  return null;
+}
+
+/**
  * F-14：工厂实时价与系统参考价偏差 >30% 时告警（server log + c_message 给管理员）
  * c_message.user_id=0 为平台告警占位（无真实用户 id 为 0），P1 管理端告警中心读取
  */
 function alertPriceDeviation(inquiry, factoryQuote) {
   const sq = parseSystemQuote(inquiry.system_quote);
-  const systemTotal = Number(sq && sq.totalPrice) || 0;
-  if (systemTotal <= 0) return;
-  const dev = Math.abs(factoryQuote.totalPrice - systemTotal) / systemTotal;
+  const systemTotal = quotePriceOf(sq) || 0;
+  const fTotal = quotePriceOf(factoryQuote);
+  if (systemTotal <= 0 || fTotal == null) return;
+  const dev = Math.abs(fTotal - systemTotal) / systemTotal;
   if (dev <= 0.3) return;
-  const msg = `询价 ${inquiry.inquiry_no} 工厂实时价 ${factoryQuote.totalPrice} 元与系统参考价 ${systemTotal} 元偏差 ${(dev * 100).toFixed(1)}%（>30%）`;
+  const msg = `询价 ${inquiry.inquiry_no} 工厂实时价 ${fTotal} 元与系统参考价 ${systemTotal} 元偏差 ${(dev * 100).toFixed(1)}%（>30%）`;
   console.error('[price_alert] ' + msg);
   pool.query(
     `INSERT INTO c_message (user_id, type, title, content, ref_type, ref_id)
@@ -497,7 +511,7 @@ async function selectFactory({ inquiryId, factoryId, contactName, contactPhone }
     `INSERT INTO factory_inquiry_push (inquiry_id, factory_id, factory_quote, response)
      VALUES (?, ?, ?, 'pending')
      ON DUPLICATE KEY UPDATE factory_quote = VALUES(factory_quote)`,
-    [inquiryId, factoryId, factoryQuote.totalPrice]
+    [inquiryId, factoryId, quotePriceOf(factoryQuote)]
   );
   // F-72：推送计数
   await pool.query('UPDATE factory SET total_pushes = total_pushes + 1 WHERE id = ?', [factoryId]);
@@ -510,7 +524,7 @@ async function selectFactory({ inquiryId, factoryId, contactName, contactPhone }
      SET status = 'matched', matched_factory_id = ?,
          quoted_factory_id = ?, quoted_price = ?, quoted_at = NOW()
      WHERE id = ? AND status IN ('quoted', 'matched') AND quoted_factory_id IS NULL`,
-    [factoryId, factoryId, factoryQuote.totalPrice, inquiryId]
+    [factoryId, factoryId, quotePriceOf(factoryQuote), inquiryId]
   );
   // 选定行为记入查看表（selected=1，管理端统计「选定次数」）
   await pool.query(
@@ -525,22 +539,17 @@ async function selectFactory({ inquiryId, factoryId, contactName, contactPhone }
   };
 }
 
-async function listFactoryInquiries(factoryId, status) {
-  let sql = `
-    SELECT fp.id AS push_id, fp.factory_quote, fp.response, fp.push_time,
-           ci.id AS inquiry_id, ci.inquiry_no, ci.product_type, ci.quantity, ci.system_quote,
-           ci.status AS inquiry_status, ci.matched_factory_id,
-           ci.contact_name, ci.contact_phone,
-           ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs,
-           ci.created_at AS inquiry_time
-    FROM factory_inquiry_push fp
-    JOIN c_inquiry ci ON fp.inquiry_id = ci.id
+/**
+ * 工厂端询价列表（服务端分页 + 单号/联系人搜索）
+ * @returns {Promise<{total:number, list:Array}>}
+ */
+async function listFactoryInquiries(factoryId, { status, keyword, page = 1, pageSize = 20 } = {}) {
+  // 已被其他工厂接走的询价：本厂推送 response 仍 pending 但已无可操作动作，从列表与徽标计数中排除；
+  // 防自刷：发单方绑定的工厂就是本厂时不出现在本厂列表（报价/接单接口本就拦截，这里提前隐藏）
+  let where = `
     WHERE fp.factory_id = ?
-      /* 已被其他工厂接走的询价：本厂推送记录 response 仍是 pending，但已无任何可操作动作，
-         留在「待处理」会让卡片无按钮、徽标恒亮（点击也无反应）；从列表与徽标计数中排除 */
       AND NOT (ci.status IN ('accepted', 'converted') AND ci.matched_factory_id IS NOT NULL
                AND ci.matched_factory_id != fp.factory_id)
-      /* 防自刷：发单方绑定的工厂就是本厂时不出现在本厂列表（报价/接单接口本就拦截，这里提前隐藏） */
       AND NOT EXISTS (
         SELECT 1 FROM c_end_user eu
         WHERE eu.id = ci.user_id AND eu.factory_id = fp.factory_id
@@ -548,14 +557,44 @@ async function listFactoryInquiries(factoryId, status) {
   `;
   const params = [factoryId];
   if (status) {
-    sql += ' AND fp.response = ?';
+    where += ' AND fp.response = ?';
     params.push(status);
   }
-  sql += ' ORDER BY fp.push_time DESC LIMIT 50';
-  const [rows] = await pool.query(sql, params);
+  if (keyword) {
+    where += ' AND (ci.inquiry_no LIKE ? OR ci.contact_name LIKE ?)';
+    params.push('%' + keyword + '%', '%' + keyword + '%');
+  }
+
+  const [[cnt]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM factory_inquiry_push fp
+     JOIN c_inquiry ci ON fp.inquiry_id = ci.id
+     ${where}`, params
+  );
+
+  const [rows] = await pool.query(
+    `SELECT fp.id AS push_id, fp.factory_quote, fp.response, fp.push_time,
+           ci.id AS inquiry_id, ci.inquiry_no, ci.product_type, ci.quantity, ci.system_quote,
+           ci.status AS inquiry_status, ci.matched_factory_id,
+           ci.contact_name, ci.contact_phone,
+           ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs,
+           ci.created_at AS inquiry_time
+     FROM factory_inquiry_push fp
+     JOIN c_inquiry ci ON fp.inquiry_id = ci.id
+     ${where}
+     ORDER BY fp.push_time DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, (page - 1) * pageSize]
+  );
 
   // 客户联系方式仅对已接单的询价可见；021 设计参考图原样下发（工厂报价/接单要参照）
-  return rows.map((r) => {
+  const list = rows.map((r) => {
+    // 历史脏数据兼容：早期推送写入取错字段导致 factory_quote 为 NULL（前端 ¥null）,
+    // 展示与报价弹窗参考价回退到 system_quote 的 totalPrice/finalPrice
+    if (r.factory_quote == null) {
+      const sq = parseSystemQuote(r.system_quote);
+      const fb = sq && (sq.totalPrice != null ? sq.totalPrice : sq.finalPrice);
+      if (fb != null) r.factory_quote = Number(fb);
+    }
     if (r.response !== 'accept') {
       delete r.contact_name;
       delete r.contact_phone;
@@ -570,6 +609,7 @@ async function listFactoryInquiries(factoryId, status) {
     if (!r.design_pdfs) r.design_pdfs = [];
     return r;
   });
+  return { total: Number(cnt.total), list };
 }
 
 /**
@@ -646,7 +686,7 @@ async function rematchAfterDecline(conn, inquiryId) {
     await conn.query(
       `INSERT INTO factory_inquiry_push (inquiry_id, factory_id, factory_quote, response)
        VALUES (?, ?, ?, 'pending')`,
-      [inquiryId, fid, (fQuote && fQuote.totalPrice) || (sq && sq.totalPrice) || 0]
+      [inquiryId, fid, quotePriceOf(fQuote) || quotePriceOf(sq) || 0]
     );
     await conn.query('UPDATE factory SET total_pushes = total_pushes + 1 WHERE id = ?', [fid]);
   }

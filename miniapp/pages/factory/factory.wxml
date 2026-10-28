@@ -64,6 +64,17 @@
             data-tab="orders" bindtap="switchTab">订单</view>
     </view>
 
+    <!-- 搜索框：询价/订单共用, 语义随 tab 切换（服务端 LIKE, 400ms 防抖） -->
+    <view class="search-bar">
+      <view class="search-box">
+        <view class="search-icon"><view class="ic ic-search"><view class="ic-a"></view></view></view>
+        <input class="search-input" value="{{searchKeyword}}"
+               placeholder="{{tab === 'orders' ? '搜索订单号 / 联系人 / 电话' : '搜索询价单号 / 联系人'}}"
+               placeholder-class="search-ph" confirm-type="search" bindinput="onSearchInput" />
+        <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+      </view>
+    </view>
+
     <!-- 询价单 -->
     <block wx:if="{{tab === 'inquiry'}}">
       <!-- 状态标签 -->
@@ -81,19 +92,20 @@
       <!-- 询价列表 -->
       <view wx:if="{{inquiries.length === 0}}" class="empty">
         <view class="empty-ic"><view class="ic ic-mail"><view class="ic-a"></view></view></view>
-        暂无询价，有新需求会在这里提醒
+        {{searchKeyword ? '没有匹配的询价' : '暂无询价，有新需求会在这里提醒'}}
       </view>
 
       <view class="inquiry-card" wx:for="{{inquiries}}" wx:key="push_id">
         <view class="row">
-          <text class="inquiry-no">{{item.inquiry_no}}</text>
+          <!-- 询价单号可复制（与 C 端单号统一交互, catchtap 防冒泡） -->
+          <text class="inquiry-no inquiry-no-copy" catchtap="copyNo" data-no="{{item.inquiry_no}}">{{item.inquiry_no}}<text class="copy-ic">⧉</text></text>
           <text class="qty">{{item.quantity}} 个</text>
         </view>
         <view class="row" style="margin-top:16rpx">
           <text class="type">{{item.product_type === 'carton' ? '纸箱' : '彩盒'}}</text>
-          <text class="text-price">¥{{item.factory_quote}}</text>
+          <text class="text-price">{{item.priceText}}</text>
         </view>
-        <view class="time">{{item.inquiry_time}}<text class="inq-chat-link" data-inquiry-id="{{item.inquiry_id}}" data-no="{{item.inquiry_no}}" data-name="{{item.contact_name}}" catchtap="goChatInquiry">💬 在线沟通</text></view>
+        <view class="time">{{item.timeText}}<text class="inq-chat-link" data-inquiry-id="{{item.inquiry_id}}" data-no="{{item.inquiry_no}}" data-name="{{item.contact_name}}" catchtap="goChatInquiry">在线沟通</text></view>
 
         <!-- 021 设计需求三态：need=需设计（可单列设计费）/ public=用贵厂公版 / none=客户自带稿（图即设计稿） -->
         <view wx:if="{{item.design_status !== 'none' || item.design_images.length}}" class="design-box">
@@ -137,18 +149,22 @@
                 catchtap="openQuoteModal">报价</view>
         </view>
       </view>
+      <!-- 分页脚注（全局列表统一） -->
+      <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+      <view class="list-end" wx:elif="{{inquiries.length && !inqHasMore}}">— 已加载全部 —</view>
     </block>
 
     <!-- 订单 -->
     <block wx:if="{{tab === 'orders'}}">
       <view wx:if="{{orders.length === 0}}" class="empty">
         <view class="empty-ic"><view class="ic ic-box"><view class="ic-a"></view></view></view>
-        暂无订单，接单后自动生成
+        {{searchKeyword ? '没有匹配的订单' : '暂无订单，接单后自动生成'}}
       </view>
 
       <view class="inquiry-card" wx:for="{{orders}}" wx:key="id">
         <view class="row">
-          <text class="inquiry-no">{{item.order_no}}</text>
+          <!-- 订单号可复制 -->
+          <text class="inquiry-no inquiry-no-copy" catchtap="copyNo" data-no="{{item.order_no}}">{{item.order_no}}<text class="copy-ic">⧉</text></text>
           <text class="badge badge-blue">{{item.statusText}}</text>
         </view>
         <view class="row" style="margin-top:16rpx">
@@ -188,6 +204,8 @@
           <view class="btn-outline btn-flex" data-id="{{item.id}}" catchtap="goOrderLogistics">查看物流</view>
         </view>
       </view>
+      <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>
+      <view class="list-end" wx:elif="{{orders.length && !ordHasMore}}">— 已加载全部 —</view>
     </block>
 
     <!-- 确认订单弹窗：填货物重量（原生 editable 弹窗说明区固定高度会裁剪文字，弃用） -->

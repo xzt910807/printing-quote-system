@@ -68,19 +68,32 @@ async function listUserOrders(userId, { status, page = 1, pageSize = 20, keyword
 }
 
 /**
- * 工厂端：本厂订单
+ * 工厂端：本厂订单（服务端分页 + 订单号/联系人搜索）
+ * @returns {Promise<{total:number, list:Array}>}
  */
-async function listFactoryOrders(factoryId, status) {
-  let sql = `SELECT o.*, u.nickname AS user_nickname,
-                    ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs
-             FROM order_main o LEFT JOIN c_end_user u ON o.user_id = u.id
-             LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id
-             WHERE o.factory_id = ?`;
+async function listFactoryOrders(factoryId, { status, keyword, page = 1, pageSize = 20 } = {}) {
+  const conditions = ['o.factory_id = ?'];
   const params = [factoryId];
-  if (status) { sql += ' AND o.status = ?'; params.push(status); }
-  sql += ' ORDER BY o.created_at DESC, o.id DESC LIMIT 100';
-  const [rows] = await pool.query(sql, params);
-  return rows;
+  if (status) { conditions.push('o.status = ?'); params.push(status); }
+  if (keyword) {
+    conditions.push('(o.order_no LIKE ? OR o.contact_name LIKE ? OR o.contact_phone LIKE ?)');
+    const like = '%' + keyword + '%';
+    params.push(like, like, like);
+  }
+  const where = 'WHERE ' + conditions.join(' AND ');
+
+  const [rows] = await pool.query(
+    `SELECT o.*, u.nickname AS user_nickname,
+            ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs
+     FROM order_main o LEFT JOIN c_end_user u ON o.user_id = u.id
+     LEFT JOIN c_inquiry ci ON o.inquiry_id = ci.id
+     ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, (page - 1) * pageSize]
+  );
+  const [[cnt]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM order_main o ${where}`, params
+  );
+  return { total: Number(cnt.total), list: rows };
 }
 
 /**

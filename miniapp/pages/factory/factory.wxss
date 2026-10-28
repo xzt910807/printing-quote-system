@@ -146,6 +146,32 @@
   padding: 0 6rpx;
 }
 
+/* ---------- 搜索框（与工单页/我的页同款） ---------- */
+.search-bar { padding: 0 0 16rpx; }
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 0 28rpx;
+  height: 72rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.05);
+}
+.search-icon { display: flex; align-items: center; margin-right: 14rpx; color: #94a3b8; }
+.search-input { flex: 1; font-size: 27rpx; color: #0f172a; height: 72rpx; }
+.search-ph { color: #94a3b8; font-size: 27rpx; }
+.search-clear {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 22rpx;
+  flex: none;
+}
+
 /* ---------- 卡片 ---------- */
 .inquiry-card {
   background: #fff;
@@ -156,6 +182,11 @@
 }
 
 .inquiry-no { font-size: 24rpx; color: #94a3b8; }
+
+/* 单号可复制：加粗加深 + 按压变蓝 + ⧉ 角标（全局单号统一规范） */
+.inquiry-no-copy { font-weight: 600; color: #64748b; letter-spacing: 1rpx; }
+.inquiry-no-copy:active { color: #2563eb; }
+.copy-ic { font-size: 20rpx; color: #cbd5e1; margin-left: 8rpx; }
 
 .qty { font-size: 28rpx; color: #1e293b; font-weight: 500; }
 .type { font-size: 28rpx; color: #334155; }
@@ -173,6 +204,9 @@
   color: #2563eb;
   padding: 0 4rpx;
 }
+
+/* 分页脚注（全局列表统一） */
+.list-end { text-align: center; font-size: 23rpx; color: #94a3b8; padding: 8rpx 0 40rpx; }
 
 .actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
 

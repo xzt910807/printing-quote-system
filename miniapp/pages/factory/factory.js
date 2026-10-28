@@ -28,10 +28,14 @@ const EXPRESS_COMPANIES = [
 function formatTime(t) {
   if (!t) return '';
   const d = new Date(t);
+  if (isNaN(d.getTime())) return String(t).slice(0, 16).replace('T', ' ');
   const p = (n) => (n < 10 ? '0' + n : '' + n);
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
     + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
+
+// 服务端分页契约（与 C 端询价/订单/工单列表一致）：每页 20, 触底追加
+const PAGE_SIZE = 20;
 
 Page({
   data: {
@@ -54,6 +58,13 @@ Page({
     status: 'pending',
     inquiries: [],
     orders: [],
+    // 服务端分页/搜索（询价与订单各一套游标, 切 tab 互不干扰）
+    searchKeyword: '',
+    inqPage: 1,
+    inqHasMore: true,
+    ordPage: 1,
+    ordHasMore: true,
+    loadingMore: false,
     // stage13 发货弹窗：选快递公司 + 填单号
     expressCompanies: EXPRESS_COMPANIES,
     shipModal: { show: false, orderId: 0, companyIndex: -1, expressNo: '' },
@@ -257,14 +268,32 @@ Page({
     } catch (err) { /* 查询失败不阻塞主流程 */ }
   },
 
-  async loadInquiries() {
+  // 询价列表（服务端分页+搜索）：reset=回第一页替换, false=追加下一页
+  async loadInquiries(reset = true) {
     if (!this.data.auth) return;
+    const page = reset ? 1 : this.data.inqPage + 1;
     try {
       const res = await api.request(`/api/factory/${this.data.auth.factoryId}/inquiries`, {
-        data: { status: this.data.status },
+        data: {
+          status: this.data.status,
+          page,
+          pageSize: PAGE_SIZE,
+          keyword: (this.data.searchKeyword || '').trim(),
+        },
         headers: this.authHeaders(),
       });
-      this.setData({ inquiries: res.data });
+      const d = res.data || {};
+      const mapped = (d.list || []).map((r) => ({
+        ...r,
+        // 时间列后端直发 ISO 串, 前端统一格式化; 参考价缺失时给文字占位（不再 ¥null）
+        timeText: formatTime(r.inquiry_time),
+        priceText: r.factory_quote != null ? '¥' + Number(r.factory_quote).toFixed(2).replace(/\.00$/, '') : '待定价',
+      }));
+      this.setData({
+        inquiries: reset ? mapped : this.data.inquiries.concat(mapped),
+        inqPage: page,
+        inqHasMore: !!d.hasMore,
+      });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
       // 令牌失效（被重置/停用）时回到登录态
@@ -277,18 +306,18 @@ Page({
 
   switchStatus(e) {
     const status = e.currentTarget.dataset.status;
-    this.setData({ status, newInquiry: false }, () => this.loadInquiries());
+    this.setData({ status, newInquiry: false }, () => this.loadInquiries(true));
   },
 
-  // 拉取待处理数量：数量增加则点亮「新询价」红点
+  // 拉取待处理数量：数量增加则点亮「新询价」红点（分页后总数取服务端 total, 不能再数当前页）
   async checkNewInquiries() {
     if (!this.data.auth) return;
     try {
       const res = await api.request(`/api/factory/${this.data.auth.factoryId}/inquiries`, {
-        data: { status: 'pending' },
+        data: { status: 'pending', page: 1, pageSize: 1 },
         headers: this.authHeaders(),
       });
-      const count = (res.data || []).length;
+      const count = (res.data && res.data.total) || 0;
       const last = this.data.pendingCount || 0;
       this.setData({ pendingCount: count, newInquiry: count > last });
       // 写入 tabBar 徽标（接单 tab 显示待处理数）
@@ -303,23 +332,35 @@ Page({
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
     this.setData({ tab }, () => {
-      if (tab === 'orders') this.loadOrders();
-      else this.loadInquiries();
+      if (tab === 'orders') this.loadOrders(true);
+      else this.loadInquiries(true);
     });
   },
 
-  async loadOrders() {
+  // 订单列表（服务端分页+搜索）：与询价同款双态
+  async loadOrders(reset = true) {
     if (!this.data.auth) return;
+    const page = reset ? 1 : this.data.ordPage + 1;
     try {
       const res = await api.request(`/api/factory/${this.data.auth.factoryId}/orders`, {
+        data: {
+          page,
+          pageSize: PAGE_SIZE,
+          keyword: (this.data.searchKeyword || '').trim(),
+        },
         headers: this.authHeaders(),
       });
-      const orders = (res.data.list || []).map((o) => ({
+      const d = res.data || {};
+      const mapped = (d.list || []).map((o) => ({
         ...o,
         statusText: ORDER_STATUS_TEXT[o.status] || o.status,
         timeText: formatTime(o.created_at),
       }));
-      this.setData({ orders });
+      this.setData({
+        orders: reset ? mapped : this.data.orders.concat(mapped),
+        ordPage: page,
+        ordHasMore: !!d.hasMore,
+      });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
       // 令牌失效（被重置/停用）时回到登录态，与 loadInquiries 同口径
@@ -328,6 +369,43 @@ Page({
         this.setData({ auth: null, orders: [] });
       }
     }
+  },
+
+  // 触底加载下一页（按当前 tab 分流）
+  onReachBottom() {
+    if (this.data.loadingMore || !this.data.auth) return;
+    const isOrders = this.data.tab === 'orders';
+    const hasMore = isOrders ? this.data.ordHasMore : this.data.inqHasMore;
+    if (!hasMore) return;
+    this.setData({ loadingMore: true });
+    const task = isOrders ? this.loadOrders(false) : this.loadInquiries(false);
+    Promise.resolve(task).finally(() => this.setData({ loadingMore: false }));
+  },
+
+  // 搜索 400ms 防抖走服务端（分页后本地过滤不可信）, 询价/订单共用一个关键词
+  onSearchInput(e) {
+    this.setData({ searchKeyword: e.detail.value });
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => {
+      if (this.data.tab === 'orders') this.loadOrders(true);
+      else this.loadInquiries(true);
+    }, 400);
+  },
+  clearSearch() {
+    clearTimeout(this._searchTimer);
+    this.setData({ searchKeyword: '' });
+    if (this.data.tab === 'orders') this.loadOrders(true);
+    else this.loadInquiries(true);
+  },
+
+  // 询价单号/订单号一键复制（与 C 端单号统一交互）
+  copyNo(e) {
+    const no = e.currentTarget.dataset.no;
+    if (!no) return;
+    wx.setClipboardData({
+      data: String(no),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'success' }),
+    });
   },
 
   // 订单状态推进：confirm=确认订单 produce=开始生产 ship=发货 cancel=取消
