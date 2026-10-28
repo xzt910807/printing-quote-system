@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { PRODUCT_TEXT } = require('../../utils/productText');
 
 // 询价状态用户化文案：生命周期一条线——已报价(平台估价) → 已推送工厂 → 工厂已报价/工厂已接单 → 已下单
 // 原「已转化」是内部黑话; 「已确认下单」与它语义重叠, 统一说人话
@@ -9,12 +10,6 @@ const STATUS_TEXT = {
   user_confirmed: '已下单',
   accepted: '工厂已接单',
   converted: '已下单',
-};
-
-const PRODUCT_TEXT = {
-  carton: '纸箱', cardBox: '彩盒', card: '卡片', paperBag: '纸袋', sticker: '不干胶',
-  flexiblePackaging: '软包装', nonWovenBag: '无纺布袋', antiCounterfeitLabel: '防伪标签', heatTransfer: '热转印',
-  paperContainer: '纸容器',
 };
 
 const ORDER_STATUS_TEXT = {

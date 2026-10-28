@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { productName } = require('../../utils/productText');
 
 const ORDER_STATUS_TEXT = {
   pending: '待确认',
@@ -286,6 +287,7 @@ Page({
       const mapped = (d.list || []).map((r) => ({
         ...r,
         // 时间列后端直发 ISO 串, 前端统一格式化; 参考价缺失时给文字占位（不再 ¥null）
+        productText: productName(r.product_type),
         timeText: formatTime(r.inquiry_time),
         priceText: r.factory_quote != null ? '¥' + Number(r.factory_quote).toFixed(2).replace(/\.00$/, '') : '待定价',
       }));
@@ -354,6 +356,10 @@ Page({
       const mapped = (d.list || []).map((o) => ({
         ...o,
         statusText: ORDER_STATUS_TEXT[o.status] || o.status,
+        // 产品名 + 数量合并展示（历史单 product_type 可能为空, 缺名时只显数量, 避免前缀悬空）
+        productText: productName(o.product_type),
+        specText: (productName(o.product_type) ? productName(o.product_type) + ' · ' : '') + o.quantity + '个',
+        priceText: o.total_price != null ? '¥' + Number(o.total_price).toFixed(2).replace(/\.00$/, '') : '—',
         timeText: formatTime(o.created_at),
       }));
       this.setData({
