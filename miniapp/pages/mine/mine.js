@@ -743,8 +743,11 @@ Page({
     wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
 
+  // 手动切 tab 一律清空搜索词：搜索框四 tab 共享，
+  // 否则「查看订单」写入的订单号会把其他 tab 过滤成空列表（程序定位走 goOrderTab 不经过这里）
   switchTab(e) {
-    this.setData({ tab: e.currentTarget.dataset.tab });
+    this.setData({ tab: e.currentTarget.dataset.tab, searchKeyword: '' });
+    this.applyFilter();
   },
 
   // 搜索输入：本地过滤三个 tab 的列表（询价单号/产品、订单单号/工厂名、消息标题/内容）
