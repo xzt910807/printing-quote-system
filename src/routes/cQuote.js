@@ -116,6 +116,8 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
         try { r.processes = JSON.parse(r.processes); } catch (e) { r.processes = []; }
       }
       if (!r.processes) r.processes = [];
+      // 下发生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）, 询价卡摘要展示
+      Object.assign(r, catalog.describeSpec(r));
     });
     res.json(ok({
       total, page, pageSize, hasMore: page * pageSize < total,
@@ -291,6 +293,19 @@ router.get('/my-orders', requireUser, async (req, res) => {
     res.json(ok(data));
   } catch (err) {
     res.status(500).json(fail(err.message, 500));
+  }
+});
+
+/**
+ * GET /api/c/order/:id
+ * 订单详情（本人）：完整规格/设计稿/地址快照/金额明细, 供订单详情页
+ */
+router.get('/order/:id', requireUser, async (req, res) => {
+  try {
+    const data = await orderService.getOrderDetail(parseInt(req.params.id, 10), req.user.id);
+    res.json(ok(data));
+  } catch (err) {
+    res.status(400).json(fail(err.message));
   }
 });
 

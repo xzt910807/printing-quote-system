@@ -1,5 +1,9 @@
 const api = require('../../utils/api');
 const { PRODUCT_TEXT } = require('../../utils/productText');
+const {
+  ORDER_STATUS_TEXT, PAY_STATUS_TEXT, ORDER_STEPS, ORDER_STEP_INDEX,
+  badgeClass, formatTime, formatRelTime,
+} = require('../../utils/orderText');
 
 // 询价状态用户化文案：生命周期一条线——已报价(平台估价) → 已推送工厂 → 工厂已报价/工厂已接单 → 已下单
 // 原「已转化」是内部黑话; 「已确认下单」与它语义重叠, 统一说人话
@@ -11,60 +15,6 @@ const STATUS_TEXT = {
   accepted: '工厂已接单',
   converted: '已下单',
 };
-
-const ORDER_STATUS_TEXT = {
-  pending: '待确认',
-  confirmed: '已确认',
-  sampling: '打样中',
-  sample_confirmed: '样品已确认',
-  producing: '生产中',
-  shipped: '已发货',
-  completed: '已完成',
-  cancelled: '已取消',
-};
-
-// 支付状态补充文案（refunding 需管理端确认后变 refunded）
-const PAY_STATUS_TEXT = {
-  unpaid: '未支付',
-  paid: '已支付',
-  refunding: '退款中',
-  refunded: '已退款',
-};
-
-// 状态徽标配色
-function badgeClass(status) {
-  if (['accepted', 'converted', 'completed', 'sample_confirmed', 'user_confirmed'].includes(status)) return 'badge-green';
-  if (['rejected', 'cancelled'].includes(status)) return 'badge-red';
-  if (['pending', 'shipped', 'sampling', 'factory_quoted'].includes(status)) return 'badge-orange';
-  return 'badge-blue';
-}
-
-// 订单进度节点（状态 → 进度索引；打样插入确认与生产之间）
-const ORDER_STEPS = ['下单', '确认', '生产', '发货', '完成'];
-const ORDER_STEP_INDEX = { pending: 1, confirmed: 2, sampling: 2, sample_confirmed: 2, producing: 3, shipped: 4, completed: 5 };
-
-function formatTime(t) {
-  if (!t) return '';
-  const d = new Date(t);
-  const p = (n) => (n < 10 ? '0' + n : '' + n);
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
-    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
-}
-
-// 相对时间（与资讯页同风格）：1小时内“刚刚”/24小时内“N小时前”/7天内“N天前”/更早给日期；
-// 仅用于列表展示时间，报价有效期等需要精确日期的场景仍用 formatTime
-function formatRelTime(t) {
-  if (!t) return '';
-  const d = new Date(t);
-  if (isNaN(d.getTime())) return String(t).slice(0, 16).replace('T', ' ');
-  const diff = Date.now() - d.getTime();
-  if (diff >= 0 && diff < 3600e3) return '刚刚';
-  if (diff >= 0 && diff < 86400e3) return Math.floor(diff / 3600e3) + '小时前';
-  if (diff >= 0 && diff < 7 * 86400e3) return Math.floor(diff / 86400e3) + '天前';
-  const p = (n) => (n < 10 ? '0' + n : '' + n);
-  const md = p(d.getMonth() + 1) + '-' + p(d.getDate());
-  return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '-' + md;
-}
 
 // 消息分类徽章：彩色实底块 + 白色单字（线性小图标缩到 36rpx 发糊难辨, 单字徽章小尺寸最清晰）
 const MSG_STYLE = {
@@ -812,6 +762,8 @@ Page({
         statusText: STATUS_TEXT[x.status] || x.status,
         badgeClass: badgeClass(x.status),
         productText: PRODUCT_TEXT[x.product_type] || x.product_type || '-',
+        // 生产参数摘要标签（印刷方式/尺寸/材质/色数）, 后端已解析中文, 空项过滤
+        specTags: [x.printModeText, x.sizeText, x.materialText, x.colorText].filter(Boolean),
         timeText: formatRelTime(x.created_at),
         // 017 工厂正式报价：价格/说明/有效期，未过期可确认下单
         factoryQuotedPrice: x.factory_quoted_price != null ? Number(x.factory_quoted_price) : null,
@@ -870,151 +822,16 @@ Page({
     }
   },
 
-  // F-70：订单评分（1-5 星）
-  async onRateOrder(e) {
+  // 订单卡点击进详情页（支付/取消/收货/退款/评价/物流等全部操作在详情页承载）
+  goOrderDetail(e) {
     const { id } = e.currentTarget.dataset;
-    const idx = await new Promise((resolve) => wx.showActionSheet({
-      itemList: ['1 星（很不满意）', '2 星（不满意）', '3 星（一般）', '4 星（满意）', '5 星（非常满意）'],
-      success: (r) => resolve(r.tapIndex),
-      fail: () => resolve(-1),
-    }));
-    if (idx < 0) return;
-    try {
-      await api.request(`/api/c/order/${id}/rate`, { method: 'POST', data: { rating: idx + 1 } });
-      wx.showToast({ title: '评价成功', icon: 'success' });
-      this.loadOrders();
-    } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
-    }
-  },
-
-  // F-56：申请退款（已支付未发货订单；工厂/平台确认后原路退回）
-  async onApplyRefund(e) {
-    const { id } = e.currentTarget.dataset;
-    const r = await new Promise((resolve) => wx.showModal({
-      title: '申请退款',
-      content: '确认申请退款？提交后需工厂确认，款项将原路退回。',
-      confirmText: '申请退款',
-      confirmColor: '#e64340',
-      success: resolve,
-    }));
-    if (!r.confirm) return;
-    try {
-      await api.request(`/api/c/order/${id}/refund`, { method: 'POST', data: {} });
-      wx.showToast({ title: '已提交退款申请', icon: 'success' });
-      this.loadOrders();
-    } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
-    }
-  },
-
-  // 订单操作：确认收货 / 取消订单 / 确认样品
-  async orderAction(e) {
-    const { id, action } = e.currentTarget.dataset;
-    const titleMap = { cancel: '取消订单', complete: '确认收货', confirmSample: '确认样品' };
-    const contentMap = {
-      cancel: '确认取消该订单？',
-      complete: '确认已收到货物并完成订单？',
-      confirmSample: '确认样品符合要求？确认后工厂将安排生产。',
-    };
-    const res = await new Promise((resolve) => wx.showModal({
-      title: titleMap[action] || '操作确认',
-      content: contentMap[action] || '确认执行该操作？',
-      success: resolve,
-    }));
-    if (!res.confirm) return;
-    try {
-      await api.request(`/api/c/order/${id}/status`, { method: 'POST', data: { action } });
-      wx.showToast({ title: '操作成功', icon: 'success' });
-      this.loadOrders();
-    } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
-    }
-  },
-
-  // 支付：确认地址与金额明细（含打样费）→ 选支付方式（微信 JSAPI / 线下转账 / 模拟）
-  async payOrder(e) {
-    const { id } = e.currentTarget.dataset;
-    let addresses = [];
-    try {
-      const res = await api.request('/api/c/my-addresses');
-      addresses = res.data.list || [];
-    } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
-      return;
-    }
-    if (!addresses.length) {
-      const r = await new Promise((resolve) => wx.showModal({
-        title: '请先添加收货地址',
-        content: '支付前需要确认收货地址，现在去添加？',
-        confirmText: '去添加',
-        success: resolve,
-      }));
-      if (r.confirm) wx.navigateTo({ url: '/pages/address/address' });
-      return;
-    }
-    const order = (this.data.orders || []).find((o) => o.id === id) || {};
-    const totalPrice = Number(order.total_price) || 0;
-    const shippingFee = Number(order.shipping_fee) || 0;
-    const sampleFee = Number(order.sample_fee) || 0;
-    const addr = addresses.find((a) => a.is_default) || addresses[0];
-    const addrText = (addr.province || '') + (addr.city || '') + (addr.district || '') + (addr.detail_address || '');
-    let content = '货款：¥' + totalPrice.toFixed(2) + '\n运费：¥' + shippingFee.toFixed(2);
-    if (sampleFee > 0) content += '\n打样费：¥' + sampleFee.toFixed(2);
-    content += '\n合计：¥' + (totalPrice + shippingFee + sampleFee).toFixed(2)
-      + '\n\n收货：' + addr.contact_name + ' ' + addr.contact_phone + '\n' + addrText;
-    // 工厂尚未确认订单（未计算运费）时提示运费规则
-    if (shippingFee <= 0 && order.status === 'pending') {
-      content += '\n\n注：运费将在工厂确认订单后计算，如产生额外运费需另行支付';
-    }
-    const res = await new Promise((resolve) => wx.showModal({ title: '确认订单与金额', content, success: resolve }));
-    if (!res.confirm) return;
-    // 选择支付方式
-    const sheet = await new Promise((resolve) => wx.showActionSheet({
-      itemList: ['微信支付', '线下转账', '模拟支付（测试）'],
-      success: (r) => resolve(r.tapIndex),
-      fail: () => resolve(-1),
-    }));
-    if (sheet < 0) return;
-    try {
-      if (sheet === 0) {
-        const payRes = await api.request(`/api/c/order/${id}/pay`, {
-          method: 'POST', data: { payMethod: 'wechat', addressId: addr.id },
-        });
-        const wp = payRes.data.wxPay;
-        await new Promise((resolve, reject) => wx.requestPayment({ ...wp, success: resolve, fail: reject }));
-        wx.showToast({ title: '支付成功', icon: 'success' });
-      } else if (sheet === 1) {
-        await api.request(`/api/c/order/${id}/pay`, {
-          method: 'POST', data: { payMethod: 'offline', addressId: addr.id },
-        });
-        wx.showModal({
-          title: '已选择线下转账',
-          content: '请与工厂沟通付款方式，工厂确认收款后订单正式生效。',
-          showCancel: false,
-        });
-      } else {
-        await api.request(`/api/c/order/${id}/pay`, {
-          method: 'POST', data: { payMethod: 'mock', addressId: addr.id },
-        });
-        wx.showToast({ title: '支付成功（模拟）', icon: 'success' });
-      }
-      this.loadOrders();
-    } catch (err) {
-      // requestPayment 用户取消也走 fail，提示已取消
-      wx.showToast({ title: (err && err.message) || '已取消支付', icon: 'none' });
-    }
+    if (!id) return;
+    wx.navigateTo({ url: '/pages/order-detail/order-detail?id=' + id });
   },
 
   // 收货地址簿
   goAddress() {
     wx.navigateTo({ url: '/pages/address/address' });
-  },
-
-  // 订单物流详情（stage13）
-  goLogistics(e) {
-    const { id } = e.currentTarget.dataset;
-    wx.navigateTo({ url: '/pages/logistics/logistics?orderId=' + id });
   },
 
   async loadMessages(reset = true) {

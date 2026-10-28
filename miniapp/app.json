@@ -10,6 +10,7 @@
     "pages/messages/messages",
     "pages/chat/chat",
     "pages/mine/mine",
+    "pages/order-detail/order-detail",
     "pages/address/address",
     "pages/logistics/logistics",
     "pages/design/design",

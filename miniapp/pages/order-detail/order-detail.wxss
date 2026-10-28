@@ -1,0 +1,138 @@
+/* 返回按钮（自定义导航栏） */
+.navbar-back {
+  position: absolute;
+  left: 24rpx;
+  bottom: 16rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: #0f172a;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.page {
+  padding: 24rpx 24rpx 0;
+  box-sizing: border-box;
+}
+
+.card { margin-bottom: 20rpx; }
+
+/* 底部操作栏留白 */
+.page-foot-space { height: 140rpx; }
+
+/* ---------- 状态卡 ---------- */
+.st-row { display: flex; align-items: center; justify-content: space-between; }
+.od-no { font-size: 28rpx; font-weight: 600; color: #64748b; letter-spacing: 1rpx; }
+.od-copy { font-size: 22rpx; color: #94a3b8; margin-left: 10rpx; font-weight: 400; }
+.pay-line { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx; }
+.pay-state { font-size: 26rpx; color: #d97706; }
+.pay-paid { color: #059669; }
+.od-time { font-size: 23rpx; color: #94a3b8; }
+
+/* 进度时间线（与 mine 列表卡同款） */
+.mini-steps {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 22rpx;
+  padding: 18rpx 8rpx;
+  background: #f8fafc;
+  border-radius: 14rpx;
+}
+.ms { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+.ms-dot { width: 18rpx; height: 18rpx; border-radius: 50%; background: #e2e8f0; }
+.ms-on .ms-dot { background: #2563eb; box-shadow: 0 0 0 6rpx rgba(37, 99, 235, 0.15); }
+.ms-label { font-size: 21rpx; color: #94a3b8; margin-top: 8rpx; }
+.ms-on .ms-label { color: #2563eb; font-weight: 500; }
+.ms::after {
+  content: '';
+  position: absolute;
+  top: 8rpx;
+  left: calc(50% + 14rpx);
+  width: calc(100% - 28rpx);
+  height: 2rpx;
+  background: #e2e8f0;
+}
+.ms:last-child::after { display: none; }
+.ms-on::after { background: #2563eb; }
+
+/* ---------- 费用明细 ---------- */
+.fee-row { display: flex; align-items: center; justify-content: space-between; padding: 12rpx 0; font-size: 28rpx; color: #334155; }
+.fee-label { color: #94a3b8; }
+.fee-val { font-weight: 500; }
+.fee-total { margin-top: 6rpx; padding-top: 18rpx; border-top: 1rpx solid #f1f5f9; font-size: 30rpx; }
+.fee-total .fee-label { color: #0f172a; font-weight: 600; }
+.fee-total .fee-val { color: #e11d48; font-weight: 700; }
+
+/* ---------- 产品信息 ---------- */
+.prod-line { display: flex; align-items: center; justify-content: space-between; }
+.prod-name { font-size: 31rpx; font-weight: 600; color: #0f172a; }
+.prod-price { font-size: 30rpx; font-weight: 700; color: #e11d48; }
+
+/* 生产参数：浅灰分组面板 + 白底描边标签 + 虚线分隔工艺行（与列表卡同款） */
+.inq-spec { margin-top: 16rpx; background: #f8fafc; border-radius: 14rpx; padding: 16rpx 18rpx; }
+.spec-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.spec-tag { font-size: 22rpx; color: #334155; line-height: 1.6; background: #fff; border: 2rpx solid #e8edf3; border-radius: 8rpx; padding: 4rpx 14rpx; }
+.spec-craft { margin-top: 12rpx; padding-top: 12rpx; border-top: 2rpx dashed #e2e8f0; font-size: 22rpx; color: #64748b; line-height: 1.5; }
+
+.od-remark { margin-top: 14rpx; font-size: 25rpx; color: #64748b; line-height: 1.5; }
+
+/* 设计稿 */
+.design-box { margin-top: 16rpx; background: #faf5ff; border-radius: 14rpx; padding: 16rpx 18rpx; }
+.design-line { display: flex; align-items: flex-start; gap: 12rpx; }
+.design-badge { flex: none; font-size: 22rpx; color: #6d28d9; background: #ede9fe; border-radius: 8rpx; padding: 2rpx 12rpx; }
+.design-badge-public { color: #0369a1; background: #e0f2fe; }
+.design-note { flex: 1; min-width: 0; font-size: 24rpx; color: #6b7280; line-height: 1.5; }
+.design-imgs { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 14rpx; }
+.design-thumb { width: 140rpx; height: 140rpx; border-radius: 10rpx; background: #eee; }
+.design-pdfs { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 14rpx; }
+.design-pdf { font-size: 24rpx; color: #6d28d9; }
+
+/* ---------- 收货信息 ---------- */
+.rcv-line { display: flex; align-items: center; gap: 20rpx; font-size: 28rpx; color: #1e293b; }
+.rcv-name { font-weight: 600; }
+.rcv-phone { color: #64748b; }
+.rcv-addr { margin-top: 10rpx; font-size: 26rpx; color: #64748b; line-height: 1.5; }
+
+/* ---------- 承接工厂 ---------- */
+.fac-row { display: flex; align-items: center; justify-content: space-between; }
+.fac-name { font-size: 28rpx; color: #2563eb; font-weight: 500; }
+.fac-call { font-size: 25rpx; color: #059669; background: #ecfdf5; border-radius: 999rpx; padding: 8rpx 28rpx; }
+.fac-sub { margin-top: 10rpx; font-size: 24rpx; color: #94a3b8; }
+
+/* ---------- 进度时间线 ---------- */
+.tl-row { display: flex; align-items: center; justify-content: space-between; padding: 10rpx 0; font-size: 26rpx; }
+.tl-label { color: #94a3b8; }
+.tl-val { color: #334155; }
+.rate-row { display: flex; align-items: center; gap: 12rpx; margin-top: 10rpx; }
+.rate-stars { font-size: 28rpx; color: #f59e0b; letter-spacing: 2rpx; }
+.rate-label { font-size: 24rpx; color: #94a3b8; }
+
+/* ---------- 底部操作栏 ---------- */
+.act-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 20rpx rgba(15, 23, 42, 0.06);
+}
+.act-btn {
+  font-size: 26rpx;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999rpx;
+  padding: 16rpx 36rpx;
+}
+.act-btn:active { opacity: 0.85; }
+.act-primary { background: #2563eb; color: #fff; }
+.act-pay { background: #fff7ed; color: #d97706; font-weight: 600; }
+.act-danger { color: #dc2626; background: #fef2f2; }

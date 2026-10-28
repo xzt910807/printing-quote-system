@@ -1,0 +1,118 @@
+<!-- 自定义导航栏（带返回按钮，与全站子页面统一） -->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">订单详情</view>
+  </view>
+</view>
+
+<view class="page" wx:if="{{order}}">
+
+  <!-- 状态 + 进度 -->
+  <view class="card">
+    <view class="st-row">
+      <text class="od-no" catchtap="copyNo">{{order.order_no}}<text class="od-copy">⧉</text></text>
+      <text class="badge {{order.badgeClass}}">{{order.statusText}}</text>
+    </view>
+    <view class="pay-line">
+      <text class="pay-state {{order.pay_status === 'paid' ? 'pay-paid' : ''}}">{{order.payText}}</text>
+      <text class="od-time">下单 {{order.createdText}}</text>
+    </view>
+    <view class="mini-steps">
+      <view class="ms {{order.stepIndex >= i + 1 ? 'ms-on' : ''}}"
+            wx:for="{{orderSteps}}" wx:for-item="s" wx:for-index="i" wx:key="*this">
+        <view class="ms-dot"></view>
+        <view class="ms-label">{{s}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 金额明细 -->
+  <view class="card">
+    <view class="card-title">费用明细</view>
+    <view class="fee-row"><text class="fee-label">货款</text><text class="fee-val">¥{{order.totalPriceText}}</text></view>
+    <view class="fee-row"><text class="fee-label">运费</text><text class="fee-val">¥{{order.shippingFeeText}}</text></view>
+    <view class="fee-row" wx:if="{{order.sample_fee > 0}}"><text class="fee-label">打样费</text><text class="fee-val">¥{{order.sampleFeeText}}</text></view>
+    <view class="fee-row fee-total"><text class="fee-label">合计</text><text class="fee-val">¥{{order.grandTotalText}}</text></view>
+  </view>
+
+  <!-- 产品信息与生产参数 -->
+  <view class="card">
+    <view class="card-title">产品信息</view>
+    <view class="prod-line">
+      <text class="prod-name">{{order.productText}} · {{order.quantity}}件</text>
+      <text class="prod-price">¥{{order.totalPriceText}}</text>
+    </view>
+    <view class="inq-spec" wx:if="{{order.specTags.length || order.processText}}">
+      <view class="spec-tags" wx:if="{{order.specTags.length}}">
+        <text class="spec-tag" wx:for="{{order.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+      </view>
+      <view class="spec-craft" wx:if="{{order.processText}}">工艺：{{order.processText}}</view>
+    </view>
+    <view class="od-remark" wx:if="{{order.remark}}">备注：{{order.remark}}</view>
+
+    <!-- 设计稿（图片缩略 + PDF） -->
+    <view class="design-box" wx:if="{{order.design_status !== 'none' || order.design_images.length || order.design_pdfs.length}}">
+      <view class="design-line" wx:if="{{order.design_status !== 'none'}}">
+        <text class="design-badge {{order.design_status === 'public' ? 'design-badge-public' : ''}}">{{order.design_status === 'need' ? '需设计' : '工厂公版'}}</text>
+        <text class="design-note">{{order.design_note || (order.design_status === 'need' ? '已提交设计需求' : '使用工厂公版/现成版式')}}</text>
+      </view>
+      <view class="design-imgs" wx:if="{{order.design_images.length}}">
+        <image class="design-thumb" wx:for="{{order.design_images}}" wx:key="*this" mode="aspectFill"
+               src="{{apiBase + item}}" data-url="{{apiBase + item}}" catchtap="previewDesignImg" />
+      </view>
+      <view class="design-pdfs" wx:if="{{order.design_pdfs.length}}">
+        <text class="design-pdf" wx:for="{{order.design_pdfs}}" wx:key="*this"
+              data-url="{{apiBase + item}}" catchtap="openPdf">📄 设计文件 {{index + 1}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 收货信息 -->
+  <view class="card">
+    <view class="card-title">收货信息</view>
+    <view class="rcv-line" wx:if="{{order.receiver_name || order.receiver_phone}}">
+      <text class="rcv-name">{{order.receiver_name}}</text>
+      <text class="rcv-phone">{{order.receiver_phone}}</text>
+    </view>
+    <view class="rcv-addr">{{order.receiver_address || '未填写收货地址'}}</view>
+  </view>
+
+  <!-- 承接工厂 -->
+  <view class="card" wx:if="{{order.factory_name || order.factory_id}}">
+    <view class="card-title">承接工厂</view>
+    <view class="fac-row">
+      <view class="fac-name" bindtap="goFactoryDetail">{{order.factory_name || '查看工厂'}} ›</view>
+      <view class="fac-call" wx:if="{{order.factory_phone}}" bindtap="callFactory">拨打</view>
+    </view>
+    <view class="fac-sub" wx:if="{{order.factory_contact}}">联系人：{{order.factory_contact}}</view>
+  </view>
+
+  <!-- 时间线 -->
+  <view class="card">
+    <view class="card-title">订单进度</view>
+    <view class="tl-row"><text class="tl-label">创建</text><text class="tl-val">{{order.createdText}}</text></view>
+    <view class="tl-row" wx:if="{{order.paidText}}"><text class="tl-label">支付</text><text class="tl-val">{{order.paidText}}</text></view>
+    <view class="tl-row" wx:if="{{order.shippedText}}"><text class="tl-label">发货</text><text class="tl-val">{{order.shippedText}}</text></view>
+    <view class="rate-row" wx:if="{{order.rated}}">
+      <text class="rate-stars">{{order.ratingText}}</text><text class="rate-label">已评价</text>
+    </view>
+  </view>
+
+  <view class="page-foot-space"></view>
+</view>
+
+<view class="empty" wx:elif="{{!loading}}">
+  <text class="empty-icon">📋</text>订单不存在或无权查看
+</view>
+
+<!-- 底部操作栏（承载全部操作） -->
+<view class="act-bar" wx:if="{{order}}">
+  <view class="act-btn" wx:if="{{order.canLogistics}}" bindtap="goLogistics">查看物流</view>
+  <view class="act-btn" wx:if="{{order.canCancel}}" data-action="cancel" bindtap="orderAction">取消订单</view>
+  <view class="act-btn act-danger" wx:if="{{order.canRefund}}" bindtap="onApplyRefund">申请退款</view>
+  <view class="act-btn act-primary" wx:if="{{order.canConfirmSample}}" data-action="confirmSample" bindtap="orderAction">确认样品</view>
+  <view class="act-btn act-primary" wx:if="{{order.canComplete}}" data-action="complete" bindtap="orderAction">确认收货</view>
+  <view class="act-btn act-primary" wx:if="{{order.canRate}}" bindtap="onRateOrder">评价</view>
+  <view class="act-btn act-pay" wx:if="{{order.canPay}}" bindtap="payOrder">立即支付</view>
+</view>

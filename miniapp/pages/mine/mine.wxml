@@ -169,6 +169,13 @@
         <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
         <text class="inq-price" wx:if="{{item.total_price}}">¥{{item.total_price}}</text>
       </view>
+      <!-- 生产参数摘要：印刷方式/尺寸/材质/色数 标签 + 后道工艺 -->
+      <view class="inq-spec" wx:if="{{item.specTags.length || item.processText}}">
+        <view class="spec-tags" wx:if="{{item.specTags.length}}">
+          <text class="spec-tag" wx:for="{{item.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+        </view>
+        <view class="spec-craft" wx:if="{{item.processText}}">工艺：{{item.processText}}</view>
+      </view>
       <!-- 工厂与时间同排：厂名居左可点进详情，相对时间居右，卡片更紧凑 -->
       <view class="inq-fac-line">
         <view class="inq-factory-row" wx:if="{{item.factory_name}}"
@@ -217,7 +224,7 @@
       <view class="empty-ic"><view class="ic ic-box"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的订单' : '暂无订单，工厂接单后自动生成'}}
     </view>
-    <view class="inq-card" wx:for="{{orders}}" wx:key="id">
+    <view class="inq-card" wx:for="{{orders}}" wx:key="id" data-id="{{item.id}}" bindtap="goOrderDetail">
       <view class="row">
         <text class="inq-no inq-no-copy" catchtap="copyNo" data-no="{{item.order_no}}">{{item.order_no}}<text class="inq-copy-ic">⧉</text></text>
         <text class="badge {{item.badgeClass}}">{{item.statusText}}</text>
@@ -226,15 +233,12 @@
         <text class="inq-desc">{{item.productText}} · {{item.quantity}}件</text>
         <text class="inq-price">¥{{item.total_price}}</text>
       </view>
-      <!-- 生产参数：印刷方式/尺寸/材质/色数 标签 + 后道工艺（后端解析中文下发） -->
+      <!-- 生产参数摘要：印刷方式/尺寸/材质/色数 标签 + 后道工艺（点卡片进详情看全部） -->
       <view class="inq-spec" wx:if="{{item.specTags.length || item.processText}}">
         <view class="spec-tags" wx:if="{{item.specTags.length}}">
           <text class="spec-tag" wx:for="{{item.specTags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
         </view>
         <view class="spec-craft" wx:if="{{item.processText}}">工艺：{{item.processText}}</view>
-      </view>
-      <view class="inq-subfee" wx:if="{{item.sample_fee > 0}}">
-        <text>打样费 ¥{{item.sample_fee}}</text>
       </view>
 
       <!-- 订单进度时间线 -->
@@ -245,35 +249,15 @@
           <view class="ms-label">{{s}}</view>
         </view>
       </view>
-      <!-- 工厂与时间同排（可点击进工厂详情） -->
+      <!-- 工厂与时间同排（工厂胶囊点击进工厂详情，不冒泡到卡片） -->
       <view class="inq-fac-line">
         <view class="inq-factory-row" wx:if="{{item.factory_name || item.factory_id || item.matched_factory_id}}"
               data-id="{{item.factory_id || item.matched_factory_id}}" catchtap="goFactoryDetail">{{item.factory_name || '查看工厂'}} ›</view>
         <text class="inq-time">{{item.timeText}}</text>
       </view>
-      <!-- F-70：评分展示 / 评价入口 -->
-      <view class="rate-row" wx:if="{{item.rated}}">
-        <text class="rate-stars">{{item.ratingText}}</text>
-        <text class="rate-label">已评价</text>
-      </view>
       <view class="order-foot">
         <text class="pay-state {{item.pay_status === 'paid' ? 'pay-paid' : ''}}">{{item.payText}}</text>
-        <view class="order-btns">
-          <view class="btn-mini" wx:if="{{item.status === 'shipped' || item.status === 'completed'}}"
-                data-id="{{item.id}}" catchtap="goLogistics">查看物流</view>
-          <view class="btn-mini btn-pay" wx:if="{{item.pay_status !== 'paid' && item.status !== 'cancelled' && item.pay_status !== 'refunding' && item.pay_status !== 'refunded'}}"
-                data-id="{{item.id}}" catchtap="payOrder">支付</view>
-          <view class="btn-mini" wx:if="{{item.status === 'pending' || item.status === 'confirmed'}}"
-                data-id="{{item.id}}" data-action="cancel" catchtap="orderAction">取消订单</view>
-          <view class="btn-mini btn-mini-primary" wx:if="{{item.status === 'sampling'}}"
-                data-id="{{item.id}}" data-action="confirmSample" catchtap="orderAction">确认样品</view>
-          <view class="btn-mini btn-mini-primary" wx:if="{{item.status === 'shipped'}}"
-                data-id="{{item.id}}" data-action="complete" catchtap="orderAction">确认收货</view>
-          <view class="btn-mini btn-refund" wx:if="{{item.canRefund}}"
-                data-id="{{item.id}}" catchtap="onApplyRefund">申请退款</view>
-          <view class="btn-mini btn-rate" wx:if="{{item.canRate}}"
-                data-id="{{item.id}}" catchtap="onRateOrder">评价</view>
-        </view>
+        <view class="btn-mini btn-mini-primary">查看详情 ›</view>
       </view>
     </view>
     <view class="list-end" wx:if="{{loadingMore}}">加载中…</view>

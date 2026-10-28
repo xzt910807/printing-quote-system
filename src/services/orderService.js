@@ -148,6 +148,40 @@ async function getOrder(orderId) {
 }
 
 /**
+ * 用户端：订单详情（归属校验 + 生产参数 + 地址快照 + 设计稿解析）
+ * 复用 getOrder 全套字段, 额外下发详情页所需的规格中文摘要、收件信息、设计稿数组
+ * @param {number} orderId
+ * @param {number} userId 登录用户 id（校验归属）
+ */
+async function getOrderDetail(orderId, userId) {
+  const order = await getOrder(orderId);
+  if (userId != null && Number(order.user_id) !== Number(userId)) {
+    throw new Error('无权查看该订单');
+  }
+  // 生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）
+  Object.assign(order, catalog.describeSpec(order));
+  // 地址快照 → 收件人/电话/完整地址（快照缺失回落订单字段）
+  let snap = order.address_snapshot;
+  if (typeof snap === 'string') { try { snap = JSON.parse(snap); } catch (e) { snap = null; } }
+  order.receiver_name = (snap && snap.contact_name) || order.contact_name || '';
+  order.receiver_phone = (snap && snap.contact_phone) || order.contact_phone || '';
+  order.receiver_address = snapshotToText(snap, order.address) || '';
+  // JSON 字段统一解析为数组（设计稿/工艺）
+  order.design_images = parseJsonArr(order.design_images);
+  order.design_pdfs = parseJsonArr(order.design_pdfs);
+  order.processes = parseJsonArr(order.processes);
+  return order;
+}
+
+/** JSON 列（可能是字符串/已解析数组/null）→ 数组，解析失败返回空数组 */
+function parseJsonArr(v) {
+  if (Array.isArray(v)) return v;
+  if (v == null || v === '') return [];
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch (e) { return []; } }
+  return [];
+}
+
+/**
  * 变更订单状态（事务 + 归属校验 + 状态机校验；消息通知用户）
  * @param {Object} p { orderId, action, actor: 'factory'|'user'|'admin', actorId, extra }
  *   extra.weightKg      确认订单时填写货物重量（按重运费模板必填）
@@ -622,6 +656,7 @@ module.exports = {
   listFactoryOrders,
   listAllOrders,
   getOrder,
+  getOrderDetail,
   updateStatus,
   payOrder,
   markOfflinePay,
