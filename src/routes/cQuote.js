@@ -12,6 +12,12 @@ const { requirePermission } = require('../config/permissions');
 const catalog = require('../services/catalogService');
 const guard = require('../services/contentGuard');
 
+// C 端询价状态中文（CSV 导出用, 取值见 c_inquiry.status 列注释）
+const INQUIRY_STATUS_TEXT = {
+  quoted: '已报价', matched: '已推送', factory_quoted: '工厂已报价',
+  user_confirmed: '已确认下单', accepted: '已接单', converted: '已转化', expired: '已过期',
+};
+
 /**
  * GET /api/c/config
  * C端公开配置（小程序启动时拉取）：订阅消息模板ID等
@@ -637,6 +643,11 @@ router.get('/inquiry/export', requireAdmin, requirePermission('c_inquiry:view'),
        LEFT JOIN factory f ON ci.matched_factory_id = f.id
        ORDER BY ci.id DESC`
     );
+    // 导出给运营看：品类/状态解析成中文（否则 CSV 里是 cardBox / factory_quoted 这类英文码）
+    const csvRows = rows.map((r) => Object.assign({}, r, {
+      product_type: catalog.productTypeName(r.product_type),
+      status: INQUIRY_STATUS_TEXT[r.status] || r.status || '',
+    }));
     const csv = toCsv([
       { key: 'id', label: 'ID' },
       { key: 'inquiry_no', label: '询价号' },
@@ -648,7 +659,7 @@ router.get('/inquiry/export', requireAdmin, requirePermission('c_inquiry:view'),
       { key: 'contact_phone', label: '联系电话' },
       { key: 'created_at', label: '创建时间' },
       { key: 'accepted_at', label: '接单时间' },
-    ], rows);
+    ], csvRows);
     sendCsv(res, 'inquiries.csv', csv);
   } catch (err) { res.status(500).json(fail(err.message, 500)); }
 });

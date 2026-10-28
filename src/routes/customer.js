@@ -69,6 +69,10 @@ router.get('/export', requirePermission('customer:manage'), async (req, res) => 
       'SELECT id, factory_id, name, contact, phone, address, level, discount, created_at FROM customer' + where + ' ORDER BY id DESC',
       ownFid ? [ownFid] : []
     );
+    // 客户等级导出转中文（level 取值 normal/vip, 直接落 CSV 会露英文）
+    const csvRows = rows.map((r) => Object.assign({}, r, {
+      level: r.level === 'vip' ? 'VIP' : (r.level === 'normal' ? '普通' : (r.level || '')),
+    }));
     const csv = toCsv([
       { key: 'id', label: 'ID' },
       { key: 'name', label: '客户名称' },
@@ -79,7 +83,7 @@ router.get('/export', requirePermission('customer:manage'), async (req, res) => 
       { key: 'discount', label: '折扣' },
       { key: 'factory_id', label: '工厂ID' },
       { key: 'created_at', label: '创建时间' },
-    ], rows);
+    ], csvRows);
     sendCsv(res, 'customers.csv', csv);
   } catch (err) { res.status(500).json(fail(err.message, 500)); }
 });

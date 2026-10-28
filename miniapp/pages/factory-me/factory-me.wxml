@@ -11,7 +11,7 @@
   <!-- 工厂头部 -->
   <view class="card header-card">
     <view class="factory-name">{{factoryInfo.name}}</view>
-    <view class="factory-sub">编号 {{factoryInfo.code}} · 账号 {{factoryInfo.username}}</view>
+    <view class="factory-sub">账号 {{factoryInfo.username}}</view>
   </view>
 
   <!-- 分区导航：点击切换分区，只展示当前分区（选中项高亮） -->
@@ -71,7 +71,7 @@
     <view class="card" wx:if="{{dashTopProducts.length}}">
       <view class="card-title">品类分布</view>
       <view class="bar-row" wx:for="{{dashTopProducts}}" wx:key="product_type">
-        <text class="bar-lbl">{{item.name || item.product_type}}</text>
+        <text class="bar-lbl">{{item.label}}</text>
         <view class="bar-track"><view class="bar-fill bar-fill-alt" style="width: {{item.pct}}%"></view></view>
         <text class="bar-val">{{item.cnt}}单 · ¥{{item.amtText}}</text>
       </view>

@@ -100,6 +100,14 @@ class CatalogService {
   // 产品类型联动配置（{ printModes, materials, processes } 数组；未配置返回 null）
   getProductConfig(productType) { return this.baseData.productConfig[productType] || null; }
 
+  // 产品类型编码 → 中文名（以 product_config 目录为准, 未知回落原码）
+  // 报表/导出等需要人读品名的地方统一走这里, 避免各页面各写一份映射漏改导致界面露英文
+  productTypeName(code) {
+    if (!code) return '';
+    const cfg = this.baseData.productConfig[code];
+    return (cfg && cfg.productName) || code;
+  }
+
   // 材料编码 → 中文名（跨卡纸/瓦楞/卷筒/薄膜四表查找, 未知回落原码）
   materialName(code) {
     if (!code) return '';

@@ -14,8 +14,18 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { ok, fail } = require('../utils/helpers');
 const { requireFactory } = require('../middlewares/auth');
+const catalog = require('../services/catalogService');
 
 router.use(requireFactory);
+
+// CSV 导出用的状态中文映射（导出文件给老板/财务看, 不能露 pending/frozen 这类英文码）
+const ORDER_STATUS_TEXT = {
+  pending: '待确认', confirmed: '已确认', sampling: '打样中', sample_confirmed: '样品已确认',
+  producing: '生产中', shipped: '已发货', completed: '已完成', cancelled: '已取消',
+};
+const ESCROW_STATUS_TEXT = {
+  none: '无担保', frozen: '资金冻结中', released: '已放款', partial_refund: '部分退款', refunded: '已退款',
+};
 
 /**
  * 解析日期区间参数：默认本月首日 00:00 到今天 23:59:59
@@ -149,6 +159,7 @@ router.get('/trend', async (req, res) => {
 });
 
 // GET /top-products — 品类分布（含金额）
+// name 由后端按 product_config 目录解析成中文品名下发, 前端直接展示（避免露 cardBox 等英文码）
 router.get('/top-products', async (req, res) => {
   try {
     const fid = req.factory.id;
@@ -159,7 +170,10 @@ router.get('/top-products', async (req, res) => {
        WHERE factory_id = ? AND status != 'cancelled' AND product_type IS NOT NULL
          AND created_at BETWEEN ? AND ?
        GROUP BY product_type ORDER BY cnt DESC LIMIT 10`, [fid, range.start, range.end]);
-    res.json(ok({ list: rows, range: { start: range.start, end: range.end } }));
+    res.json(ok({
+      list: rows.map((r) => Object.assign({}, r, { name: catalog.productTypeName(r.product_type) })),
+      range: { start: range.start, end: range.end },
+    }));
   } catch (err) { res.status(500).json(fail(err.message)); }
 });
 
@@ -180,7 +194,9 @@ router.get('/export.csv', async (req, res) => {
     const lines = [header.join(',')];
     for (const r of rows) {
       const cells = [
-        r.order_no, r.product_type || '', r.status || '', r.escrow_status || 'none',
+        r.order_no, catalog.productTypeName(r.product_type) || '',
+        ORDER_STATUS_TEXT[r.status] || r.status || '',
+        ESCROW_STATUS_TEXT[r.escrow_status || 'none'] || r.escrow_status || '',
         Number(r.total_price || 0).toFixed(2), Number(r.shipping_fee || 0).toFixed(2), Number(r.sample_fee || 0).toFixed(2),
         r.rating == null ? '' : Number(r.rating).toFixed(1),
         fmtCell(r.created_at), fmtCell(r.shipped_at), fmtCell(r.completed_at),

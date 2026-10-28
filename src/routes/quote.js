@@ -5,6 +5,13 @@ const { ok, fail, toCsv, sendCsv } = require('../utils/helpers');
 const { parseByRules, parseByAI } = require('../parser/nl-parser');
 const quoteService = require('../services/quoteService');
 const { requirePermission } = require('../config/permissions');
+const catalog = require('../services/catalogService');
+
+// 报价单状态中文（CSV 导出用, 与后台列表 productTypeLabel/statusLabel 同义）
+const QUOTE_STATUS_TEXT = {
+  draft: '草稿', sent: '已发送', accepted: '已接受', rejected: '已拒绝',
+  quoted: '已报价', matched: '已匹配', converted: '已转化',
+};
 
 // 026：工厂身份访问时强制本厂 ID（忽略 body/header 里的 factoryId，防越权以他厂身份计价）
 function actorFactoryId(req) {
@@ -130,6 +137,11 @@ router.get('/export', requirePermission('quote:view'), async (req, res) => {
        FROM quote_order${where} ORDER BY id DESC`,
       ownFid ? [ownFid] : []
     );
+    // 导出给业务人员看, 品类/状态一律解析成中文（否则 CSV 里是 cardBox / draft 这类英文码）
+    const csvRows = rows.map((r) => Object.assign({}, r, {
+      product_type: catalog.productTypeName(r.product_type),
+      status: QUOTE_STATUS_TEXT[r.status] || r.status || '',
+    }));
     const csv = toCsv([
       { key: 'quote_no', label: '单号' },
       { key: 'factory_name', label: '工厂' },
@@ -143,7 +155,7 @@ router.get('/export', requirePermission('quote:view'), async (req, res) => {
       { key: 'discount_amount', label: '优惠金额' },
       { key: 'status', label: '状态' },
       { key: 'created_at', label: '创建时间' },
-    ], rows);
+    ], csvRows);
     sendCsv(res, 'quotes.csv', csv);
   } catch (err) { res.status(500).json(fail(err.message, 500)); }
 });

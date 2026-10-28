@@ -1,4 +1,6 @@
 const api = require('../../utils/api');
+// 产品类型中文名统一取共享模块（新品类接入只需改 productText 一处）
+const { PRODUCT_TEXT, productName } = require('../../utils/productText');
 
 // 可自助覆盖的字段（与后端白名单一致）
 const OVERRIDE_TYPES = [
@@ -15,18 +17,8 @@ const OVERRIDE_TYPES = [
 
 // 生产能力候选清单（与平台一致）
 const CAP_OPTIONS = {
-  productType: [
-    { code: 'carton',  name: '纸箱' },
-    { code: 'cardBox', name: '彩盒' },
-    { code: 'card',    name: '卡片' },
-    { code: 'paperBag', name: '纸袋' },
-    { code: 'sticker',  name: '不干胶' },
-    { code: 'flexiblePackaging', name: '软包装' },
-    { code: 'nonWovenBag', name: '无纺布袋' },
-    { code: 'antiCounterfeitLabel', name: '防伪标签' },
-    { code: 'heatTransfer', name: '热转印' },
-    { code: 'paperContainer', name: '纸容器' },
-  ],
+  // 产品类型直接由共享映射生成（顺序即 productText 中的声明顺序, 与平台品类一致）
+  productType: Object.keys(PRODUCT_TEXT).map((code) => ({ code, name: PRODUCT_TEXT[code] })),
   printMode: [
     { code: 'offset',  name: '胶印' },
     { code: 'flexo',   name: '柔印' },
@@ -306,6 +298,8 @@ Page({
       const maxTop = top.reduce((m, x) => Math.max(m, Number(x.cnt) || 0), 0) || 1;
       const topView = top.map((x) => ({
         ...x,
+        // 品名以后端 product_config 解析的中文名为准, 后端漏给时前端共享映射兜底, 绝不露英文码
+        label: x.name || productName(x.product_type),
         pct: Math.round(((Number(x.cnt) || 0) / maxTop) * 100),
         amtText: Number(x.amt || 0).toFixed(2),
       }));

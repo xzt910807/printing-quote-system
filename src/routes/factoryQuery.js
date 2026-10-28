@@ -242,8 +242,9 @@ router.post('/create', requireAdmin, requirePermission('factory:manage'), async 
 /**
  * PUT /api/factory/:id
  * 编辑工厂基本信息 / 启用停用（status=0 即软删除）
+ * :id 限定数字，避免与工厂端 /me/* 单段路径（如 PUT /me）互相遮蔽
  */
-router.put('/:id', requireAdmin, requirePermission('factory:manage'), async (req, res) => {
+router.put('/:id(\\d+)', requireAdmin, requirePermission('factory:manage'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const { name, contact, phone, address,
@@ -284,7 +285,7 @@ router.put('/:id', requireAdmin, requirePermission('factory:manage'), async (req
  * GET /:id/invite-codes（同时经 /api/admin/factory/:id/invite-codes 可达，见 app.js 挂载）
  * 该厂邀请码列表（含使用状态），管理后台邀请码弹窗用
  */
-router.get('/:id/invite-codes', requireAdmin, requirePermission('factory:view'), async (req, res) => {
+router.get('/:id(\\d+)/invite-codes', requireAdmin, requirePermission('factory:view'), async (req, res) => {
   try {
     const factoryId = parseInt(req.params.id, 10);
     const [rows] = await pool.query(
@@ -304,7 +305,7 @@ router.get('/:id/invite-codes', requireAdmin, requirePermission('factory:view'),
  * POST /:id/invite-codes（同时经 /api/admin/factory/:id/invite-codes 可达）
  * 生成 8 位随机邀请码（去掉 I/O/0/1 防混淆），码唯一由表 UNIQUE 约束兜底
  */
-router.post('/:id/invite-codes', requireAdmin, requirePermission('factory:manage'), async (req, res) => {
+router.post('/:id(\\d+)/invite-codes', requireAdmin, requirePermission('factory:manage'), async (req, res) => {
   try {
     const factoryId = parseInt(req.params.id, 10);
     const [factories] = await pool.query('SELECT id FROM factory WHERE id = ?', [factoryId]);
@@ -329,8 +330,11 @@ router.post('/:id/invite-codes', requireAdmin, requirePermission('factory:manage
 /**
  * GET /api/factory/:id/media（管理端）
  * 查该厂全部图文（含待审/驳回），供审核与排查
+ * ⚠️ :id 必须限定为数字：本路由先于 factorySelf 挂载在 /api/factory 上，
+ *    写成 /:id/media 会把工厂端的 GET /me/media 当成 id='me' 捕获，
+ *    走 requireAdmin 后返回 401（工厂身份永远取不到图集）。
  */
-router.get('/:id/media', requireAdmin, requirePermission('factory:view'), async (req, res) => {
+router.get('/:id(\\d+)/media', requireAdmin, requirePermission('factory:view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const [rows] = await pool.query(
