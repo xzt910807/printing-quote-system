@@ -89,8 +89,9 @@ router.get('/summary', async (req, res) => {
 
     const [[pending]] = await pool.query(
       `SELECT COUNT(*) cnt FROM order_main WHERE factory_id = ? AND status IN ('pending','confirmed','producing')`, [fid]);
+    // ⚠️ 该表时间列是 push_time（无 created_at），写错会让整个 summary 接口 500
     const [[inq]] = await pool.query(
-      `SELECT COUNT(*) cnt FROM factory_inquiry_push WHERE factory_id = ? AND created_at BETWEEN ? AND ?`, [fid, range.start, range.end]);
+      `SELECT COUNT(*) cnt FROM factory_inquiry_push WHERE factory_id = ? AND push_time BETWEEN ? AND ?`, [fid, range.start, range.end]);
     const [[issues]] = await pool.query(
       `SELECT COUNT(*) cnt FROM issue_ticket WHERE factory_id = ? AND status IN ('open','processing')`, [fid]);
     const [[fac]] = await pool.query(
@@ -182,9 +183,11 @@ router.get('/export.csv', async (req, res) => {
   try {
     const fid = req.factory.id;
     const range = resolveRange(req.query);
+    // ⚠️ order_main 无 completed_at 列（直接 SELECT 会 500），完成时间取「已完成订单的最后更新时间」
     const [rows] = await pool.query(
       `SELECT order_no, product_type, status, escrow_status, total_price, shipping_fee, sample_fee,
-              rating, created_at, shipped_at, completed_at
+              rating, created_at, shipped_at,
+              CASE WHEN status = 'completed' THEN updated_at END AS completed_at
        FROM order_main
        WHERE factory_id = ? AND created_at BETWEEN ? AND ?
        ORDER BY created_at DESC LIMIT 5000`,
