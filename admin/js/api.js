@@ -20,6 +20,8 @@ function getFactoryAuth() {
 }
 
 // 本厂列表查询串：订单/询价都是服务端分页, page/pageSize/status/keyword 一并透传（空值不入串）
+// 注意：所有列表型 GET 必须走这里——new URLSearchParams({keyword: undefined}) 会把它
+// 序列化成字符串 "keyword=undefined", 后端按字面值 LIKE 筛选, 列表直接空（报价单/订单都踩过）
 function listQs(params) {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -165,17 +167,13 @@ const api = {
   quote(body) { return this.request('/api/quote', { method: 'POST', body }); },
   saveQuote(body) { return this.request('/api/quote/save', { method: 'POST', body }); },
   quoteList(params) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request('/api/quote/list?' + qs);
+    return this.request('/api/quote/list' + listQs(params));
   },
 
   // C端
   // stage16 分页：params 支持 {page,pageSize,keyword}；返回 {list,total,page,pageSize}
   async cInquiryList(params = {}) {
-    const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
-    ).toString();
-    const body = await this.request('/api/c/inquiry/list' + (qs ? '?' + qs : ''), { full: true });
+    const body = await this.request('/api/c/inquiry/list' + listQs(params), { full: true });
     return { list: body.data || [], total: body.total || 0, page: body.page || 1, pageSize: body.pageSize || 20 };
   },
 
@@ -196,10 +194,7 @@ const api = {
   // 客户管理
   // stage16 分页：params 支持 {page,pageSize,keyword,factoryId}；返回 {list,total,page,pageSize}
   customers(params = {}) {
-    const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
-    ).toString();
-    return this.request('/api/customer' + (qs ? '?' + qs : ''));
+    return this.request('/api/customer' + listQs(params));
   },
   customerCreate(body) { return this.request('/api/customer', { method: 'POST', body }); },
   customerUpdate(id, body) { return this.request('/api/customer/' + id, { method: 'PUT', body }); },
@@ -214,28 +209,24 @@ const api = {
 
   // ===== F-148/150 在线设备（管理员）：会话列表 / 强制下线 =====
   sessions(params) {
-    const qs = new URLSearchParams(params || {}).toString();
-    return this.request('/api/auth/sessions' + (qs ? '?' + qs : ''));
+    return this.request('/api/auth/sessions' + listQs(params));
   },
   revokeSession(id) { return this.request('/api/auth/sessions/' + id, { method: 'DELETE' }); },
 
   // ===== F-57 服务费台账（管理员） =====
   feeLedger(params) {
-    const qs = new URLSearchParams(params || {}).toString();
-    return this.request('/api/admin/fee-ledger' + (qs ? '?' + qs : ''));
+    return this.request('/api/admin/fee-ledger' + listQs(params));
   },
   settleFeeLedger(id) { return this.request('/api/admin/fee-ledger/' + id + '/settle', { method: 'POST', body: {} }); },
 
   // ===== F-158 管理端查看工厂员工操作日志 =====
   factoryOpLogs(factoryId, params) {
-    const qs = new URLSearchParams(params || {}).toString();
-    return this.request('/api/admin/factory/' + factoryId + '/op-logs' + (qs ? '?' + qs : ''));
+    return this.request('/api/admin/factory/' + factoryId + '/op-logs' + listQs(params));
   },
 
   // 订单
   orderList(params) {
-    const qs = new URLSearchParams(params || {}).toString();
-    return this.request('/api/c/order/list' + (qs ? '?' + qs : ''));
+    return this.request('/api/c/order/list' + listQs(params));
   },
   // stage13：extra 支持 weightKg（确认订单）/ expressCompany+expressNo（发货）
   updateOrderStatus(id, action, extra) {
