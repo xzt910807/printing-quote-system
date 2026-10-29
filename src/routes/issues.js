@@ -176,8 +176,11 @@ adminRouter.get('/', async (req, res) => {
     const joins = ' LEFT JOIN order_main o ON o.id = t.order_id LEFT JOIN factory f ON f.id = t.factory_id';
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) total FROM issue_ticket t${joins} ${where}`, params);
     const [rows] = await pool.query(
+      // description/images/factory_reply 一并选出：后台「工单详情」弹窗直接复用列表行，
+      // 否则管理端只能看到标题，读不到客户描述与工厂回复，无法判断该不该介入
       `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.user_id, t.factory_id, f.name AS factory_name,
-              t.type, t.title, t.status, t.admin_note, t.resolved_at, t.created_at, t.updated_at
+              t.type, t.title, t.description, t.images, t.factory_reply, t.factory_reply_at,
+              t.status, t.admin_note, t.resolved_at, t.created_at, t.updated_at
        FROM issue_ticket t
        LEFT JOIN order_main o ON o.id = t.order_id
        LEFT JOIN factory f ON f.id = t.factory_id

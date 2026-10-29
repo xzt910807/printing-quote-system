@@ -7,7 +7,7 @@
   <!-- 关键防闪现规则内联：不依赖外部 CSS 是否命中缓存，Vue 挂载前 #app 必然隐藏
        （仅加 v-cloak 属性 + 外部样式曾被旧缓存绕过，导致首屏闪现未编译模板/弹窗） -->
   <style>[v-cloak] { display: none !important; }</style>
-  <link rel="stylesheet" href="./css/style.css?v=28">
+  <link rel="stylesheet" href="./css/style.css?v=29">
 </head>
 <body>
   <div id="app" v-cloak>
@@ -1542,27 +1542,90 @@
             </div>
             <table class="table">
               <thead>
-                <tr><th>工单号</th><th>订单号</th><th>类型</th><th>标题</th><th>状态</th><th>创建时间</th><th style="width:240px">操作</th></tr>
+                <tr><th>工单号</th><th>订单号</th><th v-if="!isFactoryMode">工厂</th><th>类型</th><th>标题</th><th>状态</th><th>创建时间</th><th style="width:240px">操作</th></tr>
               </thead>
               <tbody>
                 <tr v-for="it in issuesState.list" :key="it.id">
                   <td>{{ it.ticket_no }}</td>
                   <td>{{ it.order_no || ('#' + it.order_id) }}</td>
-                  <td><span class="badge" style="background:#eff6ff;color:#1d4ed8">{{ ISSUE_TYPE_TEXT[it.type] || it.type }}</span></td>
+                  <td v-if="!isFactoryMode" class="muted">{{ it.factory_name || '-' }}</td>
+                  <td><span class="badge" :style="issueTypeStyle(it.type)">{{ ISSUE_TYPE_TEXT[it.type] || it.type }}</span></td>
                   <td>{{ it.title }}</td>
-                  <td><span class="badge">{{ ISSUE_STATUS_TEXT[it.status] || it.status }}</span></td>
+                  <td><span class="badge" :style="issueStatusStyle(it.status)">{{ ISSUE_STATUS_TEXT[it.status] || it.status }}</span></td>
                   <td class="muted">{{ formatTime(it.created_at) }}</td>
                   <td>
                     <button v-if="isFactoryMode && (it.status === 'open' || it.status === 'processing')" class="btn-link" @click="factoryReplyIssue(it)">回复</button>
                     <button v-if="!isFactoryMode && it.status === 'open'" class="btn-link" @click="adminUpdateIssue(it, 'processing')">接手</button>
                     <button v-if="!isFactoryMode && it.status === 'processing'" class="btn-link" @click="adminUpdateIssue(it, 'resolved')">标记解决</button>
                     <button v-if="!isFactoryMode && it.status === 'resolved'" class="btn-link" @click="adminUpdateIssue(it, 'closed')">关闭</button>
-                    <button class="btn-link" @click="viewIssueFiles(it)">证据</button>
+                    <button class="btn-link" @click="openIssueFiles(it)">详情 / 证据</button>
                   </td>
                 </tr>
-                <tr v-if="!issuesState.list.length"><td colspan="7" class="empty">{{ issuesState.loading ? '加载中…' : '暂无工单' }}</td></tr>
+                <tr v-if="!issuesState.list.length"><td :colspan="isFactoryMode ? 7 : 8" class="empty">{{ issuesState.loading ? '加载中…' : '暂无工单' }}</td></tr>
               </tbody>
             </table>
+            <!-- 管理端服务端分页（工厂端一次拉本厂 open+processing, 不分页） -->
+            <div class="pager" v-if="!isFactoryMode && issuesState.total > LIST_PAGE_SIZE">
+              <span class="pager-info">共 {{ issuesState.total }} 条 · 第 {{ issueFilter.page }} / {{ issuePages }} 页</span>
+              <button class="btn btn-sm" :disabled="issueFilter.page <= 1" @click="loadIssues(issueFilter.page - 1)">上一页</button>
+              <button class="btn btn-sm" :disabled="issueFilter.page >= issuePages" @click="loadIssues(issueFilter.page + 1)">下一页</button>
+            </div>
+          </div>
+
+          <!-- 027 工单详情与证据弹窗：描述/客户截图/工厂回复/平台备注 + 后续上传的凭证
+               （原先是把这些拍成一堆随机文件名 + 裸 URL 丢进 alert, 图看不了、链接点不动） -->
+          <div class="modal-mask" v-if="issueFileModal.open && issueFileModal.ticket" @click.self="closeIssueFiles">
+            <div class="modal-box" style="max-width:720px">
+              <div class="panel-title">工单 {{ issueFileModal.ticketNo }}
+                <span class="badge" :style="issueTypeStyle(issueFileModal.ticket.type)">{{ ISSUE_TYPE_TEXT[issueFileModal.ticket.type] || issueFileModal.ticket.type }}</span>
+                <span class="badge" :style="issueStatusStyle(issueFileModal.ticket.status)">{{ ISSUE_STATUS_TEXT[issueFileModal.ticket.status] || issueFileModal.ticket.status }}</span>
+              </div>
+              <div class="panel-sub" style="margin:-6px 0 14px">
+                {{ issueFileModal.ticket.order_no || ('订单 #' + issueFileModal.ticket.order_id) }}
+                <template v-if="issueFileModal.ticket.factory_name"> · {{ issueFileModal.ticket.factory_name }}</template>
+                · 提单于 {{ formatTime(issueFileModal.ticket.created_at) }}
+              </div>
+              <div class="issue-block" v-if="issueFileModal.ticket.title">
+                <div class="issue-block-label">标题</div>
+                <div class="issue-block-text">{{ issueFileModal.ticket.title }}</div>
+              </div>
+              <div class="issue-block" v-if="issueFileModal.ticket.description">
+                <div class="issue-block-label">客户描述</div>
+                <div class="issue-block-text">{{ issueFileModal.ticket.description }}</div>
+              </div>
+              <div class="issue-block" v-if="issueModalImgs.length">
+                <div class="issue-block-label">客户截图（{{ issueModalImgs.length }}）</div>
+                <div class="media-grid">
+                  <img v-for="(u, i) in issueModalImgs" :key="i" :src="u" class="design-thumb" title="点击放大原图" @click="openDesignImg(u)" />
+                </div>
+              </div>
+              <div class="issue-block" v-if="issueFileModal.ticket.factory_reply">
+                <div class="issue-block-label">工厂回复<template v-if="issueFileModal.ticket.factory_reply_at"> · {{ formatTime(issueFileModal.ticket.factory_reply_at) }}</template></div>
+                <div class="issue-block-text">{{ issueFileModal.ticket.factory_reply }}</div>
+              </div>
+              <div class="issue-block" v-if="issueFileModal.ticket.admin_note">
+                <div class="issue-block-label">平台备注</div>
+                <div class="issue-block-text">{{ issueFileModal.ticket.admin_note }}</div>
+              </div>
+              <div class="issue-block">
+                <div class="issue-block-label">证据文件</div>
+                <div class="empty" v-if="issueFileModal.loading">加载中…</div>
+                <div class="empty" v-else-if="!issueFileModal.list.length">该工单暂无上传的证据文件</div>
+                <div class="issue-file-list" v-else>
+                  <div class="issue-file" v-for="f in issueFileModal.list" :key="f.id">
+                    <img v-if="f.isImg" :src="f.file_url" class="issue-file-thumb" title="点击放大原图" @click="openDesignImg(f.file_url)" />
+                    <div class="issue-file-body">
+                      <div class="issue-file-name" :title="f.file_name">{{ f.file_name || f.file_url }}</div>
+                      <div class="issue-file-meta">{{ f.senderText }} · {{ f.sizeText }} · {{ formatTime(f.created_at) }}</div>
+                    </div>
+                    <a class="issue-file-link" :href="f.file_url" target="_blank" rel="noopener">打开原文件</a>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-secondary" @click="closeIssueFiles">关闭</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1590,16 +1653,53 @@
                   <td>{{ o.order_no }}</td>
                   <td>{{ o.factory_name || factoryName(o.factory_id) }}</td>
                   <td class="text-price">¥{{ formatMoney(o.total_price) }}</td>
-                  <td><span class="badge">{{ o.escrow_status }}</span></td>
+                  <td><span class="badge" :style="escrowStatusStyle(o.escrow_status)">{{ escrowStatusLabel(o.escrow_status) }}</span></td>
                   <td><span class="badge" :style="orderStatusStyle(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
                   <td class="muted">{{ formatTime(o.created_at) }}</td>
                   <td>
-                    <button v-if="o.escrow_status === 'frozen'" class="btn btn-sm" @click="arbitrateOrder(o)">仲裁</button>
+                    <button v-if="o.escrow_status === 'frozen'" class="btn btn-sm" @click="openArbitration(o)">仲裁</button>
                   </td>
                 </tr>
                 <tr v-if="!arbState.list.length"><td colspan="7" class="empty">{{ arbState.loading ? '加载中…' : '暂无争议订单' }}</td></tr>
               </tbody>
             </table>
+            <div class="pager" v-if="arbState.total > LIST_PAGE_SIZE">
+              <span class="pager-info">共 {{ arbState.total }} 单 · 第 {{ arbState.page }} / {{ arbPages }} 页</span>
+              <button class="btn btn-sm" :disabled="arbState.page <= 1" @click="loadArbitration(arbState.page - 1)">上一页</button>
+              <button class="btn btn-sm" :disabled="arbState.page >= arbPages" @click="loadArbitration(arbState.page + 1)">下一页</button>
+            </div>
+          </div>
+
+          <!-- 029 仲裁处理弹窗：方案三选一 + 退款比例 + 理由（原先是连用三个原生 prompt, 且理由传的字段名后端读不到） -->
+          <div class="modal-mask" v-if="arbModal.open && arbModal.order" @click.self="closeArbitration">
+            <div class="modal-box" style="max-width:680px">
+              <div class="panel-title">仲裁处理 · {{ arbModal.order.order_no }}</div>
+              <div class="panel-sub" style="margin:-6px 0 14px">
+                {{ arbModal.order.factory_name || factoryName(arbModal.order.factory_id) }} · 担保金额 ¥{{ formatMoney(arbTotalAmount) }}（货款 + 运费 + 打样费）
+              </div>
+              <div class="arb-options">
+                <label class="arb-option" v-for="d in ARB_DECISIONS" :key="d.value" :class="{active: arbModal.decision === d.value}">
+                  <input type="radio" v-model="arbModal.decision" :value="d.value" />
+                  <div>
+                    <div class="arb-option-label">{{ d.label }}</div>
+                    <div class="arb-option-tip">{{ d.tip }}</div>
+                  </div>
+                </label>
+              </div>
+              <div class="form-item" v-if="arbModal.decision === 'partial_refund'" style="margin-top:14px">
+                <label>退款比例（%）1 ~ 99，余额放款给工厂</label>
+                <input type="number" v-model.number="arbModal.refundPercent" min="1" max="99" />
+              </div>
+              <div class="form-item" style="margin-top:14px">
+                <label>仲裁理由（必填，会写入退款原因并通知客户）</label>
+                <textarea v-model="arbModal.reason" rows="3" placeholder="写明核实到的责任归属与处理依据"></textarea>
+              </div>
+              <div class="arb-amount">{{ arbAmountText }}</div>
+              <div class="form-actions">
+                <button class="btn btn-primary" :disabled="arbModal.submitting" @click="submitArbitration">{{ arbModal.submitting ? '提交中…' : '提交仲裁' }}</button>
+                <button class="btn btn-secondary" @click="closeArbitration">取消</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1643,11 +1743,12 @@
   </div>
 
   <!-- stage14：Vue 本地化（admin/js/vendor），彻底排除外部 CDN 不可达导致白屏 -->
+  <!-- 改过哪个 JS/CSS 就升哪个 ?v=：不升版本浏览器会继续跑旧文件, 表现为「改了没生效」 -->
   <script src="./js/vendor/vue.global.prod.js?v=16"></script>
-  <script src="./js/api.js?v=20"></script>
-  <script src="./js/dialog.js?v=16"></script>
+  <script src="./js/api.js?v=21"></script>
+  <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=30"></script>
+  <script src="./js/app.js?v=31"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

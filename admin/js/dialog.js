@@ -1,10 +1,12 @@
 /**
  * Stage11 统一弹框：样式化的 alert / confirm / prompt（Promise 化）
- * 背景：原生 confirm/prompt 与后台 UI 风格不搭配，且无法定制密码输入。
+ * 背景：原生 confirm/prompt 与后台 UI 风格不搭配（浏览器会加上「localhost:6001 显示」标题）,
+ *      且无法定制密码输入与多行文本。
  * 用法（均须在 async 函数内 await）：
  *   await ui.alert('已保存');
  *   if (!(await ui.confirm('确认删除？'))) return;
  *   const pwd = await ui.prompt('请输入新密码', '', { inputType: 'password' }); // 取消返回 null
+ *   const txt = await ui.prompt('回复内容', '', { multiline: true, title: '回复工单' });
  * 同时 window.alert 被接管为 ui.alert，历史 alert() 调用自动换新样式。
  */
 (function () {
@@ -30,7 +32,7 @@
       const mask = ensureMask();
       mask.innerHTML = '';
       const box = document.createElement('div');
-      box.className = 'ui-dialog';
+      box.className = 'ui-dialog' + (opts.wide ? ' ui-dialog-wide' : '');
 
       if (opts.title) {
         const t = document.createElement('div');
@@ -49,9 +51,11 @@
 
       let inputEl = null;
       if (opts.input) {
-        inputEl = document.createElement('input');
+        // input === 'textarea' 时出多行文本域（回复/备注/理由这类长文本）, 否则单行 input
+        inputEl = document.createElement(opts.input === 'textarea' ? 'textarea' : 'input');
         inputEl.className = 'ui-dialog-input';
-        inputEl.type = opts.inputType || 'text';
+        if (opts.input !== 'textarea') inputEl.type = opts.inputType || 'text';
+        else inputEl.rows = opts.rows || 4;
         inputEl.value = opts.inputValue || '';
         if (opts.placeholder) inputEl.placeholder = opts.placeholder;
         box.appendChild(inputEl);
@@ -78,7 +82,11 @@
       }
       function onKey(e) {
         if (e.key === 'Escape') close(() => (cancelBtn && cancelBtn.pick ? cancelBtn.pick(inputEl) : null));
-        if (e.key === 'Enter' && inputEl && document.activeElement === inputEl) {
+        if (inputEl && document.activeElement === inputEl) {
+          // 多行框里回车是换行, 只有 Ctrl+Enter 提交; 单行框仍为回车提交
+          const multiline = inputEl.tagName === 'TEXTAREA';
+          if (multiline && !(e.ctrlKey || e.metaKey)) return;
+          if (!multiline && e.key !== 'Enter') return;
           const ok = buttons.find((b) => !b.cancel);
           if (ok) close(() => (ok.pick ? ok.pick(inputEl) : ok.value));
         }
@@ -120,19 +128,21 @@
         ],
       });
     },
-    /** 输入框：确定 resolve(输入值)，取消/遮罩/Esc resolve(null)；opts.inputType 可设 password */
+    /** 输入框：确定 resolve(输入值)，取消/遮罩/Esc resolve(null)；opts.inputType 可设 password，opts.multiline 出多行文本域 */
     prompt(message, defaultValue, opts) {
       const o = opts || {};
       return show({
         title: o.title || '请输入',
         message,
-        input: true,
+        input: o.multiline ? 'textarea' : true,
+        rows: o.rows,
+        wide: !!o.multiline,
         inputValue: defaultValue || '',
         placeholder: o.placeholder || '',
         inputType: o.inputType || 'text',
         buttons: [
           { label: '取消', className: 'btn-secondary', cancel: true, pick: () => null },
-          { label: '确定', className: 'btn-primary', pick: (inputEl) => inputEl.value },
+          { label: o.okLabel || '确定', className: 'btn-primary', pick: (inputEl) => inputEl.value },
         ],
       });
     },

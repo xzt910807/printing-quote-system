@@ -215,8 +215,24 @@ const app = createApp({
     // ===== 027 售后工单（管理端列表 + 推进状态 + 内容介入） =====
     const ISSUE_STATUS_TEXT = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
     const ISSUE_TYPE_TEXT = { quality: '质量问题', delay: '延期预警', reprint: '补印申请', other: '其他' };
+    // 徽章配色：类型/状态一眼可辨（原先类型固定蓝底、状态无底色, 一排看过去分不出轻重）
+    const ISSUE_TYPE_STYLE = {
+      quality: 'background:#fee2e2;color:#dc2626',
+      delay: 'background:#fef3c7;color:#b45309',
+      reprint: 'background:#e0e7ff;color:#4338ca',
+      other: 'background:#f1f5f9;color:#475569',
+    };
+    const ISSUE_STATUS_STYLE = {
+      open: 'background:#fee2e2;color:#dc2626',
+      processing: 'background:#fef3c7;color:#b45309',
+      resolved: 'background:#dcfce7;color:#15803d',
+      closed: 'background:#f1f5f9;color:#64748b',
+    };
+    const issueTypeStyle = (t) => ISSUE_TYPE_STYLE[t] || ISSUE_TYPE_STYLE.other;
+    const issueStatusStyle = (s) => ISSUE_STATUS_STYLE[s] || ISSUE_STATUS_STYLE.closed;
     const issueFilter = reactive({ status: '', type: '', keyword: '', page: 1 });
     const issuesState = reactive({ list: [], total: 0, loading: false });
+    const issuePages = computed(() => Math.max(1, Math.ceil(issuesState.total / LIST_PAGE_SIZE)));
 
     async function loadIssues(page) {
       issuesState.loading = true;
@@ -256,46 +272,112 @@ const app = createApp({
     }
 
     // 工厂回复工单（open 回复后后端自动转 processing）
+    // 原先用原生 prompt：浏览器弹框带「localhost 显示」标题, 单行输入框写不下处理方案
     async function factoryReplyIssue(issue) {
-      const reply = prompt('回复工单 ' + (issue.ticket_no || '') + '：');
-      if (reply == null || !reply.trim()) return;
+      const reply = await ui.prompt(
+        `工单 ${issue.ticket_no} · ${ISSUE_TYPE_TEXT[issue.type] || issue.type}\n`
+        + `标题：${issue.title || '-'}\n描述：${issue.description || '（客户未填写）'}`,
+        '',
+        {
+          title: '回复工单', multiline: true, rows: 4, okLabel: '提交回复',
+          placeholder: '说明处理方案与预计时间，客户在小程序订单详情里可以看到这条回复',
+        }
+      );
+      if (reply === null) return;
+      if (!reply.trim()) return ui.alert('回复内容不能为空');
       try {
         await api.request('/api/factory/issue/' + issue.id + '/reply', { method: 'PUT', body: { reply: reply.trim() } });
         await loadIssues();
       } catch (err) { alert('回复失败：' + err.message); }
     }
 
+    const ISSUE_ACTION_TIP = {
+      processing: '接手后工单转「处理中」，备注会同步给工厂',
+      resolved: '确认问题已解决？工单转「已解决」',
+      closed: '确认后工单归档为「已关闭」，不再计入待办',
+    };
+
     async function adminUpdateIssue(issue, status) {
-      const tipMap = { processing: '确认接手该工单？', resolved: '确认标记为已解决？', closed: '确认关闭该工单？' };
       if (status === 'processing') {
-        const note = prompt(tipMap[status] + '\n\n添加处理备注（可取消）：') || '';
-        try { await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status, adminNote: note } }); await loadIssues(); }
-        catch (err) { alert('失败：' + err.message); }
+        const note = await ui.prompt(
+          `工单 ${issue.ticket_no} · ${issue.title || ''}\n${ISSUE_ACTION_TIP.processing}`,
+          '',
+          { title: '接手工单 · 处理备注', multiline: true, rows: 3, okLabel: '确认接手', placeholder: '可留空' }
+        );
+        // 取消返回 null: 中止, 不能像旧写法那样把 null 当空备注提交
+        if (note === null) return;
+        try {
+          await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status, adminNote: note.trim() } });
+          await loadIssues();
+        } catch (err) { alert('失败：' + err.message); }
         return;
       }
-      if (!(await ui.confirm(tipMap[status] || '确认推进状态？'))) return;
-      try { await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status } }); await loadIssues(); }
-      catch (err) { alert('失败：' + err.message); }
+      if (!(await ui.confirm(`工单 ${issue.ticket_no}：${ISSUE_ACTION_TIP[status] || '确认推进状态？'}`))) return;
+      try {
+        await api.request('/api/admin/issue/' + issue.id, { method: 'PUT', body: { status } });
+        await loadIssues();
+      } catch (err) { alert('失败：' + err.message); }
     }
 
-    // 026+027 工单证据附件查看（工厂/管理端各自鉴权入口）
-    async function viewIssueFiles(issue) {
+    // 026+027 工单详情与证据：弹窗里看描述/回复/备注 + 图片缩略图, 非图片给可点链接
+    // 原先是把文件名和长 URL 拍进 alert 文本里, 既看不出是什么图也点不动
+    const ISSUE_SENDER_TEXT = { user: '用户', factory: '工厂', admin: '平台' };
+    const issueFileModal = reactive({ open: false, loading: false, ticketNo: '', ticket: null, list: [] });
+
+    function formatFileSize(v) {
+      const n = Number(v) || 0;
+      if (!n) return '-';
+      return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.ceil(n / 1024)) + ' KB';
+    }
+
+    // 客户提单时附的截图存在 issue_ticket.images（JSON 数组）, 与后续上传的证据文件分开展示
+    const issueModalImgs = computed(() => {
+      const raw = issueFileModal.ticket && issueFileModal.ticket.images;
+      if (!raw) return [];
+      let arr = raw;
+      if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch (e) { return []; } }
+      return Array.isArray(arr) ? arr.filter(Boolean) : [];
+    });
+
+    async function openIssueFiles(issue) {
+      issueFileModal.open = true;
+      issueFileModal.loading = true;
+      issueFileModal.ticketNo = issue.ticket_no || ('#' + issue.id);
+      // 工单正文直接用列表行（后端已带 description/images/factory_reply）, 不必额外发一次详情请求
+      issueFileModal.ticket = issue;
+      issueFileModal.list = [];
       try {
         const base = state.isFactoryMode ? '/api/factory/issue/' : '/api/admin/issue/';
         const res = await api.request(base + issue.id + '/files');
-        const list = res.list || [];
-        if (!list.length) { alert('本工单暂无附件'); return; }
-        const lines = list.map((f) => {
-          const who = f.sender_type === 'user' ? '用户' : (f.sender_type === 'factory' ? '工厂' : '平台');
-          const size = Number(f.file_size) > 1048576 ? (f.file_size / 1048576).toFixed(1) + ' MB' : Math.ceil(Number(f.file_size) / 1024) + ' KB';
-          return '• ' + f.file_name + '  (' + who + ' · ' + size + ' · ' + (f.created_at || '') + ')\n  ' + location.origin + f.file_url;
-        });
-        alert('工单 ' + (issue.ticket_no || issue.id) + ' 证据共 ' + list.length + ' 个：\n\n' + lines.join('\n\n'));
-      } catch (err) { alert('加载失败：' + err.message); }
+        issueFileModal.list = (res.list || []).map((f) => Object.assign({}, f, {
+          sizeText: formatFileSize(f.file_size),
+          senderText: ISSUE_SENDER_TEXT[f.sender_type] || f.sender_type || '-',
+          isImg: /\.(png|jpe?g|gif|webp|bmp)$/i.test(String(f.file_url || '')),
+        }));
+      } catch (err) {
+        issueFileModal.open = false;
+        alert('加载失败：' + err.message);
+      } finally {
+        issueFileModal.loading = false;
+      }
     }
+    function closeIssueFiles() { issueFileModal.open = false; }
 
     // ===== 029 仲裁中心（争议中/冻结中的订单列表 + 仲裁处理） =====
     const arbState = reactive({ list: [], total: 0, page: 1, status: 'frozen', loading: false });
+    const ESCROW_STATUS_TEXT = {
+      none: '无担保', frozen: '冻结中', released: '已放款', refunded: '已退款', partial_refund: '部分退款',
+    };
+    const ESCROW_STATUS_STYLE = {
+      none: 'background:#f1f5f9;color:#64748b',
+      frozen: 'background:#fef3c7;color:#b45309',
+      released: 'background:#dcfce7;color:#15803d',
+      refunded: 'background:#dbeafe;color:#1d4ed8',
+      partial_refund: 'background:#e0e7ff;color:#4338ca',
+    };
+    const escrowStatusLabel = (s) => ESCROW_STATUS_TEXT[s] || s || '-';
+    const escrowStatusStyle = (s) => ESCROW_STATUS_STYLE[s] || ESCROW_STATUS_STYLE.none;
+    const arbPages = computed(() => Math.max(1, Math.ceil(arbState.total / LIST_PAGE_SIZE)));
 
     async function loadArbitration(page) {
       arbState.loading = true;
@@ -315,26 +397,71 @@ const app = createApp({
       }
     }
 
-    async function arbitrateOrder(order) {
-      const choice = prompt('仲裁处理【' + order.order_no + '】：\n  1 = 全额退款\n  2 = 放款给工厂\n  3 = 部分退款（输入百分比 1-99）\n请输入选项：');
-      if (!choice) return;
-      let decision = 'refund', refundPercent = 100;
-      if (choice === '2') { decision = 'release'; refundPercent = 0; }
-      else if (choice === '3') {
-        const pct = parseInt(prompt('退款百分比（1-99）：', '50'), 10);
-        if (!pct || pct < 1 || pct > 99) return alert('已取消');
-        refundPercent = pct;
-      } else if (choice !== '1') return alert('无效选项');
-      const reason = prompt('仲裁理由（必填）：') || '';
-      if (!reason) return alert('已取消');
+    // 仲裁处理弹窗：原来连用三个原生 prompt 选方案/填比例/填理由, 且有两处实质错误——
+    // 1) 理由传的是 reason, 后端读的是 note, 理由既不落库也不进退款原因与客户通知
+    // 2) 选「部分退款」仍传 decision=refund, 后端走全额退款分支, 百分比完全没生效
+    const ARB_DECISIONS = [
+      { value: 'refund', label: '全额退款', tip: '货款原路退回客户，担保结束' },
+      { value: 'release', label: '放款给工厂', tip: '按担保比例结算给工厂' },
+      { value: 'partial_refund', label: '部分退款', tip: '按比例退款，余额放款给工厂' },
+    ];
+    const arbModal = reactive({
+      open: false, submitting: false, order: null, decision: 'refund', refundPercent: 50, reason: '',
+    });
+
+    function openArbitration(o) {
+      Object.assign(arbModal, {
+        open: true, submitting: false, order: o,
+        decision: 'refund', refundPercent: 50, reason: '',
+      });
+    }
+    function closeArbitration() { arbModal.open = false; }
+    function arbDecLabel(v) {
+      const d = ARB_DECISIONS.find((x) => x.value === v);
+      return d ? d.label : v;
+    }
+    // 订单担保金额口径与后端一致：货款 + 运费 + 打样费
+    const arbTotalAmount = computed(() => {
+      const o = arbModal.order;
+      if (!o) return 0;
+      return (Number(o.total_price) || 0) + (Number(o.shipping_fee) || 0) + (Number(o.sample_fee) || 0);
+    });
+    const arbAmountText = computed(() => {
+      const total = arbTotalAmount.value;
+      if (arbModal.decision === 'refund') return '退款 ¥' + formatMoney(total) + '（全额原路退回）';
+      if (arbModal.decision === 'release') return '放款 ¥' + formatMoney(total) + '（扣平台服务费后结算给工厂）';
+      const pct = Math.min(Math.max(Number(arbModal.refundPercent) || 0, 0), 100);
+      // 后端口径: 退款=总额*pct, 余额作为放款基数, 再扣平台服务费结给工厂
+      return '退款 ¥' + formatMoney((total * pct) / 100) + '（' + pct + '%）· 放款基数 ¥' + formatMoney((total * (100 - pct)) / 100) + '（再扣平台服务费）';
+    });
+
+    async function submitArbitration() {
+      const o = arbModal.order;
+      if (!o || arbModal.submitting) return;
+      const pct = Number(arbModal.refundPercent);
+      if (arbModal.decision === 'partial_refund' && !(pct >= 1 && pct <= 99)) {
+        return alert('部分退款的百分比需在 1 ~ 99 之间');
+      }
+      const reason = (arbModal.reason || '').trim();
+      if (!reason) return alert('请填写仲裁理由（会写入退款原因与客户通知）');
+      if (!(await ui.confirm(`确认对订单「${o.order_no}」执行：${arbDecLabel(arbModal.decision)}？\n${arbAmountText.value}\n提交后不可撤销。`))) return;
+      arbModal.submitting = true;
       try {
-        await api.request('/api/admin/order/' + order.id + '/arbitrate', {
+        await api.request('/api/admin/order/' + o.id + '/arbitrate', {
           method: 'POST',
-          body: { decision, refundPercent, reason },
+          body: {
+            decision: arbModal.decision,
+            refundPercent: arbModal.decision === 'partial_refund' ? pct : undefined,
+            note: reason,
+          },
         });
-        alert('仲裁已提交');
+        arbModal.open = false;
         await loadArbitration();
-      } catch (err) { alert('仲裁失败：' + err.message); }
+      } catch (err) {
+        alert('仲裁失败：' + err.message);
+      } finally {
+        arbModal.submitting = false;
+      }
     }
 
     const recentQuotes = computed(() => state.quotes.slice(0, 8));
@@ -2517,8 +2644,10 @@ const app = createApp({
       quotePages, orderPages, inquiryPages, customerPages, onOrderFilterChange,
       currentFactoryLabel, filteredFactoryOptions, toggleFactoryPicker, pickFactory, setCatalogTab,
       // 027 售后工单 + 029 仲裁中心
-      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueFilter, issuesState, loadIssues, adminUpdateIssue, factoryReplyIssue, viewIssueFiles,
-      arbState, loadArbitration, arbitrateOrder,
+      ISSUE_STATUS_TEXT, ISSUE_TYPE_TEXT, issueTypeStyle, issueStatusStyle, issueFilter, issuesState, issuePages, loadIssues, adminUpdateIssue, factoryReplyIssue,
+      issueFileModal, issueModalImgs, openIssueFiles, closeIssueFiles,
+      arbState, arbPages, loadArbitration, arbModal, openArbitration, closeArbitration, submitArbitration,
+      ARB_DECISIONS, arbTotalAmount, arbAmountText, escrowStatusLabel, escrowStatusStyle,
       // 021/022 设计稿展示
       designImgs, designBadge, openDesignImg, designPdf,
     };

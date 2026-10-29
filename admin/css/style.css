@@ -1095,3 +1095,101 @@ select:not([multiple]):hover { border-color: #cbd5e1; }
 }
 .cat-tab:hover { background: #e2e8f0; }
 .cat-tab.active { background: #2563eb; color: #fff; font-weight: 600; }
+
+/* ===== 027/029 工单与仲裁：多行输入 + 详情弹窗 + 仲裁方案选择 ===== */
+/* 多行 prompt（回复工单/接手备注）内容是一段话, 400px 窄框写不下 */
+.ui-dialog-wide { max-width: 560px; }
+textarea.ui-dialog-input {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+/* 弹窗内的正文段落：描述/工厂回复/平台备注（admin 里没有现成 textarea 样式, 一并补上） */
+.issue-block { margin-bottom: 14px; }
+.issue-block-label { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.issue-block-text {
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.7;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.form-item textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  background: #fff;
+  resize: vertical;
+  font-family: inherit;
+}
+.form-item textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+/* 证据文件：图片给缩略图, 刀模图/PDF 这类给文件名 + 可点链接（不再是 alert 里的裸 URL） */
+.issue-file-list { display: flex; flex-direction: column; gap: 10px; }
+.issue-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+.issue-file-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: zoom-in;
+  flex: none;
+  background: #fff;
+}
+.issue-file-body { flex: 1; min-width: 0; }
+.issue-file-name {
+  font-size: 13px;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.issue-file-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.issue-file-link { color: #2563eb; font-size: 12px; text-decoration: none; flex: none; }
+.issue-file-link:hover { text-decoration: underline; }
+
+/* 仲裁方案：三张可点卡片, 选中高亮, 避开连用三个原生 prompt */
+.arb-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.arb-option {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.arb-option:hover { background: #f8fafc; }
+.arb-option.active { border-color: #2563eb; background: #eff6ff; }
+.arb-option input { width: auto; margin-top: 2px; }
+.arb-option-label { font-size: 13.5px; font-weight: 600; color: #1e293b; }
+.arb-option-tip { font-size: 12px; color: #94a3b8; margin-top: 3px; line-height: 1.5; }
+.arb-amount {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #b45309;
+  font-size: 13.5px;
+  font-weight: 600;
+}
