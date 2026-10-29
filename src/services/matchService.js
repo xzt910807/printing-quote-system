@@ -544,12 +544,18 @@ async function selectFactory({ inquiryId, factoryId, contactName, contactPhone }
  * @returns {Promise<{total:number, list:Array}>}
  */
 async function listFactoryInquiries(factoryId, { status, keyword, page = 1, pageSize = 20 } = {}) {
-  // 已被其他工厂接走的询价：本厂推送 response 仍 pending 但已无可操作动作，从列表与徽标计数中排除；
+  // 本厂还没处理（response=pending）但询价已离开在途态（quoted/matched）的推送：已无报价/接单动作可做，
+  // 从列表与徽标计数中排除（否则工厂点开报价弹窗提交必被状态门槛拒绝）。
+  // 旧规则只认 accepted/converted, 而 017 流程成交后写的是 user_confirmed, 且中标厂的 response 仍是 pending
+  // ——所以必须同时保留「成交方就是本厂」的记录, 不能只按 response 过滤。
   // 防自刷：发单方绑定的工厂就是本厂时不出现在本厂列表（报价/接单接口本就拦截，这里提前隐藏）
   let where = `
     WHERE fp.factory_id = ?
-      AND NOT (ci.status IN ('accepted', 'converted') AND ci.matched_factory_id IS NOT NULL
-               AND ci.matched_factory_id != fp.factory_id)
+      AND NOT (
+        fp.response = 'pending'
+        AND ci.status NOT IN ('quoted', 'matched')
+        AND (ci.matched_factory_id IS NULL OR ci.matched_factory_id != fp.factory_id)
+      )
       AND NOT EXISTS (
         SELECT 1 FROM c_end_user eu
         WHERE eu.id = ci.user_id AND eu.factory_id = fp.factory_id
@@ -1080,7 +1086,16 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
     }
     if (push.response !== 'pending') throw new Error('该询价已处理过了');
     if (push.inquiry_status !== 'matched') {
-      throw new Error('该询价当前状态不允许报价');
+      // 按实际状态给人话：笼统的「当前状态不允许报价」工厂看不懂, 只会反复点提交
+      const st = push.inquiry_status;
+      throw new Error(
+        st === 'quoted' ? '客户尚未选定接单工厂，暂不能报价'
+          : st === 'factory_quoted' ? '该询价已有工厂报价，正等客户确认'
+          : ['user_confirmed', 'accepted', 'converted'].includes(st) ? '该询价已成交并生成订单，无需再报价'
+          : st === 'cancelled' ? '该询价已取消'
+          : st === 'expired' ? '该询价已过期'
+          : '该询价当前状态不允许报价'
+      );
     }
 
     // 防自刷：不能报价自己名下账号发布的询价
