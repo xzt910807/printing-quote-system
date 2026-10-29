@@ -5,17 +5,29 @@
   </view>
 </view>
 
-<!-- 顶部实时单据条：解决「聊了半天对方不知道在说哪一单」; 单号/状态/最新价常驻, 点击展开完整规格 -->
-<view class="ctx-bar" wx:if="{{ctx}}" style="top: {{statusBarHeight + navBarHeight}}px; height: {{ctxBarH}}px;" bindtap="toggleCtx">
-  <text class="ctx-no">{{ctx.inquiryNo}}</text>
-  <text class="ctx-sta {{ctx.quoteExpired ? 'ctx-sta-exp' : ''}}">{{ctx.statusText}}</text>
-  <text class="ctx-price" wx:if="{{ctx.factoryPrice}}">¥{{ctx.factoryPrice}}</text>
-  <text class="ctx-price ctx-price-sys" wx:elif="{{ctx.systemPrice}}">参考 ¥{{ctx.systemPrice}}</text>
-  <text class="ctx-caret">{{ctxOpen ? '▲' : '▼'}}</text>
+<!-- 顶部实时单据胶囊：解决「聊了半天对方不知道在说哪一单」; 单号已在导航栏副标题, 这里不重复占位 -->
+<view class="ctx-bar" wx:if="{{ctx}}" style="top: {{statusBarHeight + navBarHeight + ctxGap}}px; height: {{ctxBarH}}px;" bindtap="toggleCtx">
+  <view class="ctx-dot ctx-dot-{{ctx.dotClass}}"></view>
+  <text class="ctx-sta">{{ctx.shortText || ctx.statusText}}</text>
+  <view class="ctx-right">
+    <text class="ctx-price" wx:if="{{ctx.factoryPrice}}">¥{{ctx.factoryPrice}}</text>
+    <text class="ctx-price ctx-price-sys" wx:elif="{{ctx.systemPrice}}">参考价 ¥{{ctx.systemPrice}}</text>
+    <view class="ctx-more">
+      <text class="ctx-more-t">{{ctxOpen ? '收起' : '单据明细'}}</text>
+      <view class="ctx-caret {{ctxOpen ? 'ctx-caret-up' : ''}}"></view>
+    </view>
+  </view>
 </view>
 
 <view class="ctx-mask" wx:if="{{ctxOpen}}" bindtap="toggleCtx"></view>
-<view class="ctx-panel" wx:if="{{ctxOpen}}" style="top: {{statusBarHeight + navBarHeight + ctxBarH}}px;">
+<view class="ctx-panel" wx:if="{{ctxOpen}}" style="top: {{statusBarHeight + navBarHeight + ctxBarH + ctxGap * 2}}px;">
+  <view class="ctx-line ctx-line-copy" data-no="{{ctx.inquiryNo}}" bindtap="copyInquiryNo">
+    <text class="ctx-k">询价单号</text><text class="ctx-v">{{ctx.inquiryNo}}</text>
+    <text class="ctx-copy">复制</text>
+  </view>
+  <view class="ctx-line">
+    <text class="ctx-k">当前状态</text><text class="ctx-v">{{ctx.statusText}}</text>
+  </view>
   <view class="ctx-line">
     <text class="ctx-k">品类数量</text>
     <text class="ctx-v">{{ctx.productText}} · {{ctx.quantity}}件</text>
@@ -61,7 +73,7 @@
 </view>
 
 <scroll-view class="msg-area" scroll-y scroll-into-view="msg-{{lastId}}" scroll-with-animation
-             style="top: {{statusBarHeight + navBarHeight + (ctx ? ctxBarH : 0)}}px; bottom: {{inputBarH + keyboardHeight}}px;">
+             style="top: {{statusBarHeight + navBarHeight + (ctx ? ctxBarH + ctxGap * 2 : 0)}}px; bottom: {{inputBarH + keyboardHeight}}px;">
   <view class="msg-empty" wx:if="{{loading}}">加载中...</view>
   <view class="msg-empty" wx:elif="{{!messages.length}}">
     还没有消息，发一条打个招呼吧

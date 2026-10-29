@@ -180,33 +180,44 @@ page { background: #f1f5f9; }
 }
 .file-meta { font-size: 22rpx; color: #94a3b8; flex: none; }
 
-/* ===== 顶部实时单据条 + 展开面板 =====
-   原本聊天页只有一条光秃秃的消息流, 双方都不知道在谈哪一单; 单据信息常驻顶部且每次现取（改价后价格立刻跟着变） */
+/* ===== 顶部实时单据胶囊 + 展开面板 =====
+   原本聊天页只有一条光秃秃的消息流, 双方都不知道在谈哪一单; 单据信息常驻顶部且每次现取（改价后价格立刻跟着变）。
+   做成左右留白的悬浮胶囊而不是通栏白条：通栏白条与白色导航栏同色同边, 会被读成导航栏的第二行 */
 .ctx-bar {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0; left: 24rpx; right: 24rpx;
   z-index: 9;
   display: flex;
   align-items: center;
   gap: 12rpx;
-  padding: 0 24rpx;
+  padding: 0 12rpx 0 24rpx;
   box-sizing: border-box;
   background: #fff;
-  border-bottom: 1rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.08);
 }
-.ctx-no { flex: none; font-size: 24rpx; color: #475569; }
-.ctx-sta {
-  flex: none;
-  font-size: 20rpx;
-  color: #2563eb;
-  background: #eff6ff;
-  border-radius: 6rpx;
-  padding: 4rpx 10rpx;
+/* 状态圆点替代色块 chip：只给「该行动」上颜色, 其余中性, 价格才是唯一焦点 */
+.ctx-dot { flex: none; width: 12rpx; height: 12rpx; border-radius: 50%; background: #cbd5e1; }
+.ctx-dot-hot { background: #f97316; box-shadow: 0 0 0 6rpx rgba(249, 115, 22, 0.14); }
+.ctx-dot-wait { background: #3b82f6; }
+.ctx-dot-done { background: #16a34a; }
+.ctx-dot-off { background: #cbd5e1; }
+.ctx-sta { flex: none; font-size: 25rpx; color: #475569; }
+.ctx-right { margin-left: auto; display: flex; align-items: center; gap: 16rpx; min-width: 0; }
+.ctx-price { font-size: 30rpx; font-weight: 700; color: #ea580c; }
+.ctx-price-sys { font-size: 24rpx; font-weight: 400; color: #94a3b8; }
+.ctx-more { flex: none; display: flex; align-items: center; gap: 8rpx; padding-left: 16rpx; border-left: 1rpx solid #eef2f7; }
+.ctx-more-t { font-size: 23rpx; color: #94a3b8; }
+/* 箭头用边框拼而不写 ▲▼ 字符：字符在小程序里基线发虚, 且展开/收起两个三角大小不一致 */
+.ctx-caret {
+  width: 12rpx;
+  height: 12rpx;
+  border-right: 2rpx solid #94a3b8;
+  border-bottom: 2rpx solid #94a3b8;
+  transform: rotate(45deg);
+  margin-top: -6rpx;
 }
-.ctx-sta-exp { color: #b45309; background: #fffbeb; }
-.ctx-price { margin-left: auto; font-size: 28rpx; font-weight: 600; color: #ea580c; }
-.ctx-price-sys { font-weight: 400; font-size: 24rpx; color: #94a3b8; }
-.ctx-caret { flex: none; font-size: 20rpx; color: #cbd5e1; }
+.ctx-caret-up { transform: rotate(-135deg); margin-top: 6rpx; }
 
 .ctx-mask {
   position: fixed;
@@ -216,13 +227,13 @@ page { background: #f1f5f9; }
 }
 .ctx-panel {
   position: fixed;
-  left: 16rpx; right: 16rpx;
+  left: 24rpx; right: 24rpx;
   z-index: 13;
   max-height: 60vh;
   overflow-y: auto;
   background: #fff;
-  border-radius: 16rpx;
-  padding: 8rpx 24rpx 20rpx;
+  border-radius: 20rpx;
+  padding: 8rpx 28rpx 20rpx;
   box-shadow: 0 8rpx 32rpx rgba(15, 23, 42, 0.14);
 }
 .ctx-line {
@@ -232,6 +243,10 @@ page { background: #f1f5f9; }
   padding: 14rpx 0;
   border-bottom: 1rpx solid #f8fafc;
 }
+/* 单号行可点复制（单号从胶囊移进面板后, 这里就是它唯一的落点） */
+.ctx-line-copy { margin: 0 -12rpx; padding-left: 12rpx; padding-right: 12rpx; border-radius: 10rpx; }
+.ctx-line-copy:active { background: #f8fafc; }
+.ctx-copy { flex: none; font-size: 22rpx; color: #2563eb; }
 .ctx-k { flex: none; width: 132rpx; font-size: 24rpx; color: #94a3b8; }
 .ctx-v {
   flex: 1;

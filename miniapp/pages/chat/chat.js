@@ -6,10 +6,11 @@ const { ORDER_STATUS_TEXT } = require('../../utils/orderText');
 // 轮询间隔（无长连接依赖，页面在显示时定时拉取新消息）
 const POLL_MS = 15000;
 const MAX_LEN = 500;
-// 顶部单据条固定高度（px, 与 wxss 同步）：消息区 top 需避开它
+// 顶部单据胶囊高度与上下留白（px, 与 wxss 同步）：消息区 top 需避开胶囊 + 两段间隙
 const CTX_BAR_H = 36;
+const CTX_GAP = 8;
 
-// 询价状态文案（与 mine.js 的 STATUS_TEXT 同口径, 会话卡只用到这几个值）
+// 询价状态文案（与 mine.js 的 STATUS_TEXT 同口径, 展开面板里用全称）
 const INQ_STATUS_TEXT = {
   quoted: '已报价待选厂',
   matched: '已推送待工厂报价',
@@ -20,6 +21,34 @@ const INQ_STATUS_TEXT = {
   cancelled: '已取消',
   expired: '已过期',
 };
+
+/**
+ * 胶囊上的短状态：全称（如「工厂已报价待确认」）在 36px 条里会顶到价格,
+ * 且两端口吻不同——工厂关心「等谁」, 客户关心「我该干什么」
+ */
+function shortStatus(c, isFactory) {
+  if (c.status === 'factory_quoted' && c.quoteExpired) return '报价已过期';
+  const map = isFactory
+    ? {
+      quoted: '待客户选厂', matched: '待你报价', factory_quoted: '等客户确认',
+      user_confirmed: '客户已下单', accepted: '已接单', converted: '已下单',
+      cancelled: '已取消', expired: '已过期',
+    }
+    : {
+      quoted: '待选定工厂', matched: '等工厂报价', factory_quoted: '待你确认下单',
+      user_confirmed: '已下单待支付', accepted: '工厂已接单', converted: '已下单',
+      cancelled: '已取消', expired: '已过期',
+    };
+  return map[c.status] || '';
+}
+
+/** 状态圆点配色：待办橙、在途蓝、终态灰绿, 让「该行动」一眼跳出来 */
+function statusDot(c) {
+  if (['cancelled', 'expired'].includes(c.status) || (c.status === 'factory_quoted' && c.quoteExpired)) return 'off';
+  if (c.status === 'factory_quoted') return 'hot';
+  if (c.status === 'quoted' || c.status === 'matched') return 'wait';
+  return 'done';
+}
 
 // 微信式时间分级：今天 HH:mm / 昨天 HH:mm / 本年 M月D日 HH:mm / 跨年带年份
 function formatChatTime(d) {
@@ -62,6 +91,7 @@ Page({
     ctx: null,
     ctxOpen: false,
     ctxBarH: CTX_BAR_H,
+    ctxGap: CTX_GAP,
     // 工厂就地改价弹层（仅 ctx.canRequote 时可开）
     rq: { show: false, price: '', validDays: '7', remark: '', submitting: false },
   },
@@ -85,12 +115,15 @@ Page({
       setTimeout(() => wx.navigateBack(), 900);
       return;
     }
+    const peerTitle = decodeURIComponent(options.title || '') || (isFactory ? '客户' : '工厂');
+    const inqNo = decodeURIComponent(options.no || '');
     this.setData({
       inquiryId,
       factoryId: isFactory ? (factoryAuth.factoryId || 0) : factoryId,
       isFactory,
-      title: decodeURIComponent(options.title || '') || (isFactory ? '客户' : '工厂'),
-      subTip: decodeURIComponent(options.no || ''),
+      title: peerTitle,
+      // 入口页拿不到对家名时会退化成传单号, 此时副标题再挂一遍就是重复
+      subTip: inqNo === peerTitle ? '' : inqNo,
       loading: true,
     });
     wx.setNavigationBarTitle && wx.setNavigationBarTitle({ title: this.data.title });
@@ -99,8 +132,9 @@ Page({
   },
 
   // 会话双方头像：对家名与全站工厂首字头像同源（utils/avatar）, 我方优先真实头像
-  syncAvatars() {
-    const peer = getAvatarConfig(this.data.title || '');
+  // peerName 用于 ctx 回填对家真名后重算头像（此时 this.data.title 尚未刷到回调里）
+  syncAvatars(peerName) {
+    const peer = getAvatarConfig(peerName || this.data.title || '');
     const out = { peerAvatarText: peer.text, peerAvatarColor: peer.color, myAvatarFull: '' };
     const src = (this.data.isFactory ? wx.getStorageSync('factoryAuth') : wx.getStorageSync('userAuth')) || {};
     // C 端有真实头像就直接用图
@@ -166,12 +200,22 @@ Page({
       const ctx = c ? {
         ...c,
         statusText: INQ_STATUS_TEXT[c.status] || c.status,
+        shortText: shortStatus(c, this.data.isFactory),
+        dotClass: statusDot(c),
         productText: PRODUCT_TEXT[c.productType] || c.productType || '',
         orderStatusText: c.orderStatus ? (ORDER_STATUS_TEXT[c.orderStatus] || c.orderStatus) : '',
         revisionText: c.revision > 1 ? `已调价 ${c.revision - 1} 次` : '',
       } : null;
+      // 标题回填对家真名：入口页常拿不到联系人名而退化成单号, 单据条就不再重复显单号
+      const peer = ctx ? (this.data.isFactory ? ctx.customerName : ctx.factoryName) : '';
+      const patch = { messages: list, loading: false, lastId: 0, ctx };
+      if (peer && peer !== this.data.title) {
+        patch.title = peer;
+        this.syncAvatars(peer);
+      }
+      if (ctx && ctx.inquiryNo) patch.subTip = ctx.inquiryNo;
       // scroll-into-view 同值不重滚：先清 0 再回到末尾消息锚点
-      this.setData({ messages: list, loading: false, lastId: 0, ctx }, () => {
+      this.setData(patch, () => {
         if (scrollToBottom) this.setData({ lastId: this._tailId });
       });
       this.startPoll();
@@ -320,6 +364,16 @@ Page({
 
   toggleCtx() {
     this.setData({ ctxOpen: !this.data.ctxOpen });
+  },
+
+  // 单号已从胶囊收进面板, 给一个直接可复制的落点（报修/对单时要手写这串）
+  copyInquiryNo(e) {
+    const no = e.currentTarget.dataset.no;
+    if (!no) return;
+    wx.setClipboardData({
+      data: String(no),
+      success: () => wx.showToast({ title: '单号已复制', icon: 'success' }),
+    });
   },
 
   // 客户视角：本页面不承载下单, 报价待确认时直达「我的-询价」点确认
