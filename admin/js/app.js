@@ -754,10 +754,11 @@ const app = createApp({
           defaultWasteRate: Number(pricing.defaultWasteRate) || 0,
         };
         state.factoryCatalogOpts = opts || {};
-        // 026：按已下发权限点加载本厂客户与本厂报价单（旧会话无新权限点则跳过，重新登录后生效）
-        const perms = ((state.factoryAuth || {}).permissions) || [];
-        if (perms.includes('customer:manage')) await loadCustomersPage(1);
-        if (perms.includes('quote:view')) await loadQuotesPage(1);
+        // 026：加载本厂客户与本厂报价单。权限判定必须与菜单用同一个 hasPerm()——
+        // 旧会话没带 permissions 时 hasPerm 会按 owner 兜底放行, 这里若只认 permissions 数组,
+        // 就会出现「菜单点得进去、数据压根没拉」的空表
+        if (hasPerm('customer:manage')) await loadCustomersPage(1);
+        if (hasPerm('quote:view')) await loadQuotesPage(1);
       } catch (err) {
         console.error(err);
         // 401 时登录遮罩自动弹出

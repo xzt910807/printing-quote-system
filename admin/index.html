@@ -443,7 +443,9 @@
         <!-- 报价单列表 -->
         <div v-show="page==='quotes'" class="panel">
           <div class="panel-head">
-            <div class="panel-title">报价单列表</div>
+            <div class="panel-title">{{ isFactoryMode ? '我的报价单' : '报价单列表' }}
+              <span class="panel-sub">报价计算器里点过「保存」的报价存档（Q 开头单号），不是对某条询价的回复报价</span>
+            </div>
             <div class="head-tools">
               <input class="search-input" v-model.trim="quoteKeyword" placeholder="搜索单号 / 客户 / 工厂" @input="onQuoteSearch" />
               <button class="btn btn-secondary btn-sm" @click="exportQuotes">导出 CSV</button>
@@ -466,7 +468,7 @@
                         :title="'客户折扣 ' + Math.round(Number(q.discount_rate) * 100) + '%'">{{ Math.round(Number(q.discount_rate) * 100) }}%</span>
                 </td>
                 <td><span class="badge">{{ statusLabel(q.status) }}</span></td>
-                <td class="muted">{{ q.created_at }}</td>
+                <td class="muted">{{ formatTime(q.created_at) }}</td>
                 <td><button class="btn btn-sm btn-danger" @click="removeQuote(q)">删除</button></td>
               </tr>
               <tr v-if="!quotes.length"><td colspan="10" class="empty">暂无数据</td></tr>
