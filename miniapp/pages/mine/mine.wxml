@@ -300,18 +300,22 @@
       <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
       {{searchKeyword ? '没有匹配的供应商' : '暂无供应商：完成订单会自动沉淀，也可在工厂详情页点「☆ 关注」手动添加'}}
     </view>
-    <!-- 分两组渲染：「已关注」是自己圈的（可标签/置顶）, 「合作过」是完成订单自动沉淀的（只剩关注动作） -->
+    <!-- 分两组渲染：「已关注」是自己圈的（可标签/置顶）, 「合作过」是完成订单自动沉淀的（只剩关注动作）
+         组标题用竖色条 + 延伸细线, 否则与卡片同缩进的小灰字会被当成卡片自己的注释而不是分组边界 -->
     <view class="sup-group" wx:if="{{supFollowed.length}}">
+      <view class="sup-group-bar"></view>
       <text class="sup-group-t">已关注</text>
       <text class="sup-group-n">{{supFollowed.length}} 家</text>
+      <view class="sup-group-line"></view>
     </view>
     <block wx:for="{{supFollowed}}" wx:key="id">
       <template is="supCard" data="{{item: item}}" />
     </block>
     <view class="sup-group" wx:if="{{supHistory.length}}">
+      <view class="sup-group-bar sup-group-bar-plain"></view>
       <text class="sup-group-t">合作过</text>
       <text class="sup-group-n">{{supHistory.length}} 家</text>
-      <text class="sup-group-sub">完成订单后自动沉淀</text>
+      <view class="sup-group-line"></view>
     </view>
     <block wx:for="{{supHistory}}" wx:key="id">
       <template is="supCard" data="{{item: item}}" />

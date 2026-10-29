@@ -493,11 +493,15 @@
 
 .qb-confirm { text-align: center; margin-top: 18rpx; padding: 16rpx 0; font-size: 28rpx; }
 
-/* 033 供应商分组标题：区分「已关注」（自己圈的, 可标签/置顶）与「合作过」（订单完成后自动沉淀）两类来源 */
-.sup-group { display: flex; align-items: baseline; gap: 12rpx; margin: 26rpx 8rpx 12rpx; }
+/* 033 供应商分组标题：区分「已关注」（自己圈的, 可标签/置顶）与「合作过」（订单完成后自动沉淀）两类来源
+   竖色条把标题和下方卡片绑成一组, 右端细线吃掉原来的空白：同缩进的小灰字会被读作卡片自己的注释 */
+.sup-group { display: flex; align-items: center; gap: 10rpx; margin: 30rpx 8rpx 14rpx; }
+.sup-group-bar { flex: none; width: 6rpx; height: 26rpx; border-radius: 3rpx; background: #2563eb; }
+/* 合作过是系统沉淀的中性来源, 灰条与「已关注」的蓝条分主次 */
+.sup-group-bar-plain { background: #cbd5e1; }
 .sup-group-t { font-size: 26rpx; font-weight: 600; color: #334155; }
 .sup-group-n { font-size: 22rpx; color: #94a3b8; }
-.sup-group-sub { font-size: 22rpx; color: #b0bac9; margin-left: auto; }
+.sup-group-line { flex: 1; height: 1rpx; background: #eef2f7; }
 
 /* 033 供应商关注：公司名是卡片主角(主色蓝, 与询价卡工厂名同属可点击跳工厂详情的语义), 金额标签灰+数字重, 标签紫色 chip */
 .sup-name { font-size: 30rpx; font-weight: 600; color: #2563eb; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-right: 16rpx; }
