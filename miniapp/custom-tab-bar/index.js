@@ -4,7 +4,7 @@ const app = getApp();
 // 图标走全局 app.wxss 的 .ic 线性图标体系（iconClass），不再用 emoji
 const ALL_TABS = [
   { pagePath: '/pages/quote/quote', text: '报价', iconClass: 'ic-quote' },
-  { pagePath: '/pages/factory/factory', text: '接单', iconClass: 'ic-factory', factoryOnly: true },
+  { pagePath: '/pages/factory/factory', text: '接单', iconClass: 'ic-accept', factoryOnly: true },
   { pagePath: '/pages/factories/factories', text: '找厂', iconClass: 'ic-search' },
   { pagePath: '/pages/mine/mine', text: '我的', iconClass: 'ic-mine' },
 ];

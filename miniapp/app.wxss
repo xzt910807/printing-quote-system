@@ -193,6 +193,27 @@ button::after { border: none; }
   border: 3rpx solid currentColor; border-bottom: none; border-radius: 2rpx 2rpx 0 0;
 }
 
+/* 接单（B 方案）：托盘 + 下箭头——tabBar 与工厂入口用动作语义, 表达「有单待收」
+   厂房图标（ic-factory）保留给“工厂”作为实体的场合：空态、厂名内联、供应商入口
+   箭头头部不写字符, 用只画右下两边再转 45° 的方块, 得到的正是朝下的 V */
+.ic-accept .ic-a {
+  left: 3rpx; bottom: 3rpx; width: 34rpx; height: 12rpx;
+  border: 3rpx solid currentColor; border-top: none;
+  border-radius: 0 0 6rpx 6rpx;
+}
+
+.ic-accept::before {
+  content: ''; position: absolute; left: 50%; top: 2rpx; transform: translateX(-50%);
+  width: 3rpx; height: 12rpx; background: currentColor; border-radius: 2rpx;
+}
+
+.ic-accept::after {
+  content: ''; position: absolute; left: 50%; top: 8rpx; margin-left: -6rpx;
+  width: 12rpx; height: 12rpx; box-sizing: border-box;
+  border-right: 3rpx solid currentColor; border-bottom: 3rpx solid currentColor;
+  border-radius: 0 0 4rpx 0; transform: rotate(45deg);
+}
+
 /* 找厂：放大镜 */
 .ic-search .ic-a {
   left: 3rpx; top: 3rpx; width: 20rpx; height: 20rpx;

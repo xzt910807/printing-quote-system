@@ -114,7 +114,7 @@
   <view class="card menu-card fac-card" wx:if="{{auth && (factoryAuth || role === 'factory')}}" bindtap="onFacCardTap">
     <view class="menu-row">
       <view class="menu-row-left">
-        <view class="menu-ic menu-ic-orange"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
+        <view class="menu-ic menu-ic-orange"><view class="ic ic-accept"><view class="ic-a"></view></view></view>
         <view class="fac-info">
           <text class="menu-row-label">{{facCardTitle}}</text>
           <text class="fac-sub"><text class="fac-dot" wx:if="{{facLoggedIn}}"></text>{{facCardSub}}</text>
