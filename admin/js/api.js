@@ -112,10 +112,13 @@ const api = {
     const qs = status ? '?status=' + encodeURIComponent(status) : '';
     return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/orders' + qs);
   },
-  factoryInquiries(status) {
+  factoryInquiries(params = {}) {
     const auth = getFactoryAuth();
-    const qs = status ? '?status=' + encodeURIComponent(status) : '';
-    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/inquiries' + qs);
+    // 本厂询价也是服务端分页（后端默认 20/页）, 不接 page/pageSize 就只能看到最新一页
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
+    ).toString();
+    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/inquiries' + (qs ? '?' + qs : ''));
   },
   factoryOrderStatus(id, action, extra) {
     return this.request('/api/factory/order/' + id + '/status', { method: 'POST', body: { action, ...(extra || {}) } });

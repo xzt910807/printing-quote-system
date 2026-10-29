@@ -412,13 +412,13 @@
             </div>
             <div class="stat-card">
               <div class="stat-label">我的订单</div>
-              <div class="stat-value">{{ orders.length }}</div>
+              <div class="stat-value">{{ orderTotal }}</div>
             </div>
           </div>
 
           <div class="panel">
             <div class="panel-head">
-              <div class="panel-title">待响应询价（{{ factoryPendingInquiries.length }}）</div>
+              <div class="panel-title">待响应询价（{{ factoryPendingTotal }}）</div>
               <div class="head-tools"><button class="btn btn-secondary btn-sm" @click="goto('inquiries')">全部询价</button></div>
             </div>
             <table class="table">
@@ -542,7 +542,7 @@
               <tr v-if="!inquiries.length"><td colspan="8" class="empty">暂无数据</td></tr>
             </tbody>
           </table>
-          <!-- stage16 分页：每页 20 条（管理端列表；工厂视角走本厂推送接口不分页） -->
+          <!-- stage16 分页：每页 20 条（管理端走 C 端列表, 工厂视角走本厂推送接口, 两端都是服务端分页） -->
           <div class="pager" v-if="inquiryTotal > 0">
             <span class="pager-info">共 {{ inquiryTotal }} 条 · 第 {{ inquiryPage }} / {{ inquiryPages }} 页</span>
             <button class="btn btn-sm" :disabled="inquiryPage <= 1" @click="loadInquiriesPage(inquiryPage - 1)">上一页</button>

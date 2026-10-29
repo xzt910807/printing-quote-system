@@ -62,6 +62,9 @@ const app = createApp({
       factoryAuth: null,
       factoryPricing: { defaultMargin: 0, defaultTaxRate: 0, defaultWasteRate: 0, overrides: {} },
       factoryCatalogOpts: {},
+      // 待响应询价（我的数据面板的待办清单）: 单独按 status=pending 查, 不能从「我的询价」当前页里筛
+      factoryPending: [],
+      factoryPendingTotal: 0,
       pricingForm: { defaultMargin: 0, defaultTaxRate: 0, defaultWasteRate: 0 },
       factoryNewOverride: { targetType: 'boardPaper', targetCode: '', fieldName: 'price_per_sqm', fieldValue: 0 },
       // stage14 列表搜索关键词（与状态过滤叠加；工厂模式为本地过滤）
@@ -448,10 +451,13 @@ const app = createApp({
     }
     async function loadInquiriesPage(page) {
       try {
-        const res = await api.cInquiryList({
-          page: page || 1, pageSize: LIST_PAGE_SIZE,
-          keyword: state.inquiryKeyword || undefined,
-        });
+        // 工厂视角走本厂推送接口（同为服务端分页, 两端的出参都是 {list,total,page}）
+        const res = state.isFactoryMode
+          ? await api.factoryInquiries({ page: page || 1, pageSize: LIST_PAGE_SIZE })
+          : await api.cInquiryList({
+              page: page || 1, pageSize: LIST_PAGE_SIZE,
+              keyword: state.inquiryKeyword || undefined,
+            });
         state.inquiries = res.list || [];
         state.inquiryTotal = res.total || 0;
         state.inquiryPage = res.page || page || 1;
@@ -716,14 +722,21 @@ const app = createApp({
     // ===== stage14 SaaS 工厂视图：数据加载与价格设置 =====
     async function loadFactoryData() {
       try {
-        const [ordersRes, inquiries, pricing, opts] = await Promise.all([
+        const [ordersRes, inquiriesRes, pendingRes, pricing, opts] = await Promise.all([
           api.factoryOrders(),
-          api.factoryInquiries(),
+          api.factoryInquiries({ page: state.inquiryPage || 1, pageSize: LIST_PAGE_SIZE }),
+          api.factoryInquiries({ status: 'pending', pageSize: 50 }),
           api.factoryPricing(),
           api.factoryCatalogOptions(),
         ]);
         state.orders = ordersRes.list || [];
-        state.inquiries = inquiries || [];
+        state.orderTotal = ordersRes.total || 0;
+        // 接口出参是 {total,page,pageSize,hasMore,list}, 直接把整个对象拍给 v-for 会渲染出几行空数据
+        state.inquiries = inquiriesRes.list || [];
+        state.inquiryTotal = inquiriesRes.total || 0;
+        state.inquiryPage = inquiriesRes.page || 1;
+        state.factoryPending = pendingRes.list || [];
+        state.factoryPendingTotal = pendingRes.total || 0;
         state.factoryPricing = pricing;
         state.pricingForm = {
           defaultMargin: Number(pricing.defaultMargin) || 0,
@@ -1987,7 +2000,7 @@ const app = createApp({
       if (!h || h <= 0) return '1小时内';
       return h < 24 ? h.toFixed(1) + '小时' : (h / 24).toFixed(1) + '天';
     });
-    const factoryPendingInquiries = computed(() => (state.inquiries || []).filter((i) => i.response === 'pending'));
+    const factoryPendingInquiries = computed(() => state.factoryPending || []);
 
     async function changeMyPassword() {
       // stage14 SaaS：工厂视图改的是工厂账号密码
