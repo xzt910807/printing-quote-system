@@ -22,6 +22,19 @@ const ALLOWED_MIMES = [
   'application/octet-stream', // CDR/AI/DWG 等常以 octet-stream 上传
 ];
 
+/**
+ * multipart 里的文件名按 latin1 解（busboy 行为）, 中文名会成 mojibake：
+ * 「礼盒刀模图.pdf」→「ç¤¼ç›’åˆ€æ¨å›¾.pdf」, 会话文件列表里直接不可读。
+ * 纯 ASCII 原样返回; 只有能干净转回 UTF-8（不出现替换符）才用转后的,
+ * 免得本来就是 UTF-8 的名字被二次解码搞坏
+ */
+function decodeFileName(raw) {
+  const s = String(raw || '');
+  if (!s || /^[\x20-\x7e]*$/.test(s)) return s;
+  const fixed = Buffer.from(s, 'latin1').toString('utf8');
+  return fixed.indexOf('\uFFFD') >= 0 ? s : fixed;
+}
+
 // multer 存储配置
 const storage = multer.diskStorage({
   destination(req, file, cb) {
@@ -29,8 +42,11 @@ const storage = multer.diskStorage({
     cb(null, FILES_DIR);
   },
   filename(req, file, cb) {
-    const ext = path.extname(file.originalname).toLowerCase() || '';
-    const safeName = path.basename(file.originalname, ext).replace(/[^\\w\\u4e00-\\u9fa5\\-]/g, '_').slice(0, 50);
+    const original = decodeFileName(file.originalname);
+    const ext = path.extname(original).toLowerCase() || '';
+    // 注：正则字面量里写 \w 就是一个反斜杠加 w, 要字符类必须写单反斜杠;
+    // 之前双反斜杠使白名单实际失效, 连正常字母数字都被替换成下划线
+    const safeName = path.basename(original, ext).replace(/[^\w\u4e00-\u9fa5-]/g, '_').slice(0, 50);
     const refType = req.body.refType || 'misc';
     const refId = req.body.refId || '0';
     cb(null, `${refType}_${refId}_${Date.now()}_${safeName}${ext}`);
@@ -92,12 +108,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const senderType = userId ? 'user' : 'factory';
     const senderId = userId || factoryId;
     const fileUrl = '/uploads/files/' + req.file.filename;
+    const originalName = decodeFileName(req.file.originalname);
 
     const [ret] = await pool.query(
       'INSERT INTO file_transfer (ref_type, ref_id, sender_type, sender_id, file_name, file_url, file_size, mime_type) VALUES (?,?,?,?,?,?,?,?)',
-      [refType, refId, senderType, senderId, req.file.originalname, fileUrl, req.file.size, req.file.mimetype]
+      [refType, refId, senderType, senderId, originalName, fileUrl, req.file.size, req.file.mimetype]
     );
-    res.json(ok({ id: ret.insertId, fileUrl, fileName: req.file.originalname, fileSize: req.file.size }));
+    res.json(ok({ id: ret.insertId, fileUrl, fileName: originalName, fileSize: req.file.size }));
   } catch (err) {
     // 清理已落盘的文件（multer 已保存）
     if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}

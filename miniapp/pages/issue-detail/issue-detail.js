@@ -117,33 +117,17 @@ Page({
 
   uploadFile(f) {
     this.setData({ uploading: true });
-    const isFac = this.isFactory();
-    const token = isFac ? (this.data.factoryAuth && this.data.factoryAuth.token) || '' : (wx.getStorageSync('user_token') || '');
-    const userId = !isFac && (wx.getStorageSync('userAuth') || {}).userId;
-    const header = { 'Content-Type': 'multipart/form-data' };
-    if (isFac) {
-      header['X-Factory-Id'] = String(this.data.factoryAuth.factoryId);
-      header['X-Factory-Token'] = token;
-    } else {
-      header['X-User-Token'] = token;
-      if (userId) header['X-User-Id'] = String(userId);
-    }
-    wx.uploadFile({
-      url: api.BASE_URL + (isFac ? '/api/factory/file/upload' : '/api/c/file/upload'),
-      filePath: f.path,
-      name: 'file',
-      formData: { refType: 'issue', refId: String(this.data.id) },
-      header,
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data);
-          if (data && data.success) { wx.showToast({ title: '上传成功', icon: 'success' }); this.loadFiles(); }
-          else wx.showToast({ title: (data && data.error) || '上传失败', icon: 'none' });
-        } catch (e) { wx.showToast({ title: '上传异常', icon: 'none' }); }
-      },
-      fail: () => wx.showToast({ title: '上传失败', icon: 'none' }),
-      complete: () => this.setData({ uploading: false }),
-    });
+    // 旧版 C 端 token 读的是 storage 里根本不存在的 user_token 键（恒为空串 → requireUser 401）,
+    // 换成 api.upload 后身份头由公共层统一注入
+    api.upload(this.isFactory() ? '/api/factory/file/upload' : '/api/c/file/upload',
+      f.path, { refType: 'issue', refId: String(this.data.id) },
+      { headers: this.facHeaders() })
+      .then(() => {
+        wx.showToast({ title: '上传成功', icon: 'success' });
+        this.loadFiles();
+      })
+      .catch((err) => wx.showToast({ title: err.message || '上传失败', icon: 'none' }))
+      .finally(() => this.setData({ uploading: false }));
   },
 
   previewImage(e) {

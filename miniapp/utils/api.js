@@ -45,4 +45,48 @@ function request(path, options = {}) {
   });
 }
 
-module.exports = { request, BASE_URL };
+/**
+ * multipart 文件上传（wx.uploadFile 的 Promise 封装）
+ *
+ * wx.uploadFile 不走 request(), 身份头与响应协议得各写一遍, 026 协同文件上线时就因为
+ * 各页面各写一份出过三种错法：按后端根本没有的 code 字段判成功（文件已落库仍弹「上传失败」）、
+ * C 端只带 X-User-Token 漏 X-User-Id（requireUser 两个头缺一即 401）、读了从未写入过的
+ * storage 键 user_token（token 恒空）。统一到这里, 页面只处理结果。
+ *
+ * options.headers 传工厂端凭证（X-Factory-Id/Token）; Content-Type 不手写,
+ * wx.uploadFile 会自己带 boundary, 手写反而把 multipart 头覆盖坏。
+ * @returns {Promise<any>} resolve 后端 data 载荷, reject Error(error 文案)
+ */
+function upload(path, filePath, formData = {}, options = {}) {
+  return new Promise((resolve, reject) => {
+    let userAuth = null;
+    try { userAuth = wx.getStorageSync('userAuth'); } catch (e) { userAuth = null; }
+    wx.uploadFile({
+      url: BASE_URL + path,
+      filePath,
+      name: options.field || 'file',
+      formData,
+      header: {
+        ...(userAuth && userAuth.userId
+          ? { 'X-User-Id': String(userAuth.userId), 'X-User-Token': userAuth.token }
+          : {}),
+        ...(options.headers || {}),
+      },
+      success: (res) => {
+        let body = null;
+        try { body = JSON.parse(res.data); } catch (e) { body = null; }
+        if (body && body.success) return resolve(body.data);
+        // 非 JSON 响应一般是网关或进程层拦下的（413 体积超限 / 502）, 带上状态码才好定位
+        const msg = (body && body.error)
+          ? body.error
+          : ('上传失败' + (res.statusCode ? '（' + res.statusCode + '）' : ''));
+        const err = new Error(msg);
+        err.statusCode = res.statusCode;
+        reject(err);
+      },
+      fail: () => reject(new Error('网络异常，上传失败')),
+    });
+  });
+}
+
+module.exports = { request, upload, BASE_URL };

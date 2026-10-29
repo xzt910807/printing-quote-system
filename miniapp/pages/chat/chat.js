@@ -292,38 +292,22 @@ Page({
   },
 
   uploadFile(file) {
-    const token = this.data.isFactory
-      ? (wx.getStorageSync('factoryAuth') || {}).token
-      : (wx.getStorageSync('userAuth') || {}).token;
-    const header = {};
-    if (this.data.isFactory) {
-      header['X-Factory-Id'] = String((wx.getStorageSync('factoryAuth') || {}).factoryId || '');
-      header['X-Factory-Token'] = token || '';
-    } else {
-      header['X-User-Token'] = token || '';
-    }
-    const url = api.BASE_URL + (this.data.isFactory ? '/api/factory/file/upload' : '/api/c/file/upload');
+    const path = this.data.isFactory ? '/api/factory/file/upload' : '/api/c/file/upload';
     wx.showLoading({ title: '上传中', mask: true });
-    wx.uploadFile({
-      url,
-      filePath: file.path,
-      name: 'file',
-      formData: { refType: 'inquiry', refId: String(this.data.inquiryId) },
-      header,
-      success: (res) => {
+    api.upload(path, file.path,
+      { refType: 'inquiry', refId: String(this.data.inquiryId) },
+      { headers: this.authHeaders() })
+      .then(() => {
+        // 先关 loading 再弹 toast：两者共用同一个原生通道, 反过来会把 toast 一并关掉
         wx.hideLoading();
-        let data = {};
-        try { data = JSON.parse(res.data); } catch (e) {}
-        if (data && data.code === 0) {
-          wx.showToast({ title: '文件已发送', icon: 'success' });
-          this.loadFiles();
-          this.setData({ filesExpanded: true });
-        } else {
-          wx.showToast({ title: (data && data.msg) || '上传失败', icon: 'none' });
-        }
-      },
-      fail: () => { wx.hideLoading(); wx.showToast({ title: '上传失败', icon: 'none' }); },
-    });
+        wx.showToast({ title: '文件已发送', icon: 'success' });
+        this.setData({ filesExpanded: true });
+        this.loadFiles();
+      })
+      .catch((err) => {
+        wx.hideLoading();
+        wx.showToast({ title: err.message || '上传失败', icon: 'none' });
+      });
   },
 
   onInput(e) {
