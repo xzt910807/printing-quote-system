@@ -174,21 +174,23 @@ button::after { border: none; }
   box-shadow: 0 9rpx 0 currentColor;
 }
 
-/* 接单：厂房（实心锯齿屋顶 + 三线身 + 门） */
+/* 接单：厂房（主体轮廓 + 右肩烟囱 + 拱形卷帘门）
+   旧版是实心锯齿屋顶配线框房身：一半实一半线本身不统一, 且 clip-path 的四个齿缩到 36rpx 就糊成一团。
+   现靠烟囱与厂房区分于 ic-building（大楼）, 全图标保持同一套 3rpx 线性语言 */
 .ic-factory .ic-a {
-  left: 2rpx; top: 3rpx; width: 36rpx; height: 13rpx;
-  background: currentColor;
-  clip-path: polygon(0% 100%, 0% 15%, 20% 55%, 20% 15%, 40% 55%, 40% 15%, 60% 55%, 60% 15%, 80% 55%, 80% 15%, 100% 55%, 100% 100%);
+  left: 5rpx; bottom: 3rpx; width: 30rpx; height: 19rpx;
+  border: 3rpx solid currentColor; border-radius: 3rpx;
 }
 
-.ic-factory::before {
-  content: ''; position: absolute; left: 2rpx; top: 16rpx; width: 36rpx; height: 20rpx;
-  border: 3rpx solid currentColor; border-top: none; box-sizing: border-box;
+.ic-factory .ic-a::before {
+  content: ''; position: absolute; right: 2rpx; top: -11rpx;
+  width: 5rpx; height: 11rpx; background: currentColor; border-radius: 2rpx 2rpx 0 0;
 }
 
-.ic-factory::after {
-  content: ''; position: absolute; left: 50%; bottom: 4rpx; transform: translateX(-50%);
-  width: 8rpx; height: 9rpx; background: currentColor; border-radius: 2rpx 2rpx 0 0;
+.ic-factory .ic-a::after {
+  content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 12rpx; height: 8rpx; box-sizing: border-box;
+  border: 3rpx solid currentColor; border-bottom: none; border-radius: 2rpx 2rpx 0 0;
 }
 
 /* 找厂：放大镜 */
