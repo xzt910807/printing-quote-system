@@ -166,7 +166,41 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 /**
+ * 单个文件能不能被这个身份取走（与 /list 同一口径, 下载接口必须过这道）
+ * 之前 /:id/download 只靠挂载中间件校了“登录了”, 登录用户把 id 改一个就能拉走别人询价/订单的刀模图
+ * 询价文件是会话内私物：工厂只能取自己那条会话里的（同一条询价推给三家厂, A 厂的不给 B 厂）
+ */
+async function assertFileReadable(file, userId, factoryId) {
+  if (file.ref_type === 'inquiry') {
+    if (userId) {
+      // 客户是询价归属人, 自己各条会话里的文件都能取
+      const [[inq]] = await pool.query('SELECT id FROM c_inquiry WHERE id = ? AND user_id = ?', [file.ref_id, userId]);
+      if (!inq) throw new Error('无权访问');
+      return;
+    }
+    if (factoryId) {
+      const [[im]] = await pool.query(
+        "SELECT id FROM inquiry_message WHERE msg_type = 'file' AND file_id = ? AND inquiry_id = ? AND factory_id = ?",
+        [file.id, file.ref_id, factoryId]
+      );
+      if (!im) throw new Error('无权访问');
+      return;
+    }
+    throw new Error('无权访问');
+  }
+  // 订单与工单各自只有一对买卖方, 按归属表校即可
+  const table = file.ref_type === 'order' ? 'order_main' : file.ref_type === 'issue' ? 'issue_ticket' : null;
+  if (!table) throw new Error('未知的文件归属类型');
+  const ownerCol = userId ? 'user_id' : 'factory_id';
+  const ownerVal = userId || factoryId;
+  if (!ownerVal) throw new Error('无权访问');
+  const [[own]] = await pool.query(`SELECT id FROM ${table} WHERE id = ? AND ${ownerCol} = ?`, [file.ref_id, ownerVal]);
+  if (!own) throw new Error('无权访问');
+}
+
+/**
  * GET /list?refType=&refId= — 查关联文件列表
+ * refType=inquiry 时可用 factoryId 收窄到某一个会话
  */
 router.get('/list', async (req, res) => {
   try {
@@ -204,6 +238,20 @@ router.get('/list', async (req, res) => {
       // admin 无 userId/factoryId，不拦截（上游需已接 requireAdmin）
     }
 
+    // 询价按会话取：一条询价常同时推给多家厂, 上传与收到的文件只属于那一段对话
+    if (refType === 'inquiry') {
+      const threadFactoryId = factoryId || (parseInt(req.query.factoryId, 10) || 0);
+      const [rows] = await pool.query(
+        `SELECT ft.id, ft.sender_type, ft.sender_id, ft.file_name, ft.file_url, ft.file_size, ft.mime_type, ft.created_at
+         FROM file_transfer ft
+         JOIN inquiry_message im ON im.msg_type = 'file' AND im.file_id = ft.id
+         WHERE ft.ref_type = 'inquiry' AND ft.ref_id = ?${threadFactoryId ? ' AND im.factory_id = ?' : ''}
+         GROUP BY ft.id ORDER BY ft.created_at ASC`,
+        threadFactoryId ? [refId, threadFactoryId] : [refId]
+      );
+      return res.json(ok({ list: rows }));
+    }
+
     const [rows] = await pool.query(
       'SELECT id, sender_type, sender_id, file_name, file_url, file_size, mime_type, created_at FROM file_transfer WHERE ref_type = ? AND ref_id = ? ORDER BY created_at ASC',
       [refType, refId]
@@ -220,8 +268,9 @@ router.get('/list', async (req, res) => {
 router.get('/:id/download', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const [[row]] = await pool.query('SELECT file_url, file_name FROM file_transfer WHERE id = ?', [id]);
+    const [[row]] = await pool.query('SELECT id, ref_type, ref_id, file_url, file_name FROM file_transfer WHERE id = ?', [id]);
     if (!row) throw new Error('文件不存在');
+    await assertFileReadable(row, req.user ? req.user.id : null, req.factory ? req.factory.id : null);
     const filePath = path.join(__dirname, '..', '..', row.file_url.replace(/^\//, ''));
     if (!fs.existsSync(filePath)) throw new Error('文件已丢失');
     res.download(filePath, row.file_name);

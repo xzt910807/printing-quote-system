@@ -193,6 +193,7 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 - **设备图文**：B 端 `GET/POST/DELETE /api/factory/me/media`（base64 上传，落 `uploads/factory-media/`，默认上传即 approved）；管理后台「工厂管理 → 图文」弹窗展示图集并支持逐张通过/驳回（`POST /api/factory/media/:mediaId/audit`，驳回连带删文件）；C 端详情页图集。**uploads 目录需纳入备份与 Nginx 静态反代（第 6 节已有 /uploads/）。**
 - **IM 在线沟通**：新表 `inquiry_message`，会话键 = inquiry_id + factory_id；路由 `/api/messages/*`（threads/thread/send/unread），双身份鉴权（X-Factory-* 优先）。无长连接，小程序聊天页 15s 轮询；工厂回复时降级复用站内信通知客户。
 - **协同文件进会话**：`inquiry_message` 的 `msg_type`/`file_id` 两列支撑“文件也是一条消息”（026 的 `file_transfer` 表已并入 init.sql）。上传接口在 `refType=inquiry` 时同步写一条 `msg_type='file'` 消息，会话对家工厂由前端携带的 `factoryId` 决定（工厂侧就是本厂；客户侧没带则按 `matched_factory_id` 兜底，都对不上就只存文件不进消息流，响应里 `threaded=false`）。**发版后需补存量文件**：`node scripts/backfill-file-message.js --apply`（幂等，回填的消息 `is_read=1`，不会把人砸一屏未读）。
+- **文件读取按会话隔离**：一条询价常同时推给多家厂，A 厂聊天里递的刀模图不能让 B 厂列走。`GET /api/{c,factory}/file/list?refType=inquiry` 只返回在 `(inquiry_id, factory_id)` 会话里有 `msg_type='file'` 消息行的文件（工厂侧固定本厂；客户侧可带 `factoryId` 收窄到某一个会话，不带则返回自己全部会话）；`GET /api/{c,factory}/file/:id/download` 过 `assertFileReadable`，与列表同口径（旧行为是只要登录了就能按 id 拉）。**局限**：静态 `/uploads/files/*` 仍是“拿到 URL 即可读”，聊天页图片就靠它；要防直链泄露得上签名 URL，本轮防的是列表与 id 枚举。
 
 ## 12. 结构同步与数据清理工具（init.sql 单一权威策略的配套）
 
