@@ -226,7 +226,9 @@ const app = createApp({
           const q = new URLSearchParams();
           if (issueFilter.status) q.set('status', issueFilter.status);
           const res = await api.request('/api/factory/issue?' + q.toString());
-          let list = (res.data && res.data.list) || [];
+          // api.request() 已经把响应体剥到 data 层, 这里直接取 res.list——
+          // 写成 res.data.list 会拿到 undefined, 面板永远“暂无工单”
+          let list = res.list || [];
           if (issueFilter.type) list = list.filter((it) => it.type === issueFilter.type);
           const kw = (issueFilter.keyword || '').toLowerCase();
           if (kw) list = list.filter((it) =>
@@ -243,8 +245,8 @@ const app = createApp({
         q.set('page', page || issueFilter.page || 1);
         q.set('size', 20);
         const res = await api.request('/api/admin/issue?' + q.toString());
-        issuesState.list = (res.data && res.data.list) || [];
-        issuesState.total = (res.data && res.data.total) || 0;
+        issuesState.list = res.list || [];
+        issuesState.total = res.total || 0;
         issueFilter.page = page || issueFilter.page || 1;
       } catch (err) {
         alert('工单加载失败：' + err.message);
@@ -281,7 +283,7 @@ const app = createApp({
       try {
         const base = state.isFactoryMode ? '/api/factory/issue/' : '/api/admin/issue/';
         const res = await api.request(base + issue.id + '/files');
-        const list = (res.data && res.data.list) || [];
+        const list = res.list || [];
         if (!list.length) { alert('本工单暂无附件'); return; }
         const lines = list.map((f) => {
           const who = f.sender_type === 'user' ? '用户' : (f.sender_type === 'factory' ? '工厂' : '平台');
@@ -303,8 +305,8 @@ const app = createApp({
         q.set('page', page || arbState.page || 1);
         q.set('pageSize', 20);
         const res = await api.request('/api/c/order/list?' + q.toString());
-        arbState.list = (res.data && res.data.list) || [];
-        arbState.total = (res.data && res.data.total) || 0;
+        arbState.list = res.list || [];
+        arbState.total = res.total || 0;
         arbState.page = page || arbState.page || 1;
       } catch (err) {
         alert('仲裁列表加载失败：' + err.message);

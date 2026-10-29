@@ -154,10 +154,10 @@ factoryRouter.get('/:id/files', async (req, res) => {
 const adminRouter = express.Router();
 adminRouter.use(requireAdmin);
 
-// GET / — 全部工单（可按状态/类型/工厂筛）
+// GET / — 全部工单（可按状态/类型/工厂筛, keyword 走服务端）
 adminRouter.get('/', async (req, res) => {
   try {
-    const { status, type, factoryId } = req.query;
+    const { status, type, factoryId, keyword } = req.query;
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const size = Math.min(parseInt(req.query.size, 10) || 30, 100);
     const conditions = [];
@@ -165,8 +165,16 @@ adminRouter.get('/', async (req, res) => {
     if (status && ['open', 'processing', 'resolved', 'closed'].includes(status)) { conditions.push('t.status = ?'); params.push(status); }
     if (type && ['quality', 'delay', 'reprint', 'other'].includes(type)) { conditions.push('t.type = ?'); params.push(type); }
     if (factoryId) { conditions.push('t.factory_id = ?'); params.push(parseInt(factoryId, 10)); }
+    // 后台工单面板的搜索框就是这个口径：工单号 / 标题 / 订单号 / 工厂名
+    if (keyword && String(keyword).trim()) {
+      const like = '%' + String(keyword).trim() + '%';
+      conditions.push('(t.ticket_no LIKE ? OR t.title LIKE ? OR o.order_no LIKE ? OR f.name LIKE ?)');
+      params.push(like, like, like, like);
+    }
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-    const [[{ total }]] = await pool.query(`SELECT COUNT(*) total FROM issue_ticket t ${where}`, params);
+    // count 与列表必须共用同一套 JOIN, 否则 keyword 命中 o./f. 列时总数会算错
+    const joins = ' LEFT JOIN order_main o ON o.id = t.order_id LEFT JOIN factory f ON f.id = t.factory_id';
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) total FROM issue_ticket t${joins} ${where}`, params);
     const [rows] = await pool.query(
       `SELECT t.id, t.ticket_no, t.order_id, o.order_no, t.user_id, t.factory_id, f.name AS factory_name,
               t.type, t.title, t.status, t.admin_note, t.resolved_at, t.created_at, t.updated_at
