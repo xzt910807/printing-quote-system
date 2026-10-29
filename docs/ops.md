@@ -192,6 +192,7 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 - **验真徽章**：`factory.license_verified` + `audit_status` 双条件出「已核验」徽章；管理后台「工厂管理 → 编辑」表单内置验真开关（写 `PUT /api/factory/:id` 的 licenseVerified 字段）。
 - **设备图文**：B 端 `GET/POST/DELETE /api/factory/me/media`（base64 上传，落 `uploads/factory-media/`，默认上传即 approved）；管理后台「工厂管理 → 图文」弹窗展示图集并支持逐张通过/驳回（`POST /api/factory/media/:mediaId/audit`，驳回连带删文件）；C 端详情页图集。**uploads 目录需纳入备份与 Nginx 静态反代（第 6 节已有 /uploads/）。**
 - **IM 在线沟通**：新表 `inquiry_message`，会话键 = inquiry_id + factory_id；路由 `/api/messages/*`（threads/thread/send/unread），双身份鉴权（X-Factory-* 优先）。无长连接，小程序聊天页 15s 轮询；工厂回复时降级复用站内信通知客户。
+- **协同文件进会话**：`inquiry_message` 的 `msg_type`/`file_id` 两列支撑“文件也是一条消息”（026 的 `file_transfer` 表已并入 init.sql）。上传接口在 `refType=inquiry` 时同步写一条 `msg_type='file'` 消息，会话对家工厂由前端携带的 `factoryId` 决定（工厂侧就是本厂；客户侧没带则按 `matched_factory_id` 兜底，都对不上就只存文件不进消息流，响应里 `threaded=false`）。**发版后需补存量文件**：`node scripts/backfill-file-message.js --apply`（幂等，回填的消息 `is_read=1`，不会把人砸一屏未读）。
 
 ## 12. 结构同步与数据清理工具（init.sql 单一权威策略的配套）
 
@@ -206,6 +207,7 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 | `node scripts/run-sql.js sql/init.sql --allow-db-ddl` | 首次建库专用：保留文件内 USE、不预绑连接库 | 会重建库，仅当 DDL 库名 == DB_NAME |
 | `node scripts/purge-biz-data.js` | 试运行：列出将被清空的业务流水表与行数 | 只读 |
 | `node scripts/purge-biz-data.js --apply` | 先备份到 `data/purge-backup-<时间>.sql`，再执行 `sql/purge-biz-data.sql` | 破坏性，有备份 |
+| `node scripts/backfill-file-message.js [--apply]` | 把存量 `file_transfer`（仅 inquiry）补成会话消息 | 只插缺的，已有同 `file_id` 消息则跳过，可重复跑 |
 
 **业务数据清理边界**（`sql/purge-biz-data.sql` 头部有完整清单）：
 - 清空：询价链路（`c_inquiry`/`c_inquiry_quote_view`/`factory_inquiry_push`/`inquiry_message`）、报价与订单（`quote_order`/`order_main`/`order_logistics`）、台账统计（`platform_fee_ledger`/`daily_stats`）、消息会话日志（`c_message`/`user_session`/`factory_operation_log`）、上传类（`factory_media`/`user_address`）。

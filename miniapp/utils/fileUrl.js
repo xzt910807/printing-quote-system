@@ -1,6 +1,6 @@
 /**
  * 协同文件（file_transfer）出参的展示辅助
- * 聊天页与会话文件面板、工单详情页共用, 避免两处各写一份判定
+ * 聊天页的文件消息气泡与工单详情页的附件列表共用, 避免两处各写一份判定
  */
 const api = require('./api');
 
@@ -26,4 +26,10 @@ function fileSizeText(b) {
   return n > 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.ceil(n / 1024)) + 'KB';
 }
 
-module.exports = { fileUrl, isImageFile, fileSizeText };
+/** 文档气泡上的格式标签：取扩展名大写, 拿不到就写「文件」 */
+function fileExtText(name) {
+  const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+  return m ? m[1].toUpperCase().slice(0, 4) : '文件';
+}
+
+module.exports = { fileUrl, isImageFile, fileSizeText, fileExtText };

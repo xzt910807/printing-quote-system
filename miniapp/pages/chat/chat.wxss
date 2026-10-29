@@ -85,6 +85,45 @@ page { background: #f1f5f9; }
   white-space: pre-wrap;
 }
 .msg-mine .msg-text { color: #fff; }
+
+/* 文件消息：在消息流里就是一张名片/一张缩图, 不再是一行“[文件] xxx”文本 */
+.msg-bubble-file { padding: 0; overflow: hidden; }
+.msg-file-img {
+  display: block;
+  width: 320rpx;
+  height: 320rpx;
+  background: #f1f5f9;
+}
+.msg-file-card { display: flex; align-items: center; padding: 20rpx 24rpx; }
+/* 格式标直接写扩展名：PDF/CDR 比任何文件图标都信息量大, 也不再引一个 emoji */
+.msg-file-ic {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 18rpx;
+  border-radius: 12rpx;
+  background: rgba(37, 99, 235, 0.10);
+  color: #2563eb;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+.msg-file-info { display: flex; flex-direction: column; gap: 4rpx; min-width: 0; }
+.msg-file-name {
+  max-width: 360rpx;
+  font-size: 26rpx;
+  color: #0f172a;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.msg-file-size { font-size: 22rpx; color: #94a3b8; }
+/* 我方蓝底气泡：色块与文字改半透明白, 蓝字压蓝块会糊成一团 */
+.msg-mine .msg-file-ic { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.msg-mine .msg-file-name { color: #fff; }
+.msg-mine .msg-file-size { color: rgba(255, 255, 255, 0.72); }
 /* 微信式居中时间分隔线（仅间隔超 5 分钟时出现） */
 .msg-divider {
   text-align: center;
@@ -130,7 +169,7 @@ page { background: #f1f5f9; }
 .msg-send-off { opacity: 0.4; }
 
 
-/* 026 附件按钮 + 会话文件面板 */
+/* 026 附件按钮（文件本身已经是消息流里的一条, 不再做底部汇总面板） */
 .msg-attach {
   flex: none;
   width: 64rpx;
@@ -141,64 +180,6 @@ page { background: #f1f5f9; }
   background: #f1f5f9;
   color: #475569;
   font-size: 34rpx;
-}
-.file-panel {
-  position: fixed;
-  left: 0; right: 0;
-  background: #fff;
-  border-top: 1rpx solid #e2e8f0;
-  box-shadow: 0 -2rpx 12rpx rgba(15, 23, 42, 0.05);
-  z-index: 9;
-}
-.file-panel-hd {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 32rpx;
-  font-size: 24rpx;
-  color: #475569;
-}
-/* 展开/收起用边框拼的 chevron（复用顶部胶囊的 .ctx-caret）, 不用 ▲▼ 字符 */
-.file-caret-wrap { display: flex; align-items: center; gap: 8rpx; }
-.file-toggle-t { color: #94a3b8; font-size: 22rpx; }
-.file-list { max-height: 320rpx; overflow-y: auto; padding: 0 24rpx 16rpx; }
-.file-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14rpx 12rpx;
-  border-radius: 10rpx;
-  background: #f8fafc;
-  margin-bottom: 8rpx;
-}
-/* 图片缩图：不点开也能确认传上来的到底是什么 */
-.file-thumb {
-  flex: none;
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 8rpx;
-  margin-right: 16rpx;
-  background: #f1f5f9;
-}
-.file-name {
-  font-size: 26rpx;
-  color: #0f172a;
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  margin-right: 16rpx;
-}
-.file-meta { font-size: 22rpx; color: #94a3b8; flex: none; }
-/* 行尾 ›：整行可点, 不另写「查看」二字与右侧发送者/大小挤在一起 */
-.file-open {
-  flex: none;
-  width: 12rpx;
-  height: 12rpx;
-  margin-left: 12rpx;
-  border-right: 2rpx solid #cbd5e1;
-  border-top: 2rpx solid #cbd5e1;
-  transform: rotate(45deg);
 }
 
 /* ===== 顶部实时单据胶囊 + 展开面板 =====

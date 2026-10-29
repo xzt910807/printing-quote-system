@@ -136,21 +136,54 @@ async function sendMessage(p) {
   );
 
   // 工厂回复 → 站内信通知客户（复用 c_message，小程序「我的消息」/订阅消息触达）
-  if (p.senderType === 'factory') {
-    const [[inq]] = await pool.query('SELECT user_id, inquiry_no FROM c_inquiry WHERE id = ?', [inquiryId]);
-    if (inq && inq.user_id) {
-      const [[fac]] = await pool.query('SELECT name FROM factory WHERE id = ?', [factoryId]);
-      await pool.query(
-        `INSERT INTO c_message (user_id, type, title, content, ref_type, ref_id)
-         VALUES (?, 'chat_message', ?, ?, 'inquiry', ?)`,
-        [inq.user_id, '工厂有新消息',
-          `「${(fac && fac.name) || '工厂'}」回复了询价 ${inq.inquiry_no}：${content.slice(0, 120)}`,
-          inquiryId]
-      );
-    }
-  }
+  if (p.senderType === 'factory') await notifyUserThread({ inquiryId, factoryId, preview: content });
 
   return msg;
+}
+
+/**
+ * 工厂侧有新内容 → 给客户发一条站内信（文本消息与协同文件共用）
+ * 客户→工厂没有站内信通道（c_message 只面向 C 端）, 靠接单页的未读徽标触达
+ */
+async function notifyUserThread({ inquiryId, factoryId, preview }) {
+  const [[inq]] = await pool.query('SELECT user_id, inquiry_no FROM c_inquiry WHERE id = ?', [inquiryId]);
+  if (!inq || !inq.user_id) return;
+  const [[fac]] = await pool.query('SELECT name FROM factory WHERE id = ?', [factoryId]);
+  await pool.query(
+    `INSERT INTO c_message (user_id, type, title, content, ref_type, ref_id)
+     VALUES (?, 'chat_message', ?, ?, 'inquiry', ?)`,
+    [inq.user_id, '工厂有新消息',
+      `「${(fac && fac.name) || '工厂'}」回复了询价 ${inq.inquiry_no}：${preview.slice(0, 120)}`,
+      inquiryId]
+  );
+}
+
+/**
+ * 协同文件作为一条会话消息进消息流
+ * 026 的文件面板只躺在输入栏上方, 对方不点进这个会话、不展开面板就永远不知道有新文件;
+ * 落到 inquiry_message 后才能复用已有的未读计数与站内信。不做内容安全检测：
+ * 文件本体已由上传接口的类型/体积白名单拦过, 再拿文件名去过微信文本检测只会因
+ * 名字里的生僻字符把已落盘的文件堵在门外
+ * @param {Object} p { inquiryId, factoryId, senderType, senderId, fileId, fileName, isImage }
+ */
+async function sendFileMessage(p) {
+  const inquiryId = parseInt(p.inquiryId, 10);
+  const factoryId = parseInt(p.factoryId, 10);
+  const fileId = parseInt(p.fileId, 10);
+  if (!inquiryId || !factoryId || !fileId) throw httpError('参数不完整', 400);
+  if (!['user', 'factory'].includes(p.senderType)) throw httpError('发送方身份无效', 400);
+
+  if (p.senderType === 'user') await assertUserAccess(inquiryId, p.senderId);
+  else await assertFactoryAccess(inquiryId, factoryId);
+
+  // content 冗余一份可读标签：会话列表的最后一条预览、以及消息通知都直接用它, 不用再关联文件表
+  const label = `${p.isImage ? '[图片]' : '[文件]'} ${String(p.fileName || '未命名')}`.slice(0, MAX_CONTENT_LEN);
+  const [ret] = await pool.query(
+    'INSERT INTO inquiry_message (inquiry_id, factory_id, sender_type, sender_id, content, msg_type, file_id) VALUES (?,?,?,?,?,?,?)',
+    [inquiryId, factoryId, p.senderType, p.senderId, label, 'file', fileId]
+  );
+  if (p.senderType === 'factory') await notifyUserThread({ inquiryId, factoryId, preview: label });
+  return ret.insertId;
 }
 
 /**
@@ -167,9 +200,13 @@ async function listThread(p) {
   else await assertFactoryAccess(inquiryId, factoryId);
 
   const [rows] = await pool.query(
-    `SELECT id, sender_type, sender_id, content, is_read, created_at
-     FROM inquiry_message WHERE inquiry_id = ? AND factory_id = ?
-     ORDER BY id ASC LIMIT 200`,
+    `SELECT im.id, im.sender_type, im.sender_id, im.content, im.is_read, im.created_at,
+            im.msg_type, im.file_id,
+            ft.file_name, ft.file_url, ft.file_size, ft.mime_type
+     FROM inquiry_message im
+     LEFT JOIN file_transfer ft ON ft.id = im.file_id
+     WHERE im.inquiry_id = ? AND im.factory_id = ?
+     ORDER BY im.id ASC LIMIT 200`,
     [inquiryId, factoryId]
   );
 
@@ -301,4 +338,4 @@ async function factoryUnread(factoryId) {
   return Number(r.c) || 0;
 }
 
-module.exports = { sendMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread, getThreadContext };
+module.exports = { sendMessage, sendFileMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread, getThreadContext };

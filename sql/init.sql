@@ -1659,7 +1659,9 @@ CREATE TABLE `inquiry_message`  (
   `factory_id` int(0) NOT NULL COMMENT '工厂ID，关联 factory.id（会话对家）',
   `sender_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '发送方：user=客户 factory=工厂 system=系统留痕（如工厂改价, sender_id=0）',
   `sender_id` bigint(0) NOT NULL COMMENT '发送者ID（user=c_end_user.id；factory=factory_user.id）',
-  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息内容',
+  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息内容（文件消息存「[图片]/[文件] 原名」, 供会话列表预览）',
+  `msg_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'text' COMMENT '消息类型：text=文本 file=协同文件（渲染时按 file_id 关联 file_transfer 取名字/大小）',
+  `file_id` bigint(0) NULL DEFAULT NULL COMMENT '关联 file_transfer.id（仅 msg_type=file）',
   `is_read` tinyint(0) NOT NULL DEFAULT 0 COMMENT '接收方是否已读 0否1是',
   `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '发送时间',
   PRIMARY KEY (`id`) USING BTREE,
@@ -1670,6 +1672,29 @@ CREATE TABLE `inquiry_message`  (
 
 -- ----------------------------
 -- Records of inquiry_message
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for file_transfer
+-- ----------------------------
+DROP TABLE IF EXISTS `file_transfer`;
+CREATE TABLE `file_transfer`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `ref_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联类型：inquiry=询价会话 order=订单 issue=工单凭证',
+  `ref_id` bigint(0) NOT NULL COMMENT '关联询价/订单/工单ID',
+  `sender_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '发送方：user=客户 factory=工厂 admin=运营（sender_id 为工厂时存 factory.id 而非 factory_user.id）',
+  `sender_id` bigint(0) NOT NULL COMMENT '发送方ID',
+  `file_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名（上传时按 UTF-8 还原, 非落盘名）',
+  `file_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '存储相对路径（/uploads/files/xxx, 拼 URL 时须按段转义, 名字里可能有中文）',
+  `file_size` int(0) NOT NULL COMMENT '字节',
+  `mime_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'MIME类型（图片判定优先看它）',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_ref`(`ref_type`, `ref_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '协同文件传输记录' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of file_transfer
 -- ----------------------------
 
 -- ----------------------------

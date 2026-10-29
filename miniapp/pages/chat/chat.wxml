@@ -86,8 +86,21 @@
     <view wx:else class="msg-item {{item.mine ? 'msg-mine' : 'msg-peer'}}" id="msg-{{item.id}}">
       <!-- 对方头像：对家名称 hash 首字（工厂视角下对家是客户, 同样取名字首字） -->
       <view wx:if="{{!item.mine}}" class="msg-avatar msg-avatar-txt" style="background: {{peerAvatarColor}}">{{peerAvatarText}}</view>
-      <view class="msg-bubble">
-        <text class="msg-text">{{item.content}}</text>
+      <view class="msg-bubble {{item.file ? 'msg-bubble-file' : ''}}">
+        <!-- 图片文件：缩略气泡直接铺图, 点开全屏预览（同会话图片可翻页） -->
+        <image wx:if="{{item.file && item.file.image}}" class="msg-file-img"
+               src="{{item.file.url}}" mode="aspectFill" lazy-load
+               data-url="{{item.file.url}}" data-image="{{true}}" bindtap="openFile" />
+        <!-- 文档文件：格式标 + 名字 + 大小, 整卡可点（下载后交给 openDocument） -->
+        <view wx:elif="{{item.file}}" class="msg-file-card"
+              data-url="{{item.file.url}}" data-image="{{false}}" bindtap="openFile">
+          <view class="msg-file-ic">{{item.file.ext}}</view>
+          <view class="msg-file-info">
+            <text class="msg-file-name">{{item.file.name}}</text>
+            <text class="msg-file-size">{{item.file.sizeText}}</text>
+          </view>
+        </view>
+        <text wx:else class="msg-text">{{item.content}}</text>
       </view>
       <!-- 我方头像：C 端优先真实头像, 工厂端与无头像时用首字 -->
       <block wx:if="{{item.mine}}">
@@ -117,25 +130,6 @@
     <view class="rq-btns">
       <view class="rq-btn" bindtap="closeRequote">取消</view>
       <view class="rq-btn rq-btn-primary {{rq.submitting ? 'rq-btn-off' : ''}}" catchtap="submitRequote">提交改价</view>
-    </view>
-  </view>
-</view>
-
-<!-- 026 协同文件列表（当前会话相关的设计源文件） -->
-<view class="file-panel" wx:if="{{files.length}}" style="bottom: {{keyboardHeight + inputBarH + safeBottom}}px;">
-  <view class="file-panel-hd" bindtap="toggleFiles">
-    <text>会话文件 ({{files.length}})</text>
-    <view class="file-caret-wrap">
-      <text class="file-toggle-t">{{filesExpanded ? '收起' : '展开'}}</text>
-      <view class="ctx-caret {{filesExpanded ? 'ctx-caret-up' : ''}}"></view>
-    </view>
-  </view>
-  <view class="file-list" wx:if="{{filesExpanded}}">
-    <view class="file-row" wx:for="{{files}}" wx:key="id" data-url="{{item.fullUrl}}" data-image="{{item.isImage}}" bindtap="openFile">
-      <image wx:if="{{item.isImage}}" class="file-thumb" src="{{item.fullUrl}}" mode="aspectFill" lazy-load />
-      <text class="file-name">{{item.file_name}}</text>
-      <text class="file-meta">{{item.senderText}} · {{item.sizeText}}</text>
-      <view class="file-open"></view>
     </view>
   </view>
 </view>

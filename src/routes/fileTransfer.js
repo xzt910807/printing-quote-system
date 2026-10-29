@@ -10,6 +10,7 @@ const fs = require('fs');
 const { pool } = require('../config/db');
 const { ok, fail } = require('../utils/helpers');
 const { requireUser, requireFactory } = require('../middlewares/auth');
+const chat = require('../services/inquiryChatService');
 
 const FILES_DIR = path.join(__dirname, '..', '..', 'uploads', 'files');
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE_MB || 20) * 1024 * 1024;
@@ -33,6 +34,23 @@ function decodeFileName(raw) {
   if (!s || /^[\x20-\x7e]*$/.test(s)) return s;
   const fixed = Buffer.from(s, 'latin1').toString('utf8');
   return fixed.indexOf('\uFFFD') >= 0 ? s : fixed;
+}
+
+/**
+ * 询价文件该落到哪个会话：会话键是 inquiry×factory。工厂侧对家就是本厂;
+ * 客户侧得知道对面是谁 —— 聊天页上传会带 factoryId, 从别处（如询价详情）传时
+ * 按已匹配工厂兜底; 一个都没对上（还没推厂的询价）就只存文件不进消息流
+ */
+async function resolveInquiryThread(refId, factoryId, wantFactoryId) {
+  if (factoryId) return factoryId;
+  if (wantFactoryId) {
+    const [[p]] = await pool.query(
+      'SELECT id FROM factory_inquiry_push WHERE inquiry_id = ? AND factory_id = ?', [refId, wantFactoryId]
+    );
+    if (p) return wantFactoryId;
+  }
+  const [[inq]] = await pool.query('SELECT matched_factory_id FROM c_inquiry WHERE id = ?', [refId]);
+  return inq && inq.matched_factory_id ? Number(inq.matched_factory_id) : 0;
 }
 
 // multer 存储配置
@@ -114,7 +132,32 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       'INSERT INTO file_transfer (ref_type, ref_id, sender_type, sender_id, file_name, file_url, file_size, mime_type) VALUES (?,?,?,?,?,?,?,?)',
       [refType, refId, senderType, senderId, originalName, fileUrl, req.file.size, req.file.mimetype]
     );
-    res.json(ok({ id: ret.insertId, fileUrl, fileName: originalName, fileSize: req.file.size }));
+
+    // 询价里的文件同时作为一条会话消息进消息流：不然只躺在底部面板上, 对方不点开根本不知道有新文件
+    let threaded = false;
+    if (refType === 'inquiry') {
+      try {
+        const threadFactoryId = await resolveInquiryThread(refId, factoryId, parseInt(req.body.factoryId, 10) || 0);
+        if (threadFactoryId) {
+          await chat.sendFileMessage({
+            inquiryId: refId,
+            factoryId: threadFactoryId,
+            senderType,
+            // 会话表的工厂发送人是操作员（factory_user.id）, 与 file_transfer 存厂id的口径不同
+            senderId: userId || (req.factoryUser ? req.factoryUser.id : factoryId),
+            fileId: ret.insertId,
+            fileName: originalName,
+            isImage: /^image\//.test(req.file.mimetype || ''),
+          });
+          threaded = true;
+        }
+      } catch (e) {
+        // 消息写失败不能把已落盘入库的文件带崩（例如存量库还没补 msg_type 列）
+        console.warn('[fileTransfer] 文件会话消息写入失败:', e.message);
+      }
+    }
+
+    res.json(ok({ id: ret.insertId, fileUrl, fileName: originalName, fileSize: req.file.size, threaded }));
   } catch (err) {
     // 清理已落盘的文件（multer 已保存）
     if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}

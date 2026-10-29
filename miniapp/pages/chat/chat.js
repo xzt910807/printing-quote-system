@@ -2,7 +2,7 @@ const api = require('../../utils/api');
 const { getAvatarConfig } = require('../../utils/avatar');
 const { PRODUCT_TEXT } = require('../../utils/productText');
 const { ORDER_STATUS_TEXT } = require('../../utils/orderText');
-const { fileUrl, isImageFile, fileSizeText } = require('../../utils/fileUrl');
+const { fileUrl, isImageFile, fileSizeText, fileExtText } = require('../../utils/fileUrl');
 
 // 轮询间隔（无长连接依赖，页面在显示时定时拉取新消息）
 const POLL_MS = 15000;
@@ -86,11 +86,8 @@ Page({
     keyboardHeight: 0,
     inputBarH: 56,     // 底部输入栏固定高度（px，与 wxss 同步）
     // iPhone 底部安全区高度：输入栏的 padding-bottom 在它之上, 不叠加进去
-    // 消息区与文件面板会压在输入栏最后 34px 上（真机上是输入框下半截）
+    // 消息区会压在输入栏最后 34px 上（真机上是输入框下半截）
     safeBottom: 0,
-    // 026 协同文件（当前 inquiry 会话的相关文件）
-    files: [],
-    filesExpanded: false,
     // 会话顶部实时单据卡（服务端每次现取, 价格/状态永远是当前的）
     ctx: null,
     ctxOpen: false,
@@ -185,24 +182,36 @@ Page({
       const viewerType = this.data.isFactory ? 'factory' : 'user';
       // 微信式时间分隔：与上一条间隔超 5 分钟才在气泡上方插入居中时间，连续消息不挂时间
       const list = [];
+      const imageUrls = [];   // 图片消息组成图集, 点开可左右翻
       let prevTs = 0;
       for (const m of (res.data.list || [])) {
         const d = new Date(m.created_at);
         const ts = isNaN(d.getTime()) ? 0 : d.getTime();
         const showTime = !prevTs || ts - prevTs > 5 * 60 * 1000;
         if (ts) prevTs = ts;
+        // 文件消息渲染成卡片（后端已按 file_id 关联好名字/大小）; 关联不上（文件已清）就退回那行「[文件] xxx」文本
+        const file = (m.msg_type === 'file' && m.file_url) ? {
+          url: fileUrl(m.file_url),
+          image: isImageFile(m),
+          name: m.file_name,
+          ext: fileExtText(m.file_name),
+          sizeText: fileSizeText(m.file_size),
+        } : null;
+        if (file && file.image) imageUrls.push(file.url);
         list.push({
           id: m.id,
           mine: m.sender_type === viewerType,
           // 系统留痕（如工厂改价）：居中灰条, 不走头像与左右气泡
           system: m.sender_type === 'system',
           content: m.content,
+          file,
           showTime,
           timeText: showTime && ts ? formatChatTime(d) : '',
         });
       }
       const lastId = list.length ? list[list.length - 1].id : 0;
       this._tailId = lastId;
+      this._imageUrls = imageUrls;
       const c = res.data.context || null;
       const ctx = c ? {
         ...c,
@@ -226,7 +235,6 @@ Page({
         if (scrollToBottom) this.setData({ lastId: this._tailId });
       });
       this.startPoll();
-      this.loadFiles();
     } catch (err) {
       this.setData({ loading: false });
       if (!this.pollErrorShown) {
@@ -236,39 +244,17 @@ Page({
     }
   },
 
-  // 026 拉取当前询价会话的文件列表
-  async loadFiles() {
-    try {
-      const path = this.data.isFactory ? '/api/factory/file/list' : '/api/c/file/list';
-      const res = await api.request(path + '?refType=inquiry&refId=' + this.data.inquiryId,
-        { headers: this.authHeaders() });
-      const viewerType = this.data.isFactory ? 'factory' : 'user';
-      const list = ((res.data && res.data.list) || []).map((f) => ({
-        ...f,
-        fullUrl: fileUrl(f.file_url),
-        // 图片走 previewImage + 面板内缩图, 文档才走 openDocument（两者不能混用）
-        isImage: isImageFile(f),
-        senderText: f.sender_type === viewerType ? '我' : (f.sender_type === 'factory' ? '工厂' : '客户'),
-        sizeText: fileSizeText(f.file_size),
-      }));
-      this.setData({ files: list });
-    } catch (e) { /* 静默 */ }
-  },
-
-  toggleFiles() {
-    this.setData({ filesExpanded: !this.data.filesExpanded });
-  },
-
   // 弹层内 catchtap 占位：阻止点击面板时冒泡到遮罩关闭
   noop() {},
 
+  // 会话里的文件消息：图片全屏预览（同会话图片可翻页）, 文档下载后交给 openDocument
   openFile(e) {
     const { url, image } = e.currentTarget.dataset;
     if (!url) return;
     // 图片必须用 previewImage：wx.openDocument 只支持文档类, 传 jpg 必失败,
     // 旧版失败后退化成「复制链接」, 看起来就像“传上来的东西看不了”
     if (image) {
-      const urls = this.data.files.filter((f) => f.isImage).map((f) => f.fullUrl);
+      const urls = this._imageUrls || [];
       return wx.previewImage({ current: url, urls: urls.length ? urls : [url] });
     }
     wx.showLoading({ title: '打开中', mask: true });
@@ -313,14 +299,17 @@ Page({
     const path = this.data.isFactory ? '/api/factory/file/upload' : '/api/c/file/upload';
     wx.showLoading({ title: '上传中', mask: true });
     api.upload(path, file.path,
-      { refType: 'inquiry', refId: String(this.data.inquiryId) },
+      // factoryId 决定后端把这条文件消息落到哪个会话（会话键 inquiry×factory）,
+      // 不传的话后端只能按已匹配工厂兜底
+      { refType: 'inquiry', refId: String(this.data.inquiryId), factoryId: String(this.data.factoryId || '') },
       { headers: this.authHeaders() })
-      .then(() => {
+      .then((data) => {
         // 先关 loading 再弹 toast：两者共用同一个原生通道, 反过来会把 toast 一并关掉
         wx.hideLoading();
-        wx.showToast({ title: '文件已发送', icon: 'success' });
-        this.setData({ filesExpanded: true });
-        this.loadFiles();
+        // threaded=false：后端没对上对家工厂（这条询价还没推过厂）, 文件只存下来不会出现在会话里
+        wx.showToast({ title: data && data.threaded === false ? '文件已保存' : '文件已发送', icon: 'success' });
+        // 文件就是消息流里的一条, 拉一次会话就能确认它真发出去了（滚到底直接看那个气泡）
+        this.refresh(true);
       })
       .catch((err) => {
         wx.hideLoading();
