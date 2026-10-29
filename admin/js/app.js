@@ -697,7 +697,7 @@ const app = createApp({
         if (!(await ui.confirm(`确认订单「${o.order_no}」退款已完成？\n微信支付订单将先发起原路退款（未配置则仅标记退款状态）。`))) return;
         if (state.isFactoryMode) await api.factoryOrderRefundConfirm(o.id);
         else await api.adminOrderRefund(o.id);
-        await loadAll();
+        await refreshByRole();
       } catch (err) {
         if (err.code !== 401) alert('退款确认失败：' + err.message);
       }
@@ -718,6 +718,15 @@ const app = createApp({
     function doOrderAction(o, action) {
       if (state.isFactoryMode) return factoryOrderAction(o, action);
       return adminOrderAction(o, action);
+    }
+
+    /**
+     * 写操作后的统一刷新：工厂视角只能重拉本厂数据
+     * loadAll() 里全是管理端接口（admin-me / admin/users / dashboard-stats …）,
+     * 工厂令牌一打就 401, 全局处理会把人弹回登录框 —— 表现为「保存成功但被踢下线」
+     */
+    function refreshByRole() {
+      return state.isFactoryMode ? loadFactoryData() : loadAll();
     }
 
     // ===== stage14 SaaS 工厂视图：数据加载与价格设置 =====
@@ -1751,7 +1760,7 @@ const app = createApp({
         if (c.id) await api.customerUpdate(c.id, body);
         else await api.customerCreate(body);
         customerEditor.open = false;
-        await loadAll();
+        await refreshByRole();
       } catch (err) {
         if (err.code !== 401) alert('保存失败：' + err.message);
       }
@@ -2214,6 +2223,9 @@ const app = createApp({
     }
 
     async function loadAll() {
+      // 兜底：本函数只给管理端用（admin-me / admin/users / dashboard-stats 全是 requireAdmin）,
+      // 万一工厂视角里又调了它, 转去重拉本厂数据, 不能放看 401 把人弹回登录框
+      if (state.isFactoryMode) return loadFactoryData();
       try {
         const [catalog, catalogAll, factories, dashStats, me, adminUsers] = await Promise.all([
           api.catalog(),
@@ -2316,7 +2328,8 @@ const app = createApp({
       try {
         await api.saveQuote(buildCalcBody());
         alert('保存成功');
-        loadAll();
+        // 工厂视角走本厂刷新, 否则 loadAll 打管理端接口 401 直接把人踢下线
+        await refreshByRole();
       } catch (err) {
         alert('保存失败：' + err.message);
       }
