@@ -265,24 +265,7 @@
 .btn-pay { background: #fff7ed; color: #d97706; }
 
 /* ---------- 消息 ---------- */
-.msg-tool {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8rpx 16rpx;
-}
-
-/* 未读动作条（仅在有未读时渲染）：左侧红点+红字说状态, 右侧蓝字给一个能点的出口 */
-.msg-unread { display: flex; align-items: center; font-size: 25rpx; color: #dc2626; }
-
-.msg-unread-dot {
-  width: 12rpx; height: 12rpx; border-radius: 50%; background: #ef4444;
-  margin-right: 12rpx; flex: none;
-}
-
-.msg-allread { font-size: 25rpx; color: #2563eb; padding: 6rpx 10rpx; border-radius: 8rpx; }
-
-.msg-allread:active { background: #eff6ff; }
+/* 顶部未读动作条已撤除：未读数归 tab 徽标, 「全部已读」并入搜索行右端（.search-allread） */
 
 .msg-card {
   background: #fff;
@@ -375,10 +358,12 @@
 /* 同一菜单卡内的多行之间加细分隔线（收货地址 / 我是工厂 两行版式） */
 .menu-row + .menu-row { border-top: 1rpx solid #f1f5f9; }
 
-/* 列表搜索框（与找厂页同款） */
-.search-bar { padding: 16rpx 0 4rpx; }
+/* 列表搜索框（与找厂页同款）：改成 flex 行, 右端给「全部已读」留一个位 */
+.search-bar { display: flex; align-items: center; gap: 16rpx; padding: 16rpx 0 4rpx; }
 
 .search-box {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   background: #fff;
@@ -398,6 +383,11 @@
 .search-input { flex: 1; font-size: 27rpx; color: #0f172a; height: 72rpx; }
 
 .search-ph { color: #94a3b8; font-size: 27rpx; }
+
+/* 「全部已读」：搜索行右端的纯文字动作, 弱到不抢搜索框, 但颜色足以被看见 */
+.search-allread { flex: none; font-size: 25rpx; color: #2563eb; padding: 8rpx 4rpx; }
+
+.search-allread:active { opacity: 0.6; }
 
 .search-clear {
   width: 40rpx;

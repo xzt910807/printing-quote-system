@@ -143,6 +143,8 @@
              placeholder-class="search-ph" confirm-type="search" bindinput="onSearchInput" />
       <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
     </view>
+    <!-- 「全部已读」的唯一入口：挂在搜索行右端, 只在消息 tab 且有未读时出现, 不再在列表顶部拉一整行动作条 -->
+    <text class="search-allread" wx:if="{{tab === 'message' && unread}}" bindtap="readAll">全部已读</text>
   </view>
 
   <!-- 我的询价 -->
@@ -266,11 +268,8 @@
 
   <!-- 消息 -->
   <block wx:if="{{tab === 'message'}}">
-    <!-- 只有存在未读时才出现这一行：「未读 0 条」是负信息, 白白占一行还让列表顶部显得没收拾干净 -->
-    <view class="msg-tool" wx:if="{{messages.length && unread}}">
-      <view class="msg-unread"><text class="msg-unread-dot"></text><text>{{unread}} 条未读</text></view>
-      <text class="msg-allread" bindtap="readAll">全部已读 ›</text>
-    </view>
+    <!-- 未读数只由 tab 徽标（.tab-num）承担, 列表顶部不再占一行：
+         同一数字在页面上出现两次, 第二次就是噪声 -->
     <view class="empty" wx:if="{{msgLoading}}">
       <text class="empty-icon">⏳</text>加载中...
     </view>
