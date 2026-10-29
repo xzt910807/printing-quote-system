@@ -191,6 +191,13 @@
           <text class="qb-label">工厂正式报价</text>
           <text class="qb-price">¥{{item.factoryQuotedPrice}}</text>
         </view>
+        <!-- 议价留痕：工厂在确认前改过价就报出次数与降幅, 客户不必翻聊天记录自己算 -->
+        <view class="qb-requote" wx:if="{{item.quoteRevision > 1}}">
+          <text class="qb-rev-n">已调价 {{item.quoteRevision - 1}} 次</text>
+          <text class="qb-rev-old" wx:if="{{item.prevQuotedPrice}}">¥{{item.prevQuotedPrice}}</text>
+          <text class="qb-rev-arrow">→</text>
+          <text class="{{item.prevQuotedPrice > item.factoryQuotedPrice ? 'qb-rev-down' : 'qb-rev-up'}}">¥{{item.factoryQuotedPrice}}</text>
+        </view>
         <view class="qb-remark" wx:if="{{item.factoryQuoteRemark}}">工厂说明：{{item.factoryQuoteRemark}}</view>
         <view class="qb-valid {{item.factoryQuoteExpired ? 'qb-expired' : ''}}">
           {{item.factoryQuoteExpired ? '⚠️ 报价已过期，请再次询价' : '⏰ 有效期至 ' + item.factoryQuoteExpiresText + '，确认后生成订单'}}

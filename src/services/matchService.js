@@ -584,8 +584,9 @@ async function listFactoryInquiries(factoryId, { status, keyword, page = 1, page
            ci.print_mode, ci.length_m, ci.width_m, ci.height_m, ci.material_code,
            ci.color_count, ci.spot_colors, ci.processes,
            ci.status AS inquiry_status, ci.matched_factory_id,
+           ci.factory_quoted_price, ci.prev_quoted_price, ci.quote_revision, ci.factory_quote_remark,
            ci.contact_name, ci.contact_phone,
-           ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs,
+           ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs, ci.design_fee,
            ci.created_at AS inquiry_time
      FROM factory_inquiry_push fp
      JOIN c_inquiry ci ON fp.inquiry_id = ci.id
@@ -1062,7 +1063,9 @@ async function getInquiryStatus(inquiryId) {
 /**
  * 017 新流程：工厂正式报价（matched → factory_quoted）
  * 订单金额以工厂正式报价为准，与系统参考价解耦；旧路径（respond accept）保留
- * body: { price, remark?, validDays? } — price 为工厂正式报价金额（元）
+ * body: { price, remark?, validDays?, designFee? } — price 为工厂正式报价金额（元）
+ * 改价（reQuote）：本厂已报价且客户尚未确认时, 同一厂可反复改价——客户嫌贵→会话里谈→就地降价是主流程,
+ * 旧价进 prev_quoted_price、quote_revision +1, 并往会话里落一条系统消息留痕（双方可见、自带时间戳, 不另建历史表）
  */
 async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, factoryId, designFee }) {
   const conn = await pool.getConnection();
@@ -1072,7 +1075,7 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
     const [pushes] = await conn.query(
       `SELECT fp.id, fp.inquiry_id, fp.factory_id, fp.response,
               ci.status AS inquiry_status, ci.user_id, ci.inquiry_no, ci.expires_at,
-              ci.design_status
+              ci.design_status, ci.matched_factory_id, ci.factory_quoted_price, ci.quote_revision
        FROM factory_inquiry_push fp
        JOIN c_inquiry ci ON fp.inquiry_id = ci.id
        WHERE fp.id = ? FOR UPDATE`,
@@ -1085,7 +1088,10 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
       throw new Error('无权操作其他工厂的询价');
     }
     if (push.response !== 'pending') throw new Error('该询价已处理过了');
-    if (push.inquiry_status !== 'matched') {
+    // 首次报价要求 matched; factory_quoted 且报价方就是本厂时视为「改价」（客户确认前可反复）
+    const reQuote = push.inquiry_status === 'factory_quoted'
+      && Number(push.matched_factory_id) === Number(push.factory_id);
+    if (!reQuote && push.inquiry_status !== 'matched') {
       // 按实际状态给人话：笼统的「当前状态不允许报价」工厂看不懂, 只会反复点提交
       const st = push.inquiry_status;
       throw new Error(
@@ -1110,6 +1116,10 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
     if (!Number.isFinite(quotedPrice) || quotedPrice <= 0 || quotedPrice > 99999999) {
       throw new Error('报价金额必须大于 0');
     }
+    // 改价但金额与当前价一致：不写无意义的留痕, 直接告知（否则会话里会出现一条「由 ¥1900 调整为 ¥1900」）
+    if (reQuote && Number(push.factory_quoted_price) === quotedPrice) {
+      throw new Error('报价金额未变化，如需补充说明请直接回复客户');
+    }
     // 021 设计费：仅当询价声明「需要设计」时可填，单列展示便于客户知情；计入正式报价总价
     let fee = null;
     if (push.design_status === 'need' && designFee !== undefined && designFee !== null && designFee !== '') {
@@ -1120,6 +1130,10 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
     }
     const days = Math.min(Math.max(parseInt(validDays, 10) || 7, 1), 30);
     const remarkStr = remark ? String(remark).trim().slice(0, 500) : null;
+    // 旧价与报价次数在 FOR UPDATE 锁内读出后直接回写：不靠 SQL 自引用 CASE,
+    // 避开 MySQL 「SET 子句从左到右求值」导致前面改过 status 后面读不到原值的坑
+    const prevPrice = reQuote ? (Number(push.factory_quoted_price) || null) : null;
+    const revision = reQuote ? (Number(push.quote_revision) || 1) + 1 : 1;
 
     // 询价单报价有效期兜底：工厂报价有效期不超过询价单本身的有效期
     let expiresAt = new Date(Date.now() + days * 24 * 3600 * 1000);
@@ -1131,13 +1145,16 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
       `UPDATE c_inquiry
        SET status = 'factory_quoted',
            matched_factory_id = ?,
+           prev_quoted_price = ?,
+           quote_revision = ?,
            factory_quoted_price = ?,
            factory_quoted_at = NOW(),
            factory_quote_expires_at = ?,
            factory_quote_remark = ?,
-           design_fee = ?
+           -- 改价只改总价与说明时 designFee 不传, COALESCE 保留原设计费（否则一次改价就把设计费洗成 NULL）
+           design_fee = COALESCE(?, design_fee)
        WHERE id = ?`,
-      [push.factory_id, quotedPrice, expiresAt, remarkStr, fee, push.inquiry_id]
+      [push.factory_id, prevPrice, revision, quotedPrice, expiresAt, remarkStr, fee, push.inquiry_id]
     );
     // 推送记录同步覆盖 factory_quote（用户端「按此厂报价」展示正式报价）
     await conn.query(
@@ -1145,19 +1162,40 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
       [quotedPrice, pushId]
     );
 
+    // 改价留痕写进会话：sender_type='system' 且直接标已读（不制造未读噪声, 触达靠下面的站内信）
+    if (reQuote) {
+      const p2 = (n) => (n < 10 ? '0' + n : '' + n);
+      const expText = `${expiresAt.getFullYear()}-${p2(expiresAt.getMonth() + 1)}-${p2(expiresAt.getDate())}`
+        + ` ${p2(expiresAt.getHours())}:${p2(expiresAt.getMinutes())}`;
+      await conn.query(
+        `INSERT INTO inquiry_message (inquiry_id, factory_id, sender_type, sender_id, content, is_read)
+         VALUES (?, ?, 'system', 0, ?, 1)`,
+        [push.inquiry_id, push.factory_id,
+          `工厂将报价由 ¥${prevPrice} 调整为 ¥${quotedPrice}`
+            + (remarkStr ? `（${remarkStr}）` : '')
+            + `，有效期至 ${expText}`]
+      );
+    }
+
     // 站内信通知用户（匿名询价无接收人，跳过）
     if (push.user_id) {
       const [fs] = await conn.query('SELECT name FROM factory WHERE id = ?', [push.factory_id]);
       const facName = (fs[0] || {}).name || '工厂';
       await conn.query(
         `INSERT INTO c_message (user_id, type, title, content, ref_type, ref_id)
-         VALUES (?, 'factory_quoted', '工厂已报价', ?, 'inquiry', ?)`,
+         VALUES (?, ?, ?, ?, 'inquiry', ?)`,
         [
           push.user_id,
-          `您的询价 ${push.inquiry_no} 已收到「${facName}」的正式报价：¥${quotedPrice}`
-            + (fee != null && fee > 0 ? `（含设计费 ¥${fee}）` : '')
-            + (remarkStr ? `（${remarkStr}）` : '')
-            + '，请在有效期内确认，逾期需重新询价。',
+          reQuote ? 'factory_requoted' : 'factory_quoted',
+          reQuote ? '工厂已调整报价' : '工厂已报价',
+          reQuote
+            ? `您的询价 ${push.inquiry_no}：「${facName}」已将报价由 ¥${prevPrice} 调整为 ¥${quotedPrice}`
+              + (remarkStr ? `（${remarkStr}）` : '')
+              + '，请在有效期内确认，逾期需重新询价。'
+            : `您的询价 ${push.inquiry_no} 已收到「${facName}」的正式报价：¥${quotedPrice}`
+              + (fee != null && fee > 0 ? `（含设计费 ¥${fee}）` : '')
+              + (remarkStr ? `（${remarkStr}）` : '')
+              + '，请在有效期内确认，逾期需重新询价。',
           push.inquiry_id,
         ]
       );
@@ -1171,6 +1209,9 @@ async function factoryQuoteInquiry({ pushId, price, remark, validDays = 7, facto
       factoryQuotedPrice: quotedPrice,
       designFee: fee,
       expiresAt,
+      reQuoted: reQuote,
+      prevPrice,
+      revision,
     };
   } catch (e) {
     await conn.rollback();

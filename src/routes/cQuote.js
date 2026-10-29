@@ -79,6 +79,8 @@ router.get('/my-inquiries', requireUser, async (req, res) => {
               ci.status, ci.created_at, ci.accepted_at, ci.matched_factory_id, ci.expires_at,
               ci.factory_quoted_price, ci.factory_quoted_at, ci.factory_quote_expires_at,
               ci.factory_quote_remark, ci.user_confirmed_at,
+              -- 议价留痕：工厂在客户确认前改过价则次数 >1, 旧价用于展示降价对比
+              ci.quote_revision, ci.prev_quoted_price,
               ci.design_status,
               -- 系统报价存的是 finalPrice(含税总价), 旧键 totalPrice 作兜底; CAST 统一两位小数
               CAST(COALESCE(

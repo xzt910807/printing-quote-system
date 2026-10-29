@@ -6,8 +6,81 @@
  */
 const { pool } = require('../config/db');
 const guard = require('./contentGuard');
+const catalog = require('./catalogService');
 
 const MAX_CONTENT_LEN = 500;
+
+/**
+ * 会话顶部的实时单据卡（解决“在线沟通不知道在说哪一单”）
+ * 不往消息流里写快照：议价过程中价格一直在变, 落库的卡片消息会立刻变成过期信息,
+ * 故每次读会话现取 c_inquiry/factory_inquiry_push/order_main, 价格与状态永远是当前的
+ */
+async function getThreadContext({ inquiryId, factoryId, viewerType }) {
+  const [[inq]] = await pool.query(
+    `SELECT ci.id, ci.inquiry_no, ci.status, ci.product_type, ci.print_mode, ci.quantity,
+            ci.length_m, ci.width_m, ci.height_m, ci.material_code, ci.color_count, ci.spot_colors,
+            ci.processes, ci.contact_name, ci.design_status, ci.design_fee, ci.system_quote,
+            ci.factory_quoted_price, ci.prev_quoted_price, ci.quote_revision,
+            ci.factory_quote_remark, ci.factory_quote_expires_at, ci.matched_factory_id,
+            f.name AS factory_name, eu.nickname,
+            o.order_no, o.status AS order_status, o.pay_status AS order_pay_status
+     FROM c_inquiry ci
+     JOIN factory f ON f.id = ?
+     LEFT JOIN c_end_user eu ON eu.id = ci.user_id
+     LEFT JOIN order_main o ON o.inquiry_id = ci.id
+     WHERE ci.id = ?`,
+    [factoryId, inquiryId]
+  );
+  if (!inq) return null;
+
+  const spec = catalog.describeSpec(inq);
+  // 系统参考价：存的是 finalPrice（含税总价）, 旧数据兜底 totalPrice
+  let systemPrice = null;
+  try {
+    const sq = typeof inq.system_quote === 'string' ? JSON.parse(inq.system_quote) : inq.system_quote;
+    const v = sq && (sq.finalPrice != null ? sq.finalPrice : sq.totalPrice);
+    if (v != null) systemPrice = Number(v);
+  } catch (e) { /* 非 JSON 就当无参考价 */ }
+
+  // 本厂在该询价上的推送记录：工厂就地改价需要 pushId（报价接口按 push 定位）
+  const [[push]] = await pool.query(
+    'SELECT id FROM factory_inquiry_push WHERE inquiry_id = ? AND factory_id = ? ORDER BY id DESC LIMIT 1',
+    [inquiryId, factoryId]
+  );
+
+  const quoteExpired = !!(inq.factory_quote_expires_at && new Date(inq.factory_quote_expires_at) < new Date());
+  const p2 = (n) => (n < 10 ? '0' + n : '' + n);
+  const exp = inq.factory_quote_expires_at ? new Date(inq.factory_quote_expires_at) : null;
+  const quoteExpiresText = exp && !isNaN(exp.getTime())
+    ? `${p2(exp.getMonth() + 1)}-${p2(exp.getDate())} ${p2(exp.getHours())}:${p2(exp.getMinutes())}` : '';
+
+  return {
+    inquiryNo: inq.inquiry_no,
+    status: inq.status,
+    productType: inq.product_type,
+    quantity: Number(inq.quantity) || 0,
+    specTags: [spec.printModeText, spec.sizeText, spec.materialText, spec.colorText].filter(Boolean),
+    processText: spec.processText,
+    designStatus: inq.design_status,
+    designFee: inq.design_fee != null ? Number(inq.design_fee) : null,
+    systemPrice,
+    factoryPrice: inq.factory_quoted_price != null ? Number(inq.factory_quoted_price) : null,
+    prevPrice: inq.prev_quoted_price != null ? Number(inq.prev_quoted_price) : null,
+    revision: Number(inq.quote_revision) || 1,
+    quoteRemark: inq.factory_quote_remark || '',
+    quoteExpiresText,
+    quoteExpired,
+    factoryName: inq.factory_name || '',
+    customerName: inq.nickname || inq.contact_name || '客户',
+    pushId: push ? Number(push.id) : 0,
+    orderNo: inq.order_no || '',
+    orderStatus: inq.order_status || '',
+    orderPayStatus: inq.order_pay_status || '',
+    // 就地改价只对“报价方本厂 + 客户尚未确认 + 报价未过期”开放（与后端校验同口径）
+    canRequote: viewerType === 'factory' && inq.status === 'factory_quoted'
+      && Number(inq.matched_factory_id) === Number(factoryId) && !quoteExpired,
+  };
+}
 
 function httpError(message, status) {
   const e = new Error(message);
@@ -112,7 +185,7 @@ async function listThread(p) {
     );
   }
 
-  return { list: rows, readNow: Number(unread.c) || 0 };
+  return { list: rows, readNow: Number(unread.c) || 0, context: await getThreadContext(p) };
 }
 
 /** 批量补齐会话最后一条消息/时间/未读（修复原 N+1：逐会话单发一条 SQL） */
@@ -228,4 +301,4 @@ async function factoryUnread(factoryId) {
   return Number(r.c) || 0;
 }
 
-module.exports = { sendMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread };
+module.exports = { sendMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread, getThreadContext };

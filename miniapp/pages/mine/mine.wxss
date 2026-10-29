@@ -485,6 +485,14 @@
 
 .qb-price { font-size: 40rpx; font-weight: 700; color: #ea580c; }
 
+/* 议价留痕：工厂在客户确认前改过价才出现, 旧价划线 + 箭头指向新价（降价绿/涨价红）, 免客户翻聊天记录 */
+.qb-requote { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10rpx; margin-top: 8rpx; font-size: 22rpx; }
+.qb-rev-n { color: #b45309; background: #fef3c7; border-radius: 8rpx; padding: 2rpx 12rpx; }
+.qb-rev-old { color: #94a3b8; text-decoration: line-through; }
+.qb-rev-arrow { color: #cbd5e1; }
+.qb-rev-down { color: #16a34a; font-weight: 600; }
+.qb-rev-up { color: #dc2626; font-weight: 600; }
+
 .qb-remark { font-size: 24rpx; color: #92400e; line-height: 1.6; margin-top: 8rpx; }
 
 .qb-valid { font-size: 22rpx; color: #b45309; margin-top: 10rpx; }

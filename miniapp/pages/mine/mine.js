@@ -777,6 +777,9 @@ Page({
         factoryQuoteRemark: x.factory_quote_remark || '',
         factoryQuoteExpiresText: x.factory_quote_expires_at ? formatTime(x.factory_quote_expires_at) : '',
         factoryQuoteExpired: !!x.factory_quote_expired,
+        // 议价留痕：报价次数 >1 说明工厂改过价, 配合旧价展示降幅
+        quoteRevision: Number(x.quote_revision) || 1,
+        prevQuotedPrice: x.prev_quoted_price != null ? Number(x.prev_quoted_price) : null,
         canConfirmQuote: x.status === 'factory_quoted' && !x.factory_quote_expired,
       }));
       this.setData({

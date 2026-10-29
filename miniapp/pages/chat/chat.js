@@ -1,9 +1,25 @@
 const api = require('../../utils/api');
 const { getAvatarConfig } = require('../../utils/avatar');
+const { PRODUCT_TEXT } = require('../../utils/productText');
+const { ORDER_STATUS_TEXT } = require('../../utils/orderText');
 
 // 轮询间隔（无长连接依赖，页面在显示时定时拉取新消息）
 const POLL_MS = 15000;
 const MAX_LEN = 500;
+// 顶部单据条固定高度（px, 与 wxss 同步）：消息区 top 需避开它
+const CTX_BAR_H = 36;
+
+// 询价状态文案（与 mine.js 的 STATUS_TEXT 同口径, 会话卡只用到这几个值）
+const INQ_STATUS_TEXT = {
+  quoted: '已报价待选厂',
+  matched: '已推送待工厂报价',
+  factory_quoted: '工厂已报价待确认',
+  user_confirmed: '已下单待支付',
+  accepted: '工厂已接单',
+  converted: '已下单',
+  cancelled: '已取消',
+  expired: '已过期',
+};
 
 // 微信式时间分级：今天 HH:mm / 昨天 HH:mm / 本年 M月D日 HH:mm / 跨年带年份
 function formatChatTime(d) {
@@ -42,6 +58,12 @@ Page({
     // 026 协同文件（当前 inquiry 会话的相关文件）
     files: [],
     filesExpanded: false,
+    // 会话顶部实时单据卡（服务端每次现取, 价格/状态永远是当前的）
+    ctx: null,
+    ctxOpen: false,
+    ctxBarH: CTX_BAR_H,
+    // 工厂就地改价弹层（仅 ctx.canRequote 时可开）
+    rq: { show: false, price: '', validDays: '7', remark: '', submitting: false },
   },
 
   onLoad(options) {
@@ -131,6 +153,8 @@ Page({
         list.push({
           id: m.id,
           mine: m.sender_type === viewerType,
+          // 系统留痕（如工厂改价）：居中灰条, 不走头像与左右气泡
+          system: m.sender_type === 'system',
           content: m.content,
           showTime,
           timeText: showTime && ts ? formatChatTime(d) : '',
@@ -138,8 +162,16 @@ Page({
       }
       const lastId = list.length ? list[list.length - 1].id : 0;
       this._tailId = lastId;
+      const c = res.data.context || null;
+      const ctx = c ? {
+        ...c,
+        statusText: INQ_STATUS_TEXT[c.status] || c.status,
+        productText: PRODUCT_TEXT[c.productType] || c.productType || '',
+        orderStatusText: c.orderStatus ? (ORDER_STATUS_TEXT[c.orderStatus] || c.orderStatus) : '',
+        revisionText: c.revision > 1 ? `已调价 ${c.revision - 1} 次` : '',
+      } : null;
       // scroll-into-view 同值不重滚：先清 0 再回到末尾消息锚点
-      this.setData({ messages: list, loading: false, lastId: 0 }, () => {
+      this.setData({ messages: list, loading: false, lastId: 0, ctx }, () => {
         if (scrollToBottom) this.setData({ lastId: this._tailId });
       });
       this.startPoll();
@@ -173,6 +205,9 @@ Page({
   toggleFiles() {
     this.setData({ filesExpanded: !this.data.filesExpanded });
   },
+
+  // 弹层内 catchtap 占位：阻止点击面板时冒泡到遮罩关闭
+  noop() {},
 
   openFile(e) {
     const url = e.currentTarget.dataset.url;
@@ -278,6 +313,71 @@ Page({
     } catch (err) {
       this.setData({ sending: false });
       wx.showToast({ title: err.message || '发送失败', icon: 'none' });
+    }
+  },
+
+  // ===== 顶部单据卡：展开收起 / 工厂就地改价 =====
+
+  toggleCtx() {
+    this.setData({ ctxOpen: !this.data.ctxOpen });
+  },
+
+  // 客户视角：本页面不承载下单, 报价待确认时直达「我的-询价」点确认
+  goConfirmQuote() {
+    wx.switchTab({ url: '/pages/mine/mine' });
+  },
+
+  // 预填当前价与说明：议价后降价是在原数上改, 不是从零重填
+  openRequote() {
+    const c = this.data.ctx || {};
+    this.setData({
+      ctxOpen: false,
+      rq: {
+        show: true,
+        price: c.factoryPrice != null ? String(c.factoryPrice) : '',
+        validDays: '7',
+        remark: c.quoteRemark || '',
+        submitting: false,
+      },
+    });
+  },
+
+  closeRequote() {
+    if (this.data.rq.submitting) return;
+    this.setData({ 'rq.show': false });
+  },
+
+  onRqPriceInput(e) { this.setData({ 'rq.price': e.detail.value }); },
+  onRqDaysInput(e) { this.setData({ 'rq.validDays': e.detail.value }); },
+  onRqRemarkInput(e) { this.setData({ 'rq.remark': e.detail.value }); },
+
+  // 提交改价：走与首次报价同一接口（后端按状态识别改价）, 成功后会话里会多出一条系统留痕
+  async submitRequote() {
+    const m = this.data.rq;
+    const c = this.data.ctx || {};
+    const price = Number((m.price || '').trim());
+    if (!isFinite(price) || price <= 0) {
+      return wx.showToast({ title: '请输入大于 0 的报价金额', icon: 'none' });
+    }
+    const days = parseInt(m.validDays, 10);
+    if (!isFinite(days) || days < 1 || days > 30) {
+      return wx.showToast({ title: '有效期需为 1-30 天', icon: 'none' });
+    }
+    if (!c.pushId) return wx.showToast({ title: '缺少推送记录, 请回接单页操作', icon: 'none' });
+    this.setData({ 'rq.submitting': true });
+    try {
+      await api.request('/api/factory/inquiry/' + c.pushId + '/quote', {
+        method: 'POST',
+        data: { price, remark: (m.remark || '').trim() || undefined, validDays: days },
+        headers: this.authHeaders(),
+      });
+      wx.showToast({ title: '已改价并通知客户', icon: 'success' });
+      this.setData({ 'rq.show': false, 'rq.submitting': false });
+      await this.refresh(true);
+    } catch (err) {
+      this.setData({ 'rq.submitting': false });
+      wx.showToast({ title: err.message, icon: 'none' });
+      this.refresh(true); // 并发下可能已被客户确认/报价过期, 拉一次让单据卡回到真相
     }
   },
 

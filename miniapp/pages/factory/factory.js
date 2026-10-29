@@ -573,10 +573,19 @@ Page({
 
   // ===== 017 正式报价弹窗（新流程主入口；旧路径「直接接单」保留兼容） =====
 
+  // 同一个弹窗承担首次报价与改价：data-current 有值（本厂已报过价）即为改价态, 预填当前价与说明
+  // 设计费同样预填：总价里已含这一笔, 留空会让工厂以为没填而重复加一次（后端 COALESCE 也会保留旧值）
   openQuoteModal(e) {
-    const { pushId, no, sysprice, needDesign } = e.currentTarget.dataset;
+    const { pushId, no, sysprice, needDesign, current, remark, fee } = e.currentTarget.dataset;
+    const cur = Number(current) || 0;
+    const need = needDesign === 'true' || needDesign === true;
     this.setData({
-      quoteModal: { show: true, pushId, inquiryNo: no || '', systemPrice: sysprice || '', price: '', remark: '', validDays: '7', needDesign: needDesign === 'true' || needDesign === true, designFee: '', submitting: false },
+      quoteModal: {
+        show: true, pushId, inquiryNo: no || '', systemPrice: sysprice || '',
+        price: cur ? String(cur) : '', remark: remark || '', validDays: '7',
+        needDesign: need, designFee: (cur && need && fee != null && fee !== '') ? String(fee) : '',
+        submitting: false, reQuote: !!cur, prevPrice: cur || '',
+      },
     });
   },
 
@@ -633,7 +642,7 @@ Page({
         data: { price, remark: (m.remark || '').trim() || undefined, validDays: days, designFee },
         headers: this.authHeaders(),
       });
-      wx.showToast({ title: '已报价，等待客户确认', icon: 'success' });
+      wx.showToast({ title: m.reQuote ? '已改价并通知客户' : '已报价，等待客户确认', icon: 'success' });
       this.setData({ 'quoteModal.show': false });
       this.loadInquiries();
     } catch (err) {

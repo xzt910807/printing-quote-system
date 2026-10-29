@@ -179,3 +179,148 @@ page { background: #f1f5f9; }
   margin-right: 16rpx;
 }
 .file-meta { font-size: 22rpx; color: #94a3b8; flex: none; }
+
+/* ===== 顶部实时单据条 + 展开面板 =====
+   原本聊天页只有一条光秃秃的消息流, 双方都不知道在谈哪一单; 单据信息常驻顶部且每次现取（改价后价格立刻跟着变） */
+.ctx-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  background: #fff;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+.ctx-no { flex: none; font-size: 24rpx; color: #475569; }
+.ctx-sta {
+  flex: none;
+  font-size: 20rpx;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 6rpx;
+  padding: 4rpx 10rpx;
+}
+.ctx-sta-exp { color: #b45309; background: #fffbeb; }
+.ctx-price { margin-left: auto; font-size: 28rpx; font-weight: 600; color: #ea580c; }
+.ctx-price-sys { font-weight: 400; font-size: 24rpx; color: #94a3b8; }
+.ctx-caret { flex: none; font-size: 20rpx; color: #cbd5e1; }
+
+.ctx-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 12;
+  background: rgba(15, 23, 42, 0.35);
+}
+.ctx-panel {
+  position: fixed;
+  left: 16rpx; right: 16rpx;
+  z-index: 13;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 8rpx 24rpx 20rpx;
+  box-shadow: 0 8rpx 32rpx rgba(15, 23, 42, 0.14);
+}
+.ctx-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f8fafc;
+}
+.ctx-k { flex: none; width: 132rpx; font-size: 24rpx; color: #94a3b8; }
+.ctx-v {
+  flex: 1;
+  font-size: 25rpx;
+  color: #0f172a;
+  line-height: 1.5;
+  /* 与消息气泡同理: break-all 会把尺寸/单号这类数字串从中间拆行 */
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.ctx-tags { flex: 1; display: flex; flex-wrap: wrap; gap: 8rpx; }
+.ctx-tag { font-size: 22rpx; color: #475569; background: #f1f5f9; border-radius: 6rpx; padding: 4rpx 12rpx; }
+.ctx-pv { flex: 1; display: flex; align-items: baseline; gap: 12rpx; }
+.ctx-old { font-size: 24rpx; color: #cbd5e1; text-decoration: line-through; }
+.ctx-now { font-size: 30rpx; font-weight: 600; color: #ea580c; }
+.ctx-rev { font-size: 20rpx; color: #16a34a; background: #f0fdf4; border-radius: 6rpx; padding: 2rpx 10rpx; }
+.ctx-exp { color: #b45309; }
+.ctx-acts { display: flex; gap: 16rpx; margin-top: 20rpx; padding-top: 20rpx; border-top: 1rpx solid #f1f5f9; }
+.ctx-btn {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  font-size: 27rpx;
+  color: #475569;
+  background: #f1f5f9;
+}
+.ctx-btn-primary { color: #fff; background: #2563eb; }
+.ctx-btn:active { opacity: 0.85; }
+
+/* 系统留痕（工厂改价等）：居中灰字小条, 与双方左右气泡在视觉上分层 */
+.msg-sys {
+  max-width: 82%;
+  margin: 0 auto 24rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 10rpx;
+  background: rgba(226, 232, 240, 0.55);
+  text-align: center;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+/* 工厂就地改价弹层：与接单页报价弹窗同款形态, 样式独立一份避免跨页耦合 */
+.rq-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(15, 23, 42, 0.45);
+}
+.rq-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+}
+.rq-title { text-align: center; font-size: 32rpx; font-weight: 600; color: #0f172a; }
+.rq-tip {
+  margin: 16rpx 0 24rpx;
+  text-align: center;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #64748b;
+}
+.rq-input {
+  height: 84rpx;
+  margin-bottom: 20rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #0f172a;
+}
+.rq-btns { display: flex; gap: 20rpx; margin-top: 8rpx; }
+.rq-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  color: #475569;
+  background: #f1f5f9;
+}
+.rq-btn-primary { color: #fff; background: #2563eb; }
+.rq-btn-off { opacity: 0.5; }

@@ -142,7 +142,28 @@
           <view>联系电话：{{item.contact_phone || '未填写'}}</view>
         </view>
 
-        <view class="actions" wx:if="{{status === 'pending' && item.response === 'pending' && !(item.inquiry_status === 'accepted' && item.matched_factory_id !== auth.factoryId)}}">
+        <!-- 本厂已报价、客户尚未确认：报出当前价与调价次数, 避免工厂以为还得再报一次 -->
+        <view wx:if="{{item.inquiry_status === 'factory_quoted' && item.matched_factory_id === auth.factoryId}}" class="quoted-tip">
+          已报价 ¥{{item.factory_quoted_price}}{{item.quote_revision > 1 ? '（已调价 ' + (item.quote_revision - 1) + ' 次）' : ''}}，等待客户确认
+        </view>
+
+        <!-- 改价入口：报价已发出就只剩「修改报价」一个动作（拒绝/直接接单都不该再给） -->
+        <view class="actions" wx:if="{{status === 'pending' && item.response === 'pending' && item.inquiry_status === 'factory_quoted' && item.matched_factory_id === auth.factoryId}}">
+          <view class="btn-outline btn-flex"
+                data-inquiry-id="{{item.inquiry_id}}" data-no="{{item.inquiry_no}}" data-name="{{item.contact_name}}"
+                catchtap="goChatInquiry">在线沟通</view>
+          <view class="btn-primary btn-flex"
+                data-push-id="{{item.push_id}}"
+                data-no="{{item.inquiry_no}}"
+                data-current="{{item.factory_quoted_price}}"
+                data-remark="{{item.factory_quote_remark}}"
+                data-fee="{{item.design_fee}}"
+                data-sysprice="{{item.factory_quote}}"
+                data-need-design="{{item.design_status === 'need'}}"
+                catchtap="openQuoteModal">修改报价</view>
+        </view>
+
+        <view class="actions" wx:elif="{{status === 'pending' && item.response === 'pending' && !(item.inquiry_status === 'accepted' && item.matched_factory_id !== auth.factoryId)}}">
           <view class="btn-outline btn-flex"
                 data-push-id="{{item.push_id}}"
                 data-response="decline"
@@ -241,9 +262,11 @@
     <!-- 017 正式报价弹窗：金额 + 有效期 + 调价说明（与确认订单弹窗同款结构） -->
     <view class="ship-mask" wx:if="{{quoteModal.show}}" catchtap="closeQuoteModal">
       <view class="ship-sheet" catchtap="noop">
-        <view class="ship-title">正式报价 {{quoteModal.inquiryNo}}</view>
-        <view class="confirm-tip">系统参考价 ¥{{quoteModal.systemPrice}}。提交正式报价后，客户确认即按此价生成订单（客户也可拒绝不成交）。</view>
-        <input class="ship-input" type="digit" placeholder="报价金额（元）" value="{{quoteModal.price}}" bindinput="onQuotePriceInput" />
+        <view class="ship-title">{{quoteModal.reQuote ? '修改报价' : '正式报价'}} {{quoteModal.inquiryNo}}</view>
+        <!-- 改价态不再提系统参考价（那个数字已经不代表本厂当前报价） -->
+        <view class="confirm-tip" wx:if="{{quoteModal.reQuote}}">当前报价 ¥{{quoteModal.prevPrice}}。改价后客户会收到站内信，并在会话里留一条调价记录（客户确认前可反复改）。</view>
+        <view class="confirm-tip" wx:else>系统参考价 ¥{{quoteModal.systemPrice}}。提交正式报价后，客户确认即按此价生成订单（客户也可拒绝不成交）。</view>
+        <input class="ship-input" type="digit" placeholder="{{quoteModal.reQuote ? '新报价金额（元）' : '报价金额（元）'}}" value="{{quoteModal.price}}" bindinput="onQuotePriceInput" />
         <input class="ship-input" type="number" placeholder="报价有效期（天，默认 7 天）" value="{{quoteModal.validDays}}" bindinput="onQuoteDaysInput" />
         <input class="ship-input" placeholder="调价说明（选填，如：满版图案油墨成本高）" value="{{quoteModal.remark}}" bindinput="onQuoteRemarkInput" />
         <!-- 021 客户需要设计：可单列设计费，随报价一并展示（含在总报价中收款） -->
@@ -253,7 +276,7 @@
         </block>
         <view class="ship-actions">
           <view class="btn-outline ship-btn" catchtap="closeQuoteModal">取消</view>
-          <view class="btn-primary ship-btn {{quoteModal.submitting ? 'btn-disabled' : ''}}" catchtap="submitQuote">提交报价</view>
+          <view class="btn-primary ship-btn {{quoteModal.submitting ? 'btn-disabled' : ''}}" catchtap="submitQuote">{{quoteModal.reQuote ? '提交改价' : '提交报价'}}</view>
         </view>
       </view>
     </view>

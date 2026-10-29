@@ -5,8 +5,63 @@
   </view>
 </view>
 
+<!-- 顶部实时单据条：解决「聊了半天对方不知道在说哪一单」; 单号/状态/最新价常驻, 点击展开完整规格 -->
+<view class="ctx-bar" wx:if="{{ctx}}" style="top: {{statusBarHeight + navBarHeight}}px; height: {{ctxBarH}}px;" bindtap="toggleCtx">
+  <text class="ctx-no">{{ctx.inquiryNo}}</text>
+  <text class="ctx-sta {{ctx.quoteExpired ? 'ctx-sta-exp' : ''}}">{{ctx.statusText}}</text>
+  <text class="ctx-price" wx:if="{{ctx.factoryPrice}}">¥{{ctx.factoryPrice}}</text>
+  <text class="ctx-price ctx-price-sys" wx:elif="{{ctx.systemPrice}}">参考 ¥{{ctx.systemPrice}}</text>
+  <text class="ctx-caret">{{ctxOpen ? '▲' : '▼'}}</text>
+</view>
+
+<view class="ctx-mask" wx:if="{{ctxOpen}}" bindtap="toggleCtx"></view>
+<view class="ctx-panel" wx:if="{{ctxOpen}}" style="top: {{statusBarHeight + navBarHeight + ctxBarH}}px;">
+  <view class="ctx-line">
+    <text class="ctx-k">品类数量</text>
+    <text class="ctx-v">{{ctx.productText}} · {{ctx.quantity}}件</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.specTags.length}}">
+    <text class="ctx-k">生产参数</text>
+    <view class="ctx-tags">
+      <text class="ctx-tag" wx:for="{{ctx.specTags}}" wx:for-item="tg" wx:key="*this">{{tg}}</text>
+    </view>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.processText}}">
+    <text class="ctx-k">后道工艺</text><text class="ctx-v">{{ctx.processText}}</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.systemPrice}}">
+    <text class="ctx-k">系统参考价</text><text class="ctx-v">¥{{ctx.systemPrice}}</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.factoryPrice}}">
+    <text class="ctx-k">工厂报价</text>
+    <view class="ctx-pv">
+      <text class="ctx-old" wx:if="{{ctx.prevPrice && ctx.revision > 1}}">¥{{ctx.prevPrice}}</text>
+      <text class="ctx-now">¥{{ctx.factoryPrice}}</text>
+      <text class="ctx-rev" wx:if="{{ctx.revisionText}}">{{ctx.revisionText}}</text>
+    </view>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.designFee}}">
+    <text class="ctx-k">其中设计费</text><text class="ctx-v">¥{{ctx.designFee}}</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.quoteRemark}}">
+    <text class="ctx-k">工厂说明</text><text class="ctx-v">{{ctx.quoteRemark}}</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.quoteExpiresText}}">
+    <text class="ctx-k">报价有效期</text>
+    <text class="ctx-v {{ctx.quoteExpired ? 'ctx-exp' : ''}}">{{ctx.quoteExpired ? '已于 ' + ctx.quoteExpiresText + ' 过期' : ctx.quoteExpiresText}}</text>
+  </view>
+  <view class="ctx-line" wx:if="{{ctx.orderNo}}">
+    <text class="ctx-k">关联订单</text><text class="ctx-v">{{ctx.orderNo}}{{ctx.orderStatusText ? ' · ' + ctx.orderStatusText : ''}}</text>
+  </view>
+  <view class="ctx-acts" wx:if="{{ctx.canRequote || (!isFactory && ctx.status === 'factory_quoted' && !ctx.quoteExpired)}}">
+    <view class="ctx-btn ctx-btn-primary" wx:if="{{ctx.canRequote}}" catchtap="openRequote">修改报价</view>
+    <!-- 聊天页不承载下单：客户只给一个直达确认入口 -->
+    <view class="ctx-btn" wx:if="{{!isFactory && ctx.status === 'factory_quoted' && !ctx.quoteExpired}}" catchtap="goConfirmQuote">去确认下单</view>
+  </view>
+</view>
+
 <scroll-view class="msg-area" scroll-y scroll-into-view="msg-{{lastId}}" scroll-with-animation
-             style="top: {{statusBarHeight + navBarHeight}}px; bottom: {{inputBarH + keyboardHeight}}px;">
+             style="top: {{statusBarHeight + navBarHeight + (ctx ? ctxBarH : 0)}}px; bottom: {{inputBarH + keyboardHeight}}px;">
   <view class="msg-empty" wx:if="{{loading}}">加载中...</view>
   <view class="msg-empty" wx:elif="{{!messages.length}}">
     还没有消息，发一条打个招呼吧
@@ -14,7 +69,9 @@
   </view>
   <view wx:for="{{messages}}" wx:key="id">
     <view class="msg-divider" wx:if="{{item.showTime}}">{{item.timeText}}</view>
-    <view class="msg-item {{item.mine ? 'msg-mine' : 'msg-peer'}}" id="msg-{{item.id}}">
+    <!-- 系统留痕（工厂改价等）：居中灰字, 不带头像与气泡, 与双方对话在视觉上分层 -->
+    <view class="msg-sys" wx:if="{{item.system}}">{{item.content}}</view>
+    <view wx:else class="msg-item {{item.mine ? 'msg-mine' : 'msg-peer'}}" id="msg-{{item.id}}">
       <!-- 对方头像：对家名称 hash 首字（工厂视角下对家是客户, 同样取名字首字） -->
       <view wx:if="{{!item.mine}}" class="msg-avatar msg-avatar-txt" style="background: {{peerAvatarColor}}">{{peerAvatarText}}</view>
       <view class="msg-bubble">
@@ -35,6 +92,21 @@
          confirm-type="send" cursor-spacing="16" adjust-position="{{false}}"
          bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" bindconfirm="send" />
   <view class="msg-send {{!inputText || sending ? 'msg-send-off' : ''}}" bindtap="send">发送</view>
+</view>
+
+<!-- 工厂就地改价弹层：议价谈完当场改, 预填当前价（在旧数上改不是从零重填） -->
+<view class="rq-mask" wx:if="{{rq.show}}" bindtap="closeRequote">
+  <view class="rq-sheet" catchtap="noop">
+    <view class="rq-title">修改报价 {{ctx.inquiryNo}}</view>
+    <view class="rq-tip">当前报价 ¥{{ctx.factoryPrice}}{{ctx.revisionText ? '（' + ctx.revisionText + '）' : ''}}。改价后客户会收到站内信，会话里自动留一条调价记录。</view>
+    <input class="rq-input" type="digit" placeholder="新报价金额（元）" value="{{rq.price}}" bindinput="onRqPriceInput" />
+    <input class="rq-input" type="number" placeholder="报价有效期（天，默认 7 天）" value="{{rq.validDays}}" bindinput="onRqDaysInput" />
+    <input class="rq-input" placeholder="调价说明（选填，如：量大可让利）" value="{{rq.remark}}" bindinput="onRqRemarkInput" />
+    <view class="rq-btns">
+      <view class="rq-btn" bindtap="closeRequote">取消</view>
+      <view class="rq-btn rq-btn-primary {{rq.submitting ? 'rq-btn-off' : ''}}" catchtap="submitRequote">提交改价</view>
+    </view>
+  </view>
 </view>
 
 <!-- 026 协同文件列表（当前会话相关的设计源文件） -->
