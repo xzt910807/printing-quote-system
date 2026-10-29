@@ -402,22 +402,15 @@ const app = createApp({
     function distColor(s) { return DIST_COLORS[s] || '#94a3b8'; }
 
     const filteredOrders = computed(() => {
-      // stage16：管理端的订单状态筛选/关键词搜索已走后端分页，这里原样返回当前页；
-      // 工厂模式仍是一次性加载本厂订单，保持本地过滤（含状态与关键词）
-      if (!state.isFactoryMode) return state.orders;
-      let list = state.orderFilter
-        ? state.orders.filter((o) => o.status === state.orderFilter)
-        : state.orders;
-      if (state.orderKeyword) {
-        const k = state.orderKeyword.toLowerCase();
-        list = list.filter((o) =>
-          (o.order_no || '').toLowerCase().includes(k) ||
-          (o.contact_name || '').toLowerCase().includes(k) ||
-          (o.contact_phone || '').toLowerCase().includes(k)
-        );
-      }
-      return list;
+      // stage16：订单的状态筛选/关键词搜索两端都走后端分页（管理端 /api/c/order/list, 工厂视角走本厂接口）,
+      // 这里不再做本地过滤——本地只能筛到当前这一页, 翻页外的订单搜不到
+      return state.orders;
     });
+
+    // 生产参数标签（与小程序工厂端同口径：印刷方式/尺寸/材质/色数, 缺项自动隐藏）
+    function specTags(r) {
+      return [r.printModeText, r.sizeText, r.materialText, r.colorText].filter(Boolean);
+    }
 
     // ===== stage16 列表分页加载（后端 page/pageSize；搜索/筛选变化回到第 1 页，每页 20 条） =====
     const LIST_PAGE_SIZE = 20;
@@ -435,13 +428,19 @@ const app = createApp({
       }
     }
     async function loadOrdersPage(page) {
-      if (state.isFactoryMode) return; // 工厂模式走 loadFactoryData，本地过滤不分页
       try {
-        const res = await api.orderList({
-          page: page || 1, pageSize: LIST_PAGE_SIZE,
-          status: state.orderFilter || undefined,
-          keyword: state.orderKeyword || undefined,
-        });
+        // 工厂视角走本厂订单接口（同为服务端分页 + 订单号/联系人搜索）
+        const res = state.isFactoryMode
+          ? await api.factoryOrders({
+              page: page || 1, pageSize: LIST_PAGE_SIZE,
+              status: state.orderFilter || undefined,
+              keyword: state.orderKeyword || undefined,
+            })
+          : await api.orderList({
+              page: page || 1, pageSize: LIST_PAGE_SIZE,
+              status: state.orderFilter || undefined,
+              keyword: state.orderKeyword || undefined,
+            });
         state.orders = res.list || [];
         state.orderTotal = res.total || 0;
         state.orderPage = res.page || page || 1;
@@ -453,7 +452,10 @@ const app = createApp({
       try {
         // 工厂视角走本厂推送接口（同为服务端分页, 两端的出参都是 {list,total,page}）
         const res = state.isFactoryMode
-          ? await api.factoryInquiries({ page: page || 1, pageSize: LIST_PAGE_SIZE })
+          ? await api.factoryInquiries({
+              page: page || 1, pageSize: LIST_PAGE_SIZE,
+              keyword: state.inquiryKeyword || undefined,
+            })
           : await api.cInquiryList({
               page: page || 1, pageSize: LIST_PAGE_SIZE,
               keyword: state.inquiryKeyword || undefined,
@@ -483,14 +485,13 @@ const app = createApp({
     const inquiryPages = computed(() => Math.max(1, Math.ceil(state.inquiryTotal / LIST_PAGE_SIZE)));
     const customerPages = computed(() => Math.max(1, Math.ceil(state.customerTotal / LIST_PAGE_SIZE)));
 
-    // ===== stage14 列表搜索（防抖 300ms；工厂模式的订单搜索为本地过滤即时生效） =====
+    // ===== stage14 列表搜索（防抖 300ms；订单/询价搜索两端都走后端 keyword） =====
     const searchTimers = {};
     function debounceSearch(key, fn) {
       clearTimeout(searchTimers[key]);
       searchTimers[key] = setTimeout(fn, 300);
     }
     function onOrderSearch() {
-      if (state.isFactoryMode) return; // 本地过滤，无需请求
       debounceSearch('order', () => loadOrdersPage(1));
     }
     function onOrderFilterChange() { loadOrdersPage(1); }
@@ -723,14 +724,23 @@ const app = createApp({
     async function loadFactoryData() {
       try {
         const [ordersRes, inquiriesRes, pendingRes, pricing, opts] = await Promise.all([
-          api.factoryOrders(),
-          api.factoryInquiries({ page: state.inquiryPage || 1, pageSize: LIST_PAGE_SIZE }),
+          // 订单/询价都按当前页 + 当前筛选/关键词重拉（服务端分页, 不再一次拉全表）
+          api.factoryOrders({
+            page: state.orderPage || 1, pageSize: LIST_PAGE_SIZE,
+            status: state.orderFilter || undefined,
+            keyword: state.orderKeyword || undefined,
+          }),
+          api.factoryInquiries({
+            page: state.inquiryPage || 1, pageSize: LIST_PAGE_SIZE,
+            keyword: state.inquiryKeyword || undefined,
+          }),
           api.factoryInquiries({ status: 'pending', pageSize: 50 }),
           api.factoryPricing(),
           api.factoryCatalogOptions(),
         ]);
         state.orders = ordersRes.list || [];
         state.orderTotal = ordersRes.total || 0;
+        state.orderPage = ordersRes.page || 1;
         // 接口出参是 {total,page,pageSize,hasMore,list}, 直接把整个对象拍给 v-for 会渲染出几行空数据
         state.inquiries = inquiriesRes.list || [];
         state.inquiryTotal = inquiriesRes.total || 0;
@@ -2461,6 +2471,8 @@ const app = createApp({
       customerEditor, openCustomerEditor, onCustomerLevelChange, saveCustomer, removeCustomer,
       removeQuote, removeInquiry, exportQuotes, exportInquiries, exportCustomers,
       ORDER_STATUS_TEXT, orderStatusLabel, orderStatusStyle, orderActions, filteredOrders, adminOrderAction,
+      // 生产参数列（询价/订单表格与小程序工厂端同口径）
+      specTags,
       ORDER_STATUS_KEYS, recentOrders, formatMoney, barHeight, distPct, distColor,
       isSuper, userEditor, openUserEditor, saveUser, toggleUserStatus, resetUserPassword,
       // F-152~F-160 工厂多账号 + F-173 顶部角色信息

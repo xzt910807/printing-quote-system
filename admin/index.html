@@ -484,20 +484,31 @@
         <div v-show="page==='inquiries'" class="panel">
           <div class="panel-head">
             <div class="panel-title">{{ isFactoryMode ? '我的询价' : 'C端询价记录' }}</div>
-            <div class="head-tools" v-if="!isFactoryMode">
-              <input class="search-input" v-model.trim="inquiryKeyword" placeholder="搜索询价号 / 联系人 / 电话" @input="onInquirySearch" />
-              <button class="btn btn-secondary btn-sm" @click="exportInquiries">导出 CSV</button>
+            <div class="head-tools">
+              <!-- 两端都是后端 keyword 搜索；工厂视角只命中询价号/联系人（未接单的联系方式不下发, 不提示可搜电话） -->
+              <input class="search-input" v-model.trim="inquiryKeyword"
+                     :placeholder="isFactoryMode ? '搜索询价号 / 联系人' : '搜索询价号 / 联系人 / 电话'"
+                     @input="onInquirySearch" />
+              <button class="btn btn-secondary btn-sm" v-if="!isFactoryMode" @click="exportInquiries">导出 CSV</button>
             </div>
           </div>
           <!-- stage14 SaaS：工厂视角的询价（本厂推送记录，联系方式仅接单后可见） -->
           <table class="table" v-if="isFactoryMode">
             <thead>
-              <tr><th>询价号</th><th>产品</th><th>数量</th><th>系统报价</th><th>我的报价</th><th>状态</th><th>客户</th><th>设计稿</th><th>推送时间</th></tr>
+              <tr><th>询价号</th><th>产品</th><th>生产参数</th><th>数量</th><th>系统报价</th><th>我的报价</th><th>状态</th><th>客户</th><th>设计稿</th><th>推送时间</th></tr>
             </thead>
             <tbody>
               <tr v-for="i in inquiries" :key="i.push_id">
                 <td>{{ i.inquiry_no }}</td>
                 <td>{{ productTypeLabel(i.product_type) }}</td>
+                <!-- 生产参数：印刷方式/尺寸/材质/色数 + 后道工艺（后端解析中文下发, 与小程序工厂端同口径） -->
+                <td>
+                  <div class="spec-tags" v-if="specTags(i).length">
+                    <span class="spec-tag" v-for="t in specTags(i)" :key="t">{{ t }}</span>
+                  </div>
+                  <div class="spec-craft" v-if="i.processText" :title="i.processText">工艺：{{ i.processText }}</div>
+                  <span v-if="!specTags(i).length && !i.processText" class="muted">-</span>
+                </td>
                 <td>{{ i.quantity }}</td>
                 <td>¥{{ extractTotal(i.system_quote) }}</td>
                 <td class="text-price">{{ i.factory_quote ? '¥' + i.factory_quote : '-' }}</td>
@@ -521,7 +532,7 @@
                 </td>
                 <td class="muted">{{ formatTime(i.push_time) }}</td>
               </tr>
-              <tr v-if="!inquiries.length"><td colspan="9" class="empty">暂无数据</td></tr>
+              <tr v-if="!inquiries.length"><td colspan="10" class="empty">暂无数据</td></tr>
             </tbody>
           </table>
           <table class="table" v-else>
@@ -556,7 +567,7 @@
             <div class="panel-title">{{ isFactoryMode ? '我的订单' : '订单列表' }}</div>
             <div class="head-tools">
               <input class="search-input" v-model.trim="orderKeyword" placeholder="搜索订单号 / 联系人 / 电话" @input="onOrderSearch" />
-              <select v-model="orderFilter" class="btn btn-secondary btn-sm" v-if="!isFactoryMode" @change="onOrderFilterChange">
+              <select v-model="orderFilter" class="btn btn-secondary btn-sm" @change="onOrderFilterChange">
                 <option value="">全部状态</option>
                 <option v-for="(label, s) in ORDER_STATUS_TEXT" :key="s" :value="s">{{ label }}</option>
               </select>
@@ -564,12 +575,20 @@
           </div>
           <table class="table">
             <thead>
-              <tr><th>订单号</th><th>产品</th><th>数量</th><th>金额</th><th>状态</th><th>支付</th><th>工厂</th><th>客户</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
+              <tr><th>订单号</th><th>产品</th><th>生产参数</th><th>数量</th><th>金额</th><th>状态</th><th>支付</th><th>工厂</th><th>客户</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               <tr v-for="o in filteredOrders" :key="o.id">
                 <td>{{ o.order_no }}</td>
                 <td>{{ productTypeLabel(o.product_type) }}</td>
+                <!-- 生产参数：与小程序同口径, 工厂据此核对下单内容 -->
+                <td>
+                  <div class="spec-tags" v-if="specTags(o).length">
+                    <span class="spec-tag" v-for="t in specTags(o)" :key="t">{{ t }}</span>
+                  </div>
+                  <div class="spec-craft" v-if="o.processText" :title="o.processText">工艺：{{ o.processText }}</div>
+                  <span v-if="!specTags(o).length && !o.processText" class="muted">-</span>
+                </td>
                 <td>{{ o.quantity }}</td>
                 <td class="text-price">¥{{ o.total_price }}<span v-if="Number(o.shipping_fee) > 0" class="muted" style="display:block;font-size:12px">运费 ¥{{ o.shipping_fee }}</span><span v-if="Number(o.sample_fee) > 0" class="muted" style="display:block;font-size:12px">打样费 ¥{{ o.sample_fee }}</span></td>
                 <td><span class="badge" :style="orderStatusStyle(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
@@ -606,11 +625,11 @@
                   <button v-if="['shipped','completed'].includes(o.status)" class="btn btn-sm" @click="openLogisticsViewer(o)">物流</button>
                 </td>
               </tr>
-              <tr v-if="!filteredOrders.length"><td colspan="11" class="empty">暂无数据</td></tr>
+              <tr v-if="!filteredOrders.length"><td colspan="12" class="empty">暂无数据</td></tr>
             </tbody>
           </table>
-          <!-- stage16 分页：每页 20 条，状态筛选已走后端（工厂视角走本厂接口不分页） -->
-          <div class="pager" v-if="!isFactoryMode && orderTotal > 0">
+          <!-- stage16 分页：每页 20 条，状态筛选与关键词已走后端（管理端与本厂订单同口径） -->
+          <div class="pager" v-if="orderTotal > 0">
             <span class="pager-info">共 {{ orderTotal }} 条 · 第 {{ orderPage }} / {{ orderPages }} 页</span>
             <button class="btn btn-sm" :disabled="orderPage <= 1" @click="loadOrdersPage(orderPage - 1)">上一页</button>
             <button class="btn btn-sm" :disabled="orderPage >= orderPages" @click="loadOrdersPage(orderPage + 1)">下一页</button>

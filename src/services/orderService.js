@@ -128,7 +128,9 @@ async function listAllOrders({ page = 1, pageSize = 50, status, keyword, escrowS
     [...params, parseInt(pageSize, 10), (parseInt(page, 10) - 1) * parseInt(pageSize, 10)]
   );
   const [cnt] = await pool.query(`SELECT COUNT(*) AS total FROM order_main o ${where}`, params);
-  return { total: cnt[0].total, page: parseInt(page, 10), pageSize: parseInt(pageSize, 10), list: rows };
+  // 生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）, 管理端订单列表与工厂端同列展示
+  const list = rows.map((r) => Object.assign(r, catalog.describeSpec(r)));
+  return { total: cnt[0].total, page: parseInt(page, 10), pageSize: parseInt(pageSize, 10), list };
 }
 
 /**

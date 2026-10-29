@@ -236,6 +236,28 @@ body {
 }
 .design-pdf-line a:hover { text-decoration: underline; }
 
+/* 生产参数列：印刷方式/尺寸/材质/色数 标签 + 后道工艺（与小程序工厂端同口径, 文案由后端解析中文下发） */
+.spec-tags { display: flex; flex-wrap: wrap; gap: 4px; max-width: 230px; }
+.spec-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.spec-craft {
+  max-width: 230px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 027 设备图文审核弹窗：图集网格（缩略图 + 类型/审核待态徽标 + 图注 + 通过/驳回） */
 .media-grid {
   display: grid;

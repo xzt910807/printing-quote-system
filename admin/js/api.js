@@ -19,6 +19,16 @@ function getFactoryAuth() {
   catch (e) { return null; }
 }
 
+// 本厂列表查询串：订单/询价都是服务端分页, page/pageSize/status/keyword 一并透传（空值不入串）
+function listQs(params) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    )
+  ).toString();
+  return qs ? '?' + qs : '';
+}
+
 const api = {
   async request(path, options = {}) {
     // 工厂模式下自动携带 X-Factory-Id / X-Factory-Token（requireFactory 校验）
@@ -107,18 +117,14 @@ const api = {
   getFactoryAuth,
   clearFactoryAuth() { localStorage.removeItem(FACTORY_AUTH_KEY); },
   // 工厂订单 / 询价 / 状态推进 / 物流（数据天然按 requireFactory 隔离到本厂）
-  factoryOrders(status) {
+  // 两个列表都是服务端分页（后端默认 20/页）, 不接 page/pageSize 就只能看到最新一页
+  factoryOrders(params = {}) {
     const auth = getFactoryAuth();
-    const qs = status ? '?status=' + encodeURIComponent(status) : '';
-    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/orders' + qs);
+    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/orders' + listQs(params));
   },
   factoryInquiries(params = {}) {
     const auth = getFactoryAuth();
-    // 本厂询价也是服务端分页（后端默认 20/页）, 不接 page/pageSize 就只能看到最新一页
-    const qs = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
-    ).toString();
-    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/inquiries' + (qs ? '?' + qs : ''));
+    return this.request('/api/factory/' + (auth ? auth.factoryId : 0) + '/inquiries' + listQs(params));
   },
   factoryOrderStatus(id, action, extra) {
     return this.request('/api/factory/order/' + id + '/status', { method: 'POST', body: { action, ...(extra || {}) } });
