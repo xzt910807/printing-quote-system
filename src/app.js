@@ -33,6 +33,7 @@ const suppliersRoutes = require('./routes/suppliers');
 const logisticsCallbackRoutes = require('./routes/logisticsCallback');
 const wxpay = require('./services/wxpay');
 const { requireAdmin, requireAdminOrFactory, requireUser, requireFactory } = require('./middlewares/auth');
+const { requirePermission } = require('./config/permissions');
 const { ok, fail } = require('./utils/helpers');
 
 const app = express();
@@ -229,6 +230,7 @@ app.use('/api/c/news', newsRoutes);
 const newsService = require('./services/newsService');
 const adminNews = express.Router();
 adminNews.use(requireAdmin);
+adminNews.use(requirePermission('news:manage'));
 adminNews.post('/crawl', async (req, res) => {
   try { res.json(ok(await newsService.crawlAll())); }
   catch (err) { res.status(500).json(fail(err.message)); }

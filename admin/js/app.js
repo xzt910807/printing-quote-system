@@ -144,6 +144,8 @@ const app = createApp({
       { key: 'factories', title: '工厂管理', group: '管理', svg: NAV_ICONS.factory, mode: 'admin', perm: 'factory:manage' },
       { key: 'customers', title: '客户管理', group: '管理', svg: NAV_ICONS.user, mode: 'both', perm: 'customer:manage' },
       { key: 'catalog', title: '目录数据', group: '管理', svg: NAV_ICONS.database, mode: 'admin', perm: 'catalog:view' },
+      // 028/031 行业资讯：小程序有资讯页, 后台此前只能改精选（无列表页）
+      { key: 'news', title: '资讯管理', group: '管理', svg: NAV_ICONS.file, mode: 'admin', perm: 'news:manage' },
       { key: 'accounts', title: '账户管理', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'account:manage' },
       { key: 'sessions', title: '在线设备', group: '系统', svg: NAV_ICONS.monitor, mode: 'admin', perm: 'session:view' },
       { key: 'fee-ledger', title: '服务费台账', group: '系统', svg: NAV_ICONS.banknote, mode: 'admin', perm: 'finance:view' },
@@ -203,6 +205,10 @@ const app = createApp({
       accounts: '账户管理',
       sessions: '在线设备',
       'fee-ledger': '服务费台账',
+      // 027/029/028：此前漏了这三个键, 进入工单/仲裁/资讯页时顶栏标题为空
+      issues: state.isFactoryMode ? '售后工单' : '工单管理',
+      arbitration: '仲裁中心',
+      news: '资讯管理',
     })[state.page]);
 
       const materialCount = computed(() =>
@@ -466,6 +472,98 @@ const app = createApp({
 
     const recentQuotes = computed(() => state.quotes.slice(0, 8));
 
+    // ===== 028/031 行业资讯管理（后台选稿：抓取列表 + 编辑推荐）=====
+    // 小程序有 news / news-detail 两页，但后台此前只有「改精选」一个写接口, 运营无从选稿
+    const NEWS_CATEGORY_TEXT = { policy: '政策', market: '市场', tech: '技术', material: '材料' };
+    // 分类徽章配色：与小程序资讯页的四个 tab 语义对齐, 选稿时一眼分清是哪类
+    const NEWS_CATEGORY_STYLE = {
+      policy: 'background:#dbeafe;color:#1d4ed8',
+      market: 'background:#fef3c7;color:#b45309',
+      tech: 'background:#e0e7ff;color:#4338ca',
+      material: 'background:#dcfce7;color:#15803d',
+    };
+    const newsCategoryStyle = (c) => NEWS_CATEGORY_STYLE[c] || 'background:#f1f5f9;color:#475569';
+    const newsState = reactive({ list: [], total: 0, page: 1, category: '', featuredOnly: false, keyword: '', loading: false, crawling: false });
+    const newsPages = computed(() => Math.max(1, Math.ceil(newsState.total / LIST_PAGE_SIZE)));
+    const newsModal = reactive({ open: false, saving: false, id: null, title: '', featured: 1, editorNote: '', keywords: '' });
+
+    async function loadNews(page) {
+      newsState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (newsState.category) q.set('category', newsState.category);
+        if (newsState.featuredOnly) q.set('featured', '1');
+        if (newsState.keyword) q.set('keyword', newsState.keyword);
+        q.set('page', page || newsState.page || 1);
+        q.set('size', LIST_PAGE_SIZE);
+        // api.request() 已把响应体剥到 data 层, 后端返 ok({list,total,page,size})
+        const res = await api.request('/api/admin/news?' + q.toString());
+        newsState.list = res.list || [];
+        newsState.total = res.total || 0;
+        newsState.page = res.page || page || 1;
+      } catch (err) {
+        alert('资讯列表加载失败：' + err.message);
+      } finally {
+        newsState.loading = false;
+      }
+    }
+    function onNewsSearch() { debounceSearch('news', () => loadNews(1)); }
+    function onNewsFilterChange() { loadNews(1); }
+
+    // PUT /:id/feature 是全量覆盖（editor_note/keywords 传空即置空）,
+    // 所以弹窗必须把原值带上——否则只勾一下「精选」就会把已有的编辑推荐文案抹掉
+    function openNewsEditor(n) {
+      Object.assign(newsModal, {
+        open: true, saving: false, id: n.id, title: n.title,
+        featured: n.featured ? 1 : 0,
+        editorNote: n.editor_note || '', keywords: n.keywords || '',
+      });
+    }
+    function closeNewsEditor() { newsModal.open = false; }
+
+    async function saveNewsFeature() {
+      if (newsModal.saving) return;
+      newsModal.saving = true;
+      try {
+        await api.request('/api/admin/news/' + newsModal.id + '/feature', {
+          method: 'PUT',
+          body: {
+            featured: newsModal.featured ? 1 : 0,
+            editorNote: (newsModal.editorNote || '').trim(),
+            keywords: (newsModal.keywords || '').trim(),
+          },
+        });
+        newsModal.open = false;
+        await loadNews();
+      } catch (err) {
+        alert('保存失败：' + err.message);
+      } finally {
+        newsModal.saving = false;
+      }
+    }
+
+    // 手动补采：cron 每日定时抓, 运营在后台可随时触发（按 source_url 去重, 重跑不会产生重复条）
+    async function crawlNewsNow() {
+      if (newsState.crawling) return;
+      if (!(await ui.confirm('立即抓取一次资讯源？抓取结果按源统计, 已存原文会自动跳过。'))) return;
+      newsState.crawling = true;
+      try {
+        const res = await api.request('/api/admin/news/crawl', { method: 'POST' });
+        const per = (res && res.perSource) || [];
+        // ui.alert 第二个参是标题字符串, 不是配置对象
+        await ui.alert(
+          '新增 ' + ((res && res.total) || 0) + ' 条（共 ' + ((res && res.sources) || 0) + ' 个源）\n'
+          + (per.length ? per.map((p) => p.name + '：+' + (p.inserted || 0)).join('\n') : '未配置 RSS 源（NEWS_RSS_SOURCES）'),
+          '抓取完成'
+        );
+        await loadNews(1);
+      } catch (err) {
+        alert('抓取失败：' + err.message);
+      } finally {
+        newsState.crawling = false;
+      }
+    }
+
     // ===== 订单：状态文案 / 徽章颜色 / 操作按钮 =====
     const ORDER_STATUS_TEXT = {
       pending: '待确认', confirmed: '已确认', sampling: '打样中', sample_confirmed: '样品已确认',
@@ -497,6 +595,12 @@ const app = createApp({
     function orderStatusLabel(s) { return ORDER_STATUS_TEXT[s] || s; }
     function orderStatusStyle(s) { return ORDER_STATUS_STYLE[s] || ''; }
     function orderActions(o) { return ORDER_ACTIONS[o.status] || []; }
+
+    // F-70 订单评分：小程序已完成订单可打 1-5 星, 后端已随订单列表下发, 后台此前一直没展示
+    function ratingStars(v) {
+      const n = Math.min(5, Math.max(1, Math.round(Number(v) || 0)));
+      return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
+    }
 
     // ===== 数据看板：趋势 / 状态分布 =====
     const ORDER_STATUS_KEYS = ['pending', 'confirmed', 'sampling', 'sample_confirmed', 'producing', 'shipped', 'completed', 'cancelled'];
@@ -1244,6 +1348,7 @@ const app = createApp({
       if (page === 'fee-ledger') loadFeeLedger();
       if (page === 'issues') loadIssues(1);
       if (page === 'arbitration') loadArbitration(1);
+      if (page === 'news') loadNews(1);
       if (page === 'pricing' && state.isFactoryMode) loadFactoryData();
       if (page === 'staff' && state.isFactoryMode) loadStaffs();
       if (page === 'dashboard' && state.isFactoryMode) { loadFactoryData(); loadFactoryStats(); }
@@ -2650,6 +2755,11 @@ const app = createApp({
       ARB_DECISIONS, arbTotalAmount, arbAmountText, escrowStatusLabel, escrowStatusStyle,
       // 021/022 设计稿展示
       designImgs, designBadge, openDesignImg, designPdf,
+      // F-70 订单评分列
+      ratingStars,
+      // 028/031 资讯管理（选稿 + 手动补采）
+      NEWS_CATEGORY_TEXT, newsCategoryStyle, newsState, newsPages, loadNews, onNewsSearch, onNewsFilterChange,
+      newsModal, openNewsEditor, closeNewsEditor, saveNewsFeature, crawlNewsNow,
     };
   },
 });

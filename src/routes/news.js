@@ -7,6 +7,7 @@ const router = express.Router();
 const { pool } = require('../config/db');
 const { ok, fail } = require('../utils/helpers');
 const { requireUser } = require('../middlewares/auth');
+const { requirePermission } = require('../config/permissions');
 
 const CATEGORIES = ['policy', 'market', 'tech', 'material'];
 
@@ -99,7 +100,49 @@ router.get('/:id', async (req, res) => {
 });
 
 // ===== 管理端子路由：adminRouter =====
+// 挂在 requireAdmin 之后, 再按权限点收口（只给 super/admin, 菜单可见性与接口一致）
 const adminRouter = express.Router();
+adminRouter.use(requirePermission('news:manage'));
+
+/**
+ * GET /api/admin/news?page=&size=&category=&featured=&keyword=
+ * 后台资讯列表：C 端列表给的是消费者可见字段, 运营选稿还需要抓取时间/编辑痕迹/原文地址,
+ * 因此单独出一条管理端查询（按 id 倒序=最新抓取优先）
+ */
+adminRouter.get('/', async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const size = Math.min(parseInt(req.query.size, 10) || 20, 100);
+    const category = String(req.query.category || '').trim();
+    const featuredOnly = req.query.featured === '1';
+    const keyword = String(req.query.keyword || '').trim();
+    const offset = (page - 1) * size;
+
+    const where = [];
+    const params = [];
+    if (category && CATEGORIES.includes(category)) { where.push('n.category = ?'); params.push(category); }
+    if (featuredOnly) where.push('n.featured = 1');
+    if (keyword) {
+      // 标题/摘要/来源三个维度模糊匹配, 运营据此找回某篇已抓取的报道
+      where.push('(n.title LIKE ? OR n.summary LIKE ? OR n.source_name LIKE ?)');
+      const like = `%${keyword}%`;
+      params.push(like, like, like);
+    }
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(*) total FROM industry_news n ${whereSql}`, params);
+    const [rows] = await pool.query(
+      `SELECT n.id, n.title, n.summary, n.source_name, n.source_url, n.cover_image, n.category,
+              n.featured, n.editor_note, n.keywords, n.published_at, n.created_at,
+              a.nickname AS editor_name
+       FROM industry_news n LEFT JOIN admin_user a ON n.editor_id = a.id
+       ${whereSql} ORDER BY n.id DESC LIMIT ? OFFSET ?`,
+      [...params, size, offset]);
+
+    res.json(ok({ list: rows, total, page, size }));
+  } catch (err) { res.status(500).json(fail(err.message)); }
+});
 
 /** PUT /api/admin/news/:id/feature  { featured:0|1, editorNote?, keywords? } */
 adminRouter.put('/:id/feature', async (req, res) => {

@@ -7,7 +7,7 @@
   <!-- 关键防闪现规则内联：不依赖外部 CSS 是否命中缓存，Vue 挂载前 #app 必然隐藏
        （仅加 v-cloak 属性 + 外部样式曾被旧缓存绕过，导致首屏闪现未编译模板/弹窗） -->
   <style>[v-cloak] { display: none !important; }</style>
-  <link rel="stylesheet" href="./css/style.css?v=29">
+  <link rel="stylesheet" href="./css/style.css?v=30">
 </head>
 <body>
   <div id="app" v-cloak>
@@ -539,20 +539,45 @@
           </table>
           <table class="table" v-else>
             <thead>
-              <tr><th>询价号</th><th>产品</th><th>数量</th><th>系统报价</th><th>状态</th><th>匹配工厂</th><th>时间</th><th>操作</th></tr>
+              <tr><th>询价号</th><th>产品</th><th>生产参数</th><th>数量</th><th>系统报价</th><th>状态</th><th>匹配工厂</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               <tr v-for="i in inquiries" :key="i.id">
                 <td>{{ i.inquiry_no }}</td>
                 <td>{{ productTypeLabel(i.product_type) }}</td>
+                <!-- 生产参数：与工厂视角、订单列表同一口径（后端 describeSpec 解析中文下发）,
+                     管理端此前看不到尺寸/材质/色数, 客户来电问价无法核对报价基数 -->
+                <td>
+                  <div class="spec-tags" v-if="specTags(i).length">
+                    <span class="spec-tag" v-for="t in specTags(i)" :key="t">{{ t }}</span>
+                  </div>
+                  <div class="spec-craft" v-if="i.processText" :title="i.processText">工艺：{{ i.processText }}</div>
+                  <span v-if="!specTags(i).length && !i.processText" class="muted">-</span>
+                </td>
                 <td>{{ i.quantity }}</td>
                 <td>¥{{ extractTotal(i.system_quote) }}</td>
                 <td><span class="badge">{{ statusLabel(i.status) }}</span></td>
                 <td>{{ factoryName(i.matched_factory_id) }}</td>
+                <!-- 021/022 设计稿：客户附稿/需设计/工厂公版, 与工厂视角同写法 -->
+                <td>
+                  <template v-if="designImgs(i).length">
+                    <img v-for="(img, idx) in designImgs(i)" :key="idx" :src="img" class="design-thumb"
+                         title="点击放大原图，可右键另存" @click="openDesignImg(img)" />
+                    <span v-if="designBadge(i)" class="badge" :style="designBadge(i).style" style="margin-left:6px">{{ designBadge(i).text }}</span>
+                  </template>
+                  <template v-else-if="designBadge(i)">
+                    <span class="badge" :style="designBadge(i).style">{{ designBadge(i).text }}</span>
+                  </template>
+                  <span v-else-if="!designPdf(i)" class="muted">-</span>
+                  <div v-if="i.design_note" class="design-note-line" :title="i.design_note">{{ i.design_note }}</div>
+                  <div v-if="designPdf(i)" class="design-pdf-line">
+                    <a :href="designPdf(i)" target="_blank" title="排版工具产出的矢量制版文件：矢量文字/CMYK/裁切角线，可直接送印制版">⬇ 印刷文件(PDF)</a>
+                  </div>
+                </td>
                 <td class="muted">{{ formatTime(i.created_at) }}</td>
                 <td><button class="btn btn-sm btn-danger" @click="removeInquiry(i)">删除</button></td>
               </tr>
-              <tr v-if="!inquiries.length"><td colspan="8" class="empty">暂无数据</td></tr>
+              <tr v-if="!inquiries.length"><td colspan="10" class="empty">暂无数据</td></tr>
             </tbody>
           </table>
           <!-- stage16 分页：每页 20 条（管理端走 C 端列表, 工厂视角走本厂推送接口, 两端都是服务端分页） -->
@@ -577,7 +602,7 @@
           </div>
           <table class="table">
             <thead>
-              <tr><th>订单号</th><th>产品</th><th>生产参数</th><th>数量</th><th>金额</th><th>状态</th><th>支付</th><th>工厂</th><th>客户</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
+              <tr><th>订单号</th><th>产品</th><th>生产参数</th><th>数量</th><th>金额</th><th>状态</th><th>支付</th><th>工厂</th><th>客户</th><th>评分</th><th>设计稿</th><th>时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               <tr v-for="o in filteredOrders" :key="o.id">
@@ -597,6 +622,11 @@
                 <td>{{ { paid: '已支付', unpaid: '未支付', refunding: '退款中', refunded: '已退款' }[o.pay_status] || o.pay_status }}</td>
                 <td>{{ o.factory_name || '-' }}</td>
                 <td>{{ o.user_nickname || '-' }}</td>
+                <!-- F-70 评分：小程序已完成订单可打 1-5 星, 后端早已随订单列表下发, 后台之前一直没展示 -->
+                <td>
+                  <span v-if="Number(o.rating) > 0" class="rate-stars" :title="o.rating + ' 星'">{{ ratingStars(o.rating) }}</span>
+                  <span v-else class="muted">未评</span>
+                </td>
                 <!-- 021/022 设计稿：缩略图点击新标签开原图（浏览器可另存=取图通道），徽标区分需设计/工厂公版；024 PDF 制版文件 -->
                 <td>
                   <template v-if="designImgs(o).length">
@@ -627,7 +657,7 @@
                   <button v-if="['shipped','completed'].includes(o.status)" class="btn btn-sm" @click="openLogisticsViewer(o)">物流</button>
                 </td>
               </tr>
-              <tr v-if="!filteredOrders.length"><td colspan="12" class="empty">暂无数据</td></tr>
+              <tr v-if="!filteredOrders.length"><td colspan="13" class="empty">暂无数据</td></tr>
             </tbody>
           </table>
           <!-- stage16 分页：每页 20 条，状态筛选与关键词已走后端（管理端与本厂订单同口径） -->
@@ -1180,6 +1210,91 @@
               <div class="form-actions">
                 <button class="btn btn-primary" @click="saveCatalogItem">保存</button>
                 <button class="btn btn-secondary" @click="catalogEditor.open = false">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 028/031 行业资讯管理：抓取列表 + 编辑选稿（小程序首页横幅与资讯页的数据源） -->
+        <div v-show="page==='news'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">行业资讯（共 {{ newsState.total }} 条）</div>
+              <div class="head-tools">
+                <input class="search-input" v-model.trim="newsState.keyword" placeholder="搜索标题 / 摘要 / 来源" @input="onNewsSearch" />
+                <select v-model="newsState.category" class="btn btn-secondary btn-sm" @change="onNewsFilterChange">
+                  <option value="">全部分类</option>
+                  <option v-for="(label, c) in NEWS_CATEGORY_TEXT" :key="c" :value="c">{{ label }}</option>
+                </select>
+                <label class="check-inline">
+                  <input type="checkbox" v-model="newsState.featuredOnly" @change="onNewsFilterChange" />只看精选
+                </label>
+                <button class="btn btn-secondary btn-sm" :disabled="newsState.crawling" @click="crawlNewsNow">
+                  {{ newsState.crawling ? '抓取中…' : '立即抓取' }}
+                </button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr><th>标题</th><th>分类</th><th>来源</th><th>原文时间</th><th>入库时间</th><th>精选</th><th>编辑推荐</th><th style="width:110px">操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="n in newsState.list" :key="n.id">
+                  <td>
+                    <!-- 选稿先看标题+摘要, 原文开新标签核对, 不在后台重建正文编辑器（内容源自 RSS） -->
+                    <a class="news-title" :href="n.source_url" target="_blank" title="点击新标签打开原文">{{ n.title }}</a>
+                    <div class="news-summary" v-if="n.summary" :title="n.summary">{{ n.summary }}</div>
+                  </td>
+                  <td><span class="badge" :style="newsCategoryStyle(n.category)">{{ NEWS_CATEGORY_TEXT[n.category] || n.category }}</span></td>
+                  <td class="muted">{{ n.source_name || '-' }}</td>
+                  <td class="muted">{{ n.published_at ? formatTime(n.published_at) : '-' }}</td>
+                  <td class="muted">{{ formatTime(n.created_at) }}</td>
+                  <td>
+                    <span v-if="n.featured" class="badge" style="background:#fef3c7;color:#b45309">精选</span>
+                    <span v-else class="muted">-</span>
+                  </td>
+                  <td class="news-note" :title="n.editor_note || ''">{{ n.editor_note || '-' }}<span class="muted" v-if="n.editor_name">（{{ n.editor_name }}）</span></td>
+                  <td><button class="btn-link" @click="openNewsEditor(n)">选稿 / 编辑</button></td>
+                </tr>
+                <tr v-if="newsState.loading"><td colspan="8" class="empty">加载中…</td></tr>
+                <tr v-else-if="!newsState.list.length"><td colspan="8" class="empty">暂无资讯，点右上「立即抓取」拉一次 RSS</td></tr>
+              </tbody>
+            </table>
+            <div class="pager" v-if="newsState.total > LIST_PAGE_SIZE">
+              <span class="pager-info">共 {{ newsState.total }} 条 · 第 {{ newsState.page }} / {{ newsPages }} 页</span>
+              <button class="btn btn-sm" :disabled="newsState.page <= 1" @click="loadNews(newsState.page - 1)">上一页</button>
+              <button class="btn btn-sm" :disabled="newsState.page >= newsPages" @click="loadNews(newsState.page + 1)">下一页</button>
+            </div>
+          </div>
+
+          <!-- 选稿弹窗：后端 PUT /:id/feature 是全量覆盖（传空即置空）, 所以三个字段一起回传 -->
+          <div class="modal-mask" v-if="newsModal.open" @click.self="closeNewsEditor">
+            <div class="modal-box">
+              <div class="panel-title">资讯选稿</div>
+              <div class="issue-block">
+                <div class="issue-block-label">标题</div>
+                <div class="issue-block-text">{{ newsModal.title }}</div>
+              </div>
+              <div class="form-grid">
+                <div class="form-item">
+                  <label>首页精选</label>
+                  <select v-model.number="newsModal.featured">
+                    <option :value="1">是（上小程序首页横幅，最多取最新 5 条）</option>
+                    <option :value="0">否</option>
+                  </select>
+                </div>
+                <div class="form-item">
+                  <label>关键词（逗号分隔）</label>
+                  <input v-model.trim="newsModal.keywords" maxlength="200" placeholder="如：纸价,环保,设备" />
+                </div>
+              </div>
+              <div class="form-item">
+                <label>编辑推荐语（300 字内，展示在资讯详情）</label>
+                <textarea v-model="newsModal.editorNote" rows="3" maxlength="300" placeholder="一句话说清这条资讯为什么值得看"></textarea>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" :disabled="newsModal.saving" @click="saveNewsFeature">{{ newsModal.saving ? '保存中…' : '保存' }}</button>
+                <button class="btn btn-secondary" @click="closeNewsEditor">取消</button>
               </div>
             </div>
           </div>
@@ -1748,7 +1863,7 @@
   <script src="./js/api.js?v=21"></script>
   <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=31"></script>
+  <script src="./js/app.js?v=32"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

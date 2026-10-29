@@ -619,6 +619,9 @@ router.get('/inquiry/list', requireAdmin, requirePermission('c_inquiry:view'), a
       if (typeof r.system_quote === 'string') {
         try { r.system_quote = JSON.parse(r.system_quote); } catch (e) { r.system_quote = null; }
       }
+      // 生产参数人读文案（尺寸/印刷方式/材质/色数/工艺）：后台「C端询价记录」要与
+      // 工厂视角、订单列表同一口径出这一列，统一走 describeSpec，前端不再解析英文码
+      Object.assign(r, catalog.describeSpec(r));
     });
 
     res.json({
@@ -641,15 +644,14 @@ router.get('/inquiry/list', requireAdmin, requirePermission('c_inquiry:view'), a
 router.get('/inquiry/export', requireAdmin, requirePermission('c_inquiry:view'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT ci.id, ci.inquiry_no, ci.product_type, ci.quantity, ci.status,
-              ci.contact_name, ci.contact_phone, ci.created_at, ci.accepted_at,
+      `SELECT ci.*,
               f.name AS matched_factory
        FROM c_inquiry ci
        LEFT JOIN factory f ON ci.matched_factory_id = f.id
        ORDER BY ci.id DESC`
     );
-    // 导出给运营看：品类/状态解析成中文（否则 CSV 里是 cardBox / factory_quoted 这类英文码）
-    const csvRows = rows.map((r) => Object.assign({}, r, {
+    // 导出给运营看：品类/状态/生产参数解析成中文（否则 CSV 里是 cardBox / factory_quoted 这类英文码）
+    const csvRows = rows.map((r) => Object.assign({}, r, catalog.describeSpec(r), {
       product_type: catalog.productTypeName(r.product_type),
       status: INQUIRY_STATUS_TEXT[r.status] || r.status || '',
     }));
@@ -657,6 +659,11 @@ router.get('/inquiry/export', requireAdmin, requirePermission('c_inquiry:view'),
       { key: 'id', label: 'ID' },
       { key: 'inquiry_no', label: '询价号' },
       { key: 'product_type', label: '产品类型' },
+      { key: 'printModeText', label: '印刷方式' },
+      { key: 'sizeText', label: '尺寸' },
+      { key: 'materialText', label: '材质' },
+      { key: 'colorText', label: '色数' },
+      { key: 'processText', label: '后道工艺' },
       { key: 'quantity', label: '数量' },
       { key: 'status', label: '状态' },
       { key: 'matched_factory', label: '匹配工厂' },

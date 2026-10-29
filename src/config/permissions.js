@@ -30,6 +30,7 @@ const PERMISSIONS = [
   'quote:view',       // 全部报价单
   'session:view',     // 查看在线设备/会话（F-148）
   'session:revoke',   // 强制下线（F-150）
+  'news:manage',      // 行业资讯管理与选稿（028/031，仅平台侧）
 ];
 
 // 工厂侧全权限（owner 基准，manager 去掉员工管理）
