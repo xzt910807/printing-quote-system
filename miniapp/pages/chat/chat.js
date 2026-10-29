@@ -2,6 +2,7 @@ const api = require('../../utils/api');
 const { getAvatarConfig } = require('../../utils/avatar');
 const { PRODUCT_TEXT } = require('../../utils/productText');
 const { ORDER_STATUS_TEXT } = require('../../utils/orderText');
+const { fileUrl, isImageFile, fileSizeText } = require('../../utils/fileUrl');
 
 // 轮询间隔（无长连接依赖，页面在显示时定时拉取新消息）
 const POLL_MS = 15000;
@@ -84,6 +85,9 @@ Page({
     loading: true,
     keyboardHeight: 0,
     inputBarH: 56,     // 底部输入栏固定高度（px，与 wxss 同步）
+    // iPhone 底部安全区高度：输入栏的 padding-bottom 在它之上, 不叠加进去
+    // 消息区与文件面板会压在输入栏最后 34px 上（真机上是输入框下半截）
+    safeBottom: 0,
     // 026 协同文件（当前 inquiry 会话的相关文件）
     files: [],
     filesExpanded: false,
@@ -101,7 +105,10 @@ Page({
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
       const menu = wx.getMenuButtonBoundingClientRect();
       const navBarHeight = (menu.top - info.statusBarHeight) * 2 + menu.height;
-      this.setData({ statusBarHeight: info.statusBarHeight, navBarHeight });
+      // safeArea.bottom 到屏底的距离就是 home indicator 占的那一段
+      const safeBottom = (info.screenHeight && info.safeArea)
+        ? Math.max(0, info.screenHeight - info.safeArea.bottom) : 0;
+      this.setData({ statusBarHeight: info.statusBarHeight, navBarHeight, safeBottom });
     } catch (e) {
       this.setData({ statusBarHeight: 20, navBarHeight: 44 });
     }
@@ -238,9 +245,11 @@ Page({
       const viewerType = this.data.isFactory ? 'factory' : 'user';
       const list = ((res.data && res.data.list) || []).map((f) => ({
         ...f,
-        fullUrl: api.BASE_URL + f.file_url,
+        fullUrl: fileUrl(f.file_url),
+        // 图片走 previewImage + 面板内缩图, 文档才走 openDocument（两者不能混用）
+        isImage: isImageFile(f),
         senderText: f.sender_type === viewerType ? '我' : (f.sender_type === 'factory' ? '工厂' : '客户'),
-        sizeText: f.file_size > 1048576 ? (f.file_size / 1048576).toFixed(1) + 'MB' : Math.ceil(f.file_size / 1024) + 'KB',
+        sizeText: fileSizeText(f.file_size),
       }));
       this.setData({ files: list });
     } catch (e) { /* 静默 */ }
@@ -254,18 +263,27 @@ Page({
   noop() {},
 
   openFile(e) {
-    const url = e.currentTarget.dataset.url;
+    const { url, image } = e.currentTarget.dataset;
     if (!url) return;
+    // 图片必须用 previewImage：wx.openDocument 只支持文档类, 传 jpg 必失败,
+    // 旧版失败后退化成「复制链接」, 看起来就像“传上来的东西看不了”
+    if (image) {
+      const urls = this.data.files.filter((f) => f.isImage).map((f) => f.fullUrl);
+      return wx.previewImage({ current: url, urls: urls.length ? urls : [url] });
+    }
+    wx.showLoading({ title: '打开中', mask: true });
     wx.downloadFile({
       url,
       success: (r) => {
+        wx.hideLoading();
         wx.openDocument({
           filePath: r.tempFilePath,
           showMenu: true,
-          fail: () => wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '链接已复制', icon: 'none' }) }),
+          // CDR/AI/DWG 这类手机开不了的源文件, 至少能把链接转给电脑端打开
+          fail: () => wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '该格式手机不支持, 链接已复制', icon: 'none' }) }),
         });
       },
-      fail: () => wx.showToast({ title: '下载失败', icon: 'none' }),
+      fail: () => { wx.hideLoading(); wx.showToast({ title: '下载失败', icon: 'none' }); },
     });
   },
 

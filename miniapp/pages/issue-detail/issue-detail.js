@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { fileUrl, isImageFile } = require('../../utils/fileUrl');
 
 const TYPE_LABEL = { quality: '质量投诉', delay: '延期预警', reprint: '补印申请', other: '其他' };
 const STATUS_LABEL = { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' };
@@ -92,16 +93,22 @@ Page({
       this.setData({ files: list.map((f) => ({
         ...f,
         sizeText: formatSize(f.file_size),
-        fullUrl: f.file_url && f.file_url.indexOf('http') === 0 ? f.file_url : api.BASE_URL + f.file_url,
+        isImage: isImageFile(f),
+        fullUrl: fileUrl(f.file_url),
       })) });
     } catch (e) { this.setData({ files: [] }); }
   },
 
   openFile(e) {
-    const url = e.currentTarget.dataset.url;
+    const { url, image } = e.currentTarget.dataset;
     if (!url) return;
+    // 图片直接预览：openDocument 不支持 jpg/png, 先下再失败再转 previewImage 白跑一趟
+    if (image) {
+      const urls = (this.data.files || []).filter((f) => f.isImage).map((f) => f.fullUrl);
+      return wx.previewImage({ current: url, urls: urls.length ? urls : [url] });
+    }
     wx.downloadFile({ url, success: (r) => {
-      wx.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => wx.previewImage({ urls: [url] }) });
+      wx.openDocument({ filePath: r.tempFilePath, showMenu: true, fail: () => wx.setClipboardData({ data: url, success: () => wx.showToast({ title: '该格式手机不支持, 链接已复制', icon: 'none' }) }) });
     }, fail: () => wx.showToast({ title: '下载失败', icon: 'none' }) });
   },
 

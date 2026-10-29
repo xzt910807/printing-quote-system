@@ -44,7 +44,8 @@
   <view class="card">
     <view class="card-title">证据附件（共 {{files.length}} 个）</view>
     <view wx:if="{{!files.length}}" class="files-empty">暂无附件</view>
-    <view wx:for="{{files}}" wx:key="id" class="file-row" data-url="{{item.fullUrl}}" bindtap="openFile">
+    <view wx:for="{{files}}" wx:key="id" class="file-row" data-url="{{item.fullUrl}}" data-image="{{item.isImage}}" bindtap="openFile">
+      <image wx:if="{{item.isImage}}" class="file-thumb" src="{{item.fullUrl}}" mode="aspectFill" lazy-load />
       <view class="file-name">{{item.file_name}}</view>
       <view class="file-meta">{{item.sender_type === 'user' ? (role === 'customer' ? '我' : '客户') : (item.sender_type === 'factory' ? (role === 'factory' ? '我' : '工厂') : '平台')}} · {{item.sizeText}}</view>
     </view>

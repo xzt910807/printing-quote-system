@@ -158,7 +158,9 @@ page { background: #f1f5f9; }
   font-size: 24rpx;
   color: #475569;
 }
-.file-toggle { color: #94a3b8; font-size: 20rpx; }
+/* 展开/收起用边框拼的 chevron（复用顶部胶囊的 .ctx-caret）, 不用 ▲▼ 字符 */
+.file-caret-wrap { display: flex; align-items: center; gap: 8rpx; }
+.file-toggle-t { color: #94a3b8; font-size: 22rpx; }
 .file-list { max-height: 320rpx; overflow-y: auto; padding: 0 24rpx 16rpx; }
 .file-row {
   display: flex;
@@ -168,6 +170,15 @@ page { background: #f1f5f9; }
   border-radius: 10rpx;
   background: #f8fafc;
   margin-bottom: 8rpx;
+}
+/* 图片缩图：不点开也能确认传上来的到底是什么 */
+.file-thumb {
+  flex: none;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+  background: #f1f5f9;
 }
 .file-name {
   font-size: 26rpx;
@@ -179,6 +190,16 @@ page { background: #f1f5f9; }
   margin-right: 16rpx;
 }
 .file-meta { font-size: 22rpx; color: #94a3b8; flex: none; }
+/* 行尾 ›：整行可点, 不另写「查看」二字与右侧发送者/大小挤在一起 */
+.file-open {
+  flex: none;
+  width: 12rpx;
+  height: 12rpx;
+  margin-left: 12rpx;
+  border-right: 2rpx solid #cbd5e1;
+  border-top: 2rpx solid #cbd5e1;
+  transform: rotate(45deg);
+}
 
 /* ===== 顶部实时单据胶囊 + 展开面板 =====
    原本聊天页只有一条光秃秃的消息流, 双方都不知道在谈哪一单; 单据信息常驻顶部且每次现取（改价后价格立刻跟着变）。

@@ -73,7 +73,7 @@
 </view>
 
 <scroll-view class="msg-area" scroll-y scroll-into-view="msg-{{lastId}}" scroll-with-animation
-             style="top: {{statusBarHeight + navBarHeight + (ctx ? ctxBarH + ctxGap * 2 : 0)}}px; bottom: {{inputBarH + keyboardHeight}}px;">
+             style="top: {{statusBarHeight + navBarHeight + (ctx ? ctxBarH + ctxGap * 2 : 0)}}px; bottom: {{inputBarH + safeBottom + keyboardHeight}}px;">
   <view class="msg-empty" wx:if="{{loading}}">加载中...</view>
   <view class="msg-empty" wx:elif="{{!messages.length}}">
     还没有消息，发一条打个招呼吧
@@ -122,15 +122,20 @@
 </view>
 
 <!-- 026 协同文件列表（当前会话相关的设计源文件） -->
-<view class="file-panel" wx:if="{{files.length}}" style="bottom: {{keyboardHeight + inputBarH}}px;">
+<view class="file-panel" wx:if="{{files.length}}" style="bottom: {{keyboardHeight + inputBarH + safeBottom}}px;">
   <view class="file-panel-hd" bindtap="toggleFiles">
     <text>会话文件 ({{files.length}})</text>
-    <text class="file-toggle">{{filesExpanded ? '▲' : '▼'}}</text>
+    <view class="file-caret-wrap">
+      <text class="file-toggle-t">{{filesExpanded ? '收起' : '展开'}}</text>
+      <view class="ctx-caret {{filesExpanded ? 'ctx-caret-up' : ''}}"></view>
+    </view>
   </view>
   <view class="file-list" wx:if="{{filesExpanded}}">
-    <view class="file-row" wx:for="{{files}}" wx:key="id" data-url="{{item.fullUrl}}" data-name="{{item.file_name}}" bindtap="openFile">
+    <view class="file-row" wx:for="{{files}}" wx:key="id" data-url="{{item.fullUrl}}" data-image="{{item.isImage}}" bindtap="openFile">
+      <image wx:if="{{item.isImage}}" class="file-thumb" src="{{item.fullUrl}}" mode="aspectFill" lazy-load />
       <text class="file-name">{{item.file_name}}</text>
       <text class="file-meta">{{item.senderText}} · {{item.sizeText}}</text>
+      <view class="file-open"></view>
     </view>
   </view>
 </view>

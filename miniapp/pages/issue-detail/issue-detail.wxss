@@ -48,6 +48,8 @@
 .files-empty { color: #999; font-size: 24rpx; padding: 12rpx 0; }
 .file-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #f0f0f0; }
 .file-row:last-child { border-bottom: none; }
+/* 图片证据缩图：报修多是色差/破损照片, 不点开也能确认是哪张 */
+.file-thumb { flex: none; width: 56rpx; height: 56rpx; border-radius: 8rpx; margin-right: 16rpx; background: #f1f5f9; }
 .file-name { flex: 1; font-size: 26rpx; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-meta { font-size: 22rpx; color: #888; margin-left: 16rpx; }
 .file-upload { margin-top: 16rpx; text-align: center; padding: 20rpx; border: 2rpx dashed #2563eb; color: #2563eb; border-radius: 8rpx; font-size: 26rpx; }
