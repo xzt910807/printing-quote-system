@@ -272,9 +272,17 @@
   padding: 0 8rpx 16rpx;
 }
 
-.msg-unread-text { font-size: 25rpx; color: #94a3b8; }
+/* 未读动作条（仅在有未读时渲染）：左侧红点+红字说状态, 右侧蓝字给一个能点的出口 */
+.msg-unread { display: flex; align-items: center; font-size: 25rpx; color: #dc2626; }
 
-.msg-allread { font-size: 25rpx; color: #2563eb; }
+.msg-unread-dot {
+  width: 12rpx; height: 12rpx; border-radius: 50%; background: #ef4444;
+  margin-right: 12rpx; flex: none;
+}
+
+.msg-allread { font-size: 25rpx; color: #2563eb; padding: 6rpx 10rpx; border-radius: 8rpx; }
+
+.msg-allread:active { background: #eff6ff; }
 
 .msg-card {
   background: #fff;

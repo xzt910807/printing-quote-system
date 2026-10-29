@@ -266,9 +266,10 @@
 
   <!-- 消息 -->
   <block wx:if="{{tab === 'message'}}">
-    <view class="msg-tool" wx:if="{{messages.length}}">
-      <text class="msg-unread-text">未读 {{unread}} 条</text>
-      <text class="msg-allread" wx:if="{{unread}}" bindtap="readAll">全部已读</text>
+    <!-- 只有存在未读时才出现这一行：「未读 0 条」是负信息, 白白占一行还让列表顶部显得没收拾干净 -->
+    <view class="msg-tool" wx:if="{{messages.length && unread}}">
+      <view class="msg-unread"><text class="msg-unread-dot"></text><text>{{unread}} 条未读</text></view>
+      <text class="msg-allread" bindtap="readAll">全部已读 ›</text>
     </view>
     <view class="empty" wx:if="{{msgLoading}}">
       <text class="empty-icon">⏳</text>加载中...
