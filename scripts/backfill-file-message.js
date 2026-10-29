@@ -11,12 +11,21 @@
  *   - 已回填过的（存在 msg_type='file' 且 file_id 相同的消息）自动跳过, 脚本可重复跑
  *   - is_read 直接置 1：这些文件本来就在面板里露过面, 不该再算未读把人吓一跳
  *   - created_at 用文件的上传时间, 时间分隔线显示的是真实发送时刻
+ *   - 顺手清洗一步：早期版本的图片消息把微信随机文件名写进了 content（[图片] NJA13TC3…jpg）,
+ *     会话列表里就是一串乱码, 一律压成「[图片]」（与新的写入口径对齐, 幂等）
  */
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 function isImage(mime, name) {
   return /^image\//.test(String(mime || '')) || /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(name || ''));
+}
+
+// 文案口径与 src/services/inquiryChatService.js 的 fileLabel() 一致：图片不拼文件名
+function fileLabel(image, fileName) {
+  if (image) return '[图片]';
+  const name = String(fileName || '未命名').trim();
+  return `[文件] ${name.length > 40 ? name.slice(0, 40) + '…' : name}`;
 }
 
 async function main() {
@@ -39,6 +48,23 @@ async function main() {
       process.exit(1);
     }
 
+    // 第一步：清洗历史图片消息的 content（后面的补录候选查询与此无关, 故先做完）
+    const [dirty] = await conn.query(
+      "SELECT id, content FROM inquiry_message WHERE msg_type = 'file' AND content LIKE '[图片] %'"
+    );
+    console.log(`待规整的图片消息：${dirty.length} 条`);
+    if (doApply && dirty.length) {
+      const [fix] = await conn.query(
+        "UPDATE inquiry_message SET content = '[图片]' WHERE msg_type = 'file' AND content LIKE '[图片] %'"
+      );
+      console.log(`  ✓ 已压成「[图片]」：${fix.affectedRows} 条\n`);
+    } else if (dirty.length) {
+      dirty.slice(0, 5).forEach((d) => console.log(`  · #${d.id} ${d.content.slice(0, 60)}`));
+      console.log('  （试运行不写库）\n');
+    } else {
+      console.log('');
+    }
+
     const [rows] = await conn.query(
       `SELECT ft.id, ft.ref_id AS inquiry_id, ft.sender_type, ft.sender_id, ft.file_name, ft.mime_type, ft.created_at
        FROM file_transfer ft
@@ -50,7 +76,7 @@ async function main() {
 
     let done = 0, skipped = 0;
     for (const f of rows) {
-      const label = `${isImage(f.mime_type, f.file_name) ? '[图片]' : '[文件]'} ${f.file_name}`.slice(0, 500);
+      const label = fileLabel(isImage(f.mime_type, f.file_name), f.file_name);
       // 会话键是 inquiry×factory：工厂发的对家就是本厂, 客户发的要认准当时聊的是哪家
       let factoryId = 0;
       let senderId = f.sender_id;

@@ -1659,7 +1659,7 @@ CREATE TABLE `inquiry_message`  (
   `factory_id` int(0) NOT NULL COMMENT '工厂ID，关联 factory.id（会话对家）',
   `sender_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '发送方：user=客户 factory=工厂 system=系统留痕（如工厂改价, sender_id=0）',
   `sender_id` bigint(0) NOT NULL COMMENT '发送者ID（user=c_end_user.id；factory=factory_user.id）',
-  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息内容（文件消息存「[图片]/[文件] 原名」, 供会话列表预览）',
+  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息内容（文件消息存预览文案：图片就「[图片]」、文档「[文件] 名字」, 供会话列表与站内信用）',
   `msg_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'text' COMMENT '消息类型：text=文本 file=协同文件（渲染时按 file_id 关联 file_transfer 取名字/大小）',
   `file_id` bigint(0) NULL DEFAULT NULL COMMENT '关联 file_transfer.id（仅 msg_type=file）',
   `is_read` tinyint(0) NOT NULL DEFAULT 0 COMMENT '接收方是否已读 0否1是',

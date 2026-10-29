@@ -9,6 +9,28 @@ const guard = require('./contentGuard');
 const catalog = require('./catalogService');
 
 const MAX_CONTENT_LEN = 500;
+const MAX_PREVIEW_NAME_LEN = 40;
+
+/**
+ * 文件消息的会话文案（写进 content 当预览用）
+ * 图片不拼文件名：小程序选图上传时微信给的名字就是 40 位随机串（NJA13TC3I4MV…jpg）,
+ * 摆在会话列表与站内信里就是一串乱码, 除了长度没有任何信息量
+ */
+function fileLabel(isImage, fileName) {
+  if (isImage) return '[图片]';
+  const name = String(fileName || '未命名').trim();
+  const short = name.length > MAX_PREVIEW_NAME_LEN ? name.slice(0, MAX_PREVIEW_NAME_LEN) + '…' : name;
+  return `[文件] ${short}`.slice(0, MAX_CONTENT_LEN);
+}
+
+/**
+ * 会话列表的最后一条预览
+ * 历史数据的图片消息 content 里存着那串随机文件名, 读的时候一律压成「[图片]」（存量靠脚本清洗, 这里兜底）
+ */
+function previewText(content) {
+  const c = String(content || '');
+  return c.startsWith('[图片]') ? '[图片]' : c;
+}
 
 /**
  * 会话顶部的实时单据卡（解决“在线沟通不知道在说哪一单”）
@@ -176,8 +198,8 @@ async function sendFileMessage(p) {
   if (p.senderType === 'user') await assertUserAccess(inquiryId, p.senderId);
   else await assertFactoryAccess(inquiryId, factoryId);
 
-  // content 冗余一份可读标签：会话列表的最后一条预览、以及消息通知都直接用它, 不用再关联文件表
-  const label = `${p.isImage ? '[图片]' : '[文件]'} ${String(p.fileName || '未命名')}`.slice(0, MAX_CONTENT_LEN);
+  // content 冗余一份可读标签：会话列表的最后一条预览、以及站内信都直接用它, 不用再关联文件表
+  const label = fileLabel(p.isImage, p.fileName);
   const [ret] = await pool.query(
     'INSERT INTO inquiry_message (inquiry_id, factory_id, sender_type, sender_id, content, msg_type, file_id) VALUES (?,?,?,?,?,?,?)',
     [inquiryId, factoryId, p.senderType, p.senderId, label, 'file', fileId]
@@ -238,7 +260,7 @@ async function attachLastInfo(rows, selfType) {
   }
   for (const r of rows) {
     const last = map[r.lastId];
-    r.lastMessage = last ? (last.sender_type === selfType ? '我：' : '') + last.content : '';
+    r.lastMessage = last ? (last.sender_type === selfType ? '我：' : '') + previewText(last.content) : '';
     r.lastTime = last ? last.created_at : null;
     r.unread = Number(r.unread) || 0;
   }
