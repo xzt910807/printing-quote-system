@@ -691,7 +691,7 @@ async function getComment(id) {
  * 都要靠工厂先看到帖子才可能产生。此前工厂端没有任何社区入口，只能自己逛 C 端社区碰运气，
  * 等于让供给侧靠缘分——那条数据链就一直是空的。
  *
- * 能力匹配分两步：SQL 只做粗筛（时间/板块/未采纳/自己没答过），能力匹配在内存里做，
+ * 能力匹配分两步：SQL 只做粗筛（时间/板块/未采纳/自己没答过/不是自己发的），能力匹配在内存里做，
  * 因为 spec 是 JSON 列，在 SQL 里展开数组匹配工艺的写法既不通用也读不懂。
  */
 async function listFactoryRequests(factoryId, { limit = 5 } = {}) {
@@ -704,13 +704,14 @@ async function listFactoryRequests(factoryId, { limit = 5 } = {}) {
        AND p.estimate IS NOT NULL
        AND p.accepted_comment_id IS NULL
        AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       AND (p.factory_id IS NULL OR p.factory_id <> ?)
        AND NOT EXISTS (
          SELECT 1 FROM community_comment c
          WHERE c.post_id = p.id AND c.author_type = 'factory' AND c.factory_id = ?
        )
      ORDER BY p.created_at DESC
      LIMIT 60`,
-    [fid]);
+    [fid, fid]);
   const caps = capabilityService.getByFactory(fid);
   // 未配置产能标签的工厂 canHandle 永远是 false，硬过滤会让新厂看到一片空——
   // 改成不过滤但标注「待完善标签」，让新工厂先有活干，再引导去补标签

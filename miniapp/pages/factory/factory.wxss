@@ -382,6 +382,20 @@
 
 .trust-arrow { font-size: 30rpx; color: #cbd5e1; flex-shrink: 0; }
 
+/* F-4 报价准确度：比验真条更轻——它是一条参考情报，不是待办 */
+.acc-block {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  background: #f8fafc;
+  border-radius: 14rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.acc-title { font-size: 22rpx; color: #64748b; flex-shrink: 0; }
+.acc-text { flex: 1; font-size: 23rpx; color: #334155; line-height: 1.5; }
+
 /* ---------- 社区求助（工厂侧） ---------- */
 .cr-block {
   background: #fff;

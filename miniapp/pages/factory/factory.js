@@ -86,6 +86,8 @@ Page({
     requestCapEmpty: false,
     // F-6 验真状态 + 同行获单率对比（未验真时是升级引导，已验真时是状态复述）
     trust: null,
+    // F-4 报价准确度：我方报价 vs 平台估价的偏差（后端算，样本不足只给「积累中」）
+    accuracy: null,
   },
 
   onLoad() {
@@ -131,6 +133,7 @@ Page({
     this.loadChatUnread();
     this.loadCommunityRequests();
     this.loadTrust();
+    this.loadAccuracy();
     this.syncTabBar();
   },
 
@@ -300,6 +303,19 @@ Page({
     try {
       const res = await api.request('/api/factory/me/trust', { headers: this.authHeaders() });
       this.setData({ trust: res.data || null });
+    } catch (err) { /* 静默 */ }
+  },
+
+  /**
+   * 报价准确度（F-4）：工厂只看得到自己的报价，看不到「市场均价」偏离了多少——
+   * 而这正是平台唯一能免费给它、它自己算不出来的情报。
+   * 样本不足时后端只回「积累中」，端上照样显示（让工厂知道平台在记账，而不是石沉大海）。
+   */
+  async loadAccuracy() {
+    if (!this.data.auth) return;
+    try {
+      const res = await api.request('/api/factory/me/quote-accuracy', { headers: this.authHeaders() });
+      this.setData({ accuracy: res.data || null });
     } catch (err) { /* 静默 */ }
   },
 

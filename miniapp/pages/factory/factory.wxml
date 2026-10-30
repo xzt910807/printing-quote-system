@@ -60,6 +60,13 @@
       <text class="trust-arrow" wx:if="{{!trust.verified}}">›</text>
     </view>
 
+    <!-- F-4 报价准确度：只显示本方有报价样本时的偏离，0 样本不占屏（空壳条只会让人怀疑页面坏了）。
+         「近 180 天、样本不足只给积累中」的口径由后端定，端上不自己拼百分比 -->
+    <view class="acc-block" wx:if="{{accuracy && accuracy.sampleN}}">
+      <text class="acc-title">报价准确度</text>
+      <text class="acc-text">{{accuracy.text}}</text>
+    </view>
+
     <!-- 社区求助（工厂侧入口）：答价与社区声望的数据来源。
          此前工厂端没有社区入口，只能自己去 C 端社区碰运气，反哺撮合的数据链一直是空的 -->
     <view class="cr-block" wx:if="{{requests.length}}">
