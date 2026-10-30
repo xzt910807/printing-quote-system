@@ -58,6 +58,7 @@ node scripts/schema-sync.js --apply    # 直接补齐缺表/缺列
 #    需手工补的索引清单（本库已执行完毕，新发现的往这里追加）：
 #      ALTER TABLE `order_main` ADD INDEX `idx_escrow`(`escrow_status`);            -- Batch D0，029 迁移原本漏建
 #      ALTER TABLE `factory`    ADD INDEX `idx_latlng`(`lat`, `lng`);               -- Batch D2，随距离排序上线
+#      ALTER TABLE `community_comment` ADD INDEX `idx_factory_quote`(`factory_id`, `is_quote`, `author_type`, `created_at`);  -- Batch E，社区答价聚合
 node scripts/migrate.js apply          # 仅当 sql/migrations/ 确有新增文件时才需要
 pm2 restart printing-quote
 # 冒烟
@@ -425,4 +426,63 @@ SELECT target_type, target_id, COUNT(*) n FROM community_report
  WHERE status = 'pending' GROUP BY 1,2 HAVING COUNT(*) >= 3;
 ```
 
+### 14.9 社区价格上下文（Batch E：规格/锚定价/答价/信任徽章）
 
+**存量库必须先手工执行这段 DDL**，否则发帖与评论接口会因缺列报错（`schema-sync` 只会补普通列，
+且**不建索引**）：
+
+```sql
+ALTER TABLE community_post
+  ADD COLUMN spec json NULL, ADD COLUMN estimate json NULL,
+  ADD COLUMN accepted_comment_id bigint NULL DEFAULT NULL;
+ALTER TABLE community_comment
+  ADD COLUMN is_quote tinyint NOT NULL DEFAULT 0,
+  ADD COLUMN quote_price decimal(12,4) NULL,
+  ADD COLUMN quote_valid_days int NULL,
+  ADD COLUMN is_accepted tinyint NOT NULL DEFAULT 0,
+  ADD INDEX idx_factory_quote(factory_id, is_quote, author_type, created_at);
+```
+
+新增列的语义：
+
+| 列 | 说明 |
+|---|---|
+| `community_post.spec` | 发帖时提交的结构化规格（`productType/printMode/lengthMm/widthMm/heightMm/quantity/materialCode/processes/…`），**已服务端白名单归一** |
+| `community_post.estimate` | 按平台计价模型算出的参考价**快照**（非实时重算），算不出或未填规格为 `NULL` |
+| `community_post.accepted_comment_id` | 帖主采纳的报价评论 id，是社区反哺撮合的唯一强信号 |
+| `community_comment.is_quote` / `quote_price` / `quote_valid_days` | 工厂答价三件套（`is_quote=1` 才算答价；有效期 1~30 天） |
+| `community_comment.is_accepted` | 被帖主采纳（同一帖至多一条，服务层事务内互斥） |
+
+**锚定价只用系统基准价（`factoryId=0`）**，不取任何一家工厂的真实报价：工厂价是商业敏感信息，
+公开帖里展示等于替某家厂向同行报价；且若按最优工厂价展示，其余工厂就没有报价意愿了。
+系统基准价与结果页 `systemQuote` 同口径，两处数字能对上。
+
+**发帖不会因为算不出价而失败**：规格校验不过（品类不对、材料不在该品类白名单、工艺非法、尺寸/数量越界）
+时丢弃 `spec` 与 `estimate`，照常落库，响应体带 `estimateError`，端上提示「参数组合不支持，未生成参考价」。
+
+**参考价是快照不是实时值**：详情页超过 90 天会加一句「参考价发布于 N 天前，行情可能已变」，
+后台不重算（成本与口径一致性都不划算）。核对快照是否被误重算：
+
+```sql
+-- 有规格却没生成参考价的行（多为白名单外组合，属预期，突增说明品类配置被改了）
+SELECT category_code, COUNT(*) FROM community_post
+ WHERE spec IS NOT NULL AND estimate IS NULL GROUP BY category_code;
+-- 答价规模与采纳率（工厂侧供给活跃度）
+SELECT factory_id, COUNT(*) quotes, SUM(is_accepted) accepted
+  FROM community_comment
+ WHERE author_type = 'factory' AND is_quote = 1 AND status = 'published'
+   AND created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+ GROUP BY factory_id ORDER BY accepted DESC, quotes DESC;
+-- 同一帖出现多条采纳（应为 0 行，服务层互斥失效才会出现）
+SELECT post_id, COUNT(*) FROM community_comment
+ WHERE is_accepted = 1 GROUP BY post_id HAVING COUNT(*) > 1;
+```
+
+社区分进撮合排序链的**最末尾**（`followed → 产能 → 口碑分 → 接单率 → 工艺命中 → 社区分`），
+`score = min(被采纳×3 + 答价次数, 20)`，近 90 天窗口。放在末尾是故意的：发帖答价是低成本行为，
+排到高分厂前面会让「爱聊天但做工一般」的厂挤掉口碑厂，属于激励反向。要调激进程度只改
+`matchService` 那一行与 `communityReputation` 的系数，本版不预留配置开关。
+
+信任徽章来源：`factory.verification_level` + `factory.license_verified` + 是否有
+`factory_media.media_type='certificate' AND audit_status='approved'` 的图集；
+客户作者的 `authorTrust` 一律为 `NULL`（不是空对象，避免端上把 null 误判成「已核验」）。

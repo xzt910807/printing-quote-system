@@ -119,6 +119,19 @@ class CatalogService {
   }
 
   /**
+   * 材料编码 → 材料大类（engine 的 materialType: cardPaper/boardPaper/rawPaper/plasticFilm）
+   * 社区锚定价只能拿到材料编码，而 generateQuote 要求同时给大类；四张表编码不重叠，
+   * 按 materialName 同样的顺序反查，查不到返回 null（调用方据此降级为「无参考价」）。
+   */
+  materialTypeOf(code) {
+    if (!code) return null;
+    for (const t of ['cardPaper', 'boardPaper', 'rawPaper', 'plasticFilm']) {
+      if (this.baseData[t][code]) return t;
+    }
+    return null;
+  }
+
+  /**
    * 把询价/订单行的生产参数解析成人读文案, 供工厂端列表卡展示（工厂据此判断能否接单/如何报价）。
    * 尺寸按 mm 显示（库内以米存, ×1000 取整）; 缺项返回空串, 前端自行隐藏。
    * @param {Object} r 含 print_mode/length_m/width_m/height_m/material_code/color_count/spot_colors/processes

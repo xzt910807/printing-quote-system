@@ -80,7 +80,7 @@ router.get('/mine', requireIdentity, async (req, res) => {
 
 // ========== 写接口（一律要身份 + 滑窗限流） ==========
 
-// POST /post — 发帖（分级审核在服务层落地）
+// POST /post — 发帖（分级审核在服务层落地；spec 选填，带规格才算参考价）
 router.post('/post', requireIdentity, writeGuard({ windowMs: 60 * 60 * 1000, max: 5, name: 'post' }), async (req, res) => {
   try {
     const b = req.body || {};
@@ -92,12 +92,14 @@ router.post('/post', requireIdentity, writeGuard({ windowMs: 60 * 60 * 1000, max
       images: b.images,
       videoUrl: b.videoUrl,
       coverUrl: b.coverUrl,
+      // 结构化规格（Batch E）：白名单裁剪与算价都在服务层，路由不做业务判断
+      spec: b.spec,
     });
     res.json(ok(ret));
   } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
 });
 
-// POST /post/:id/comment — 评论（parentId 可选，仅一层回复）
+// POST /post/:id/comment — 评论（parentId 可选，仅一层回复；工厂可附结构化报价）
 router.post('/post/:id/comment', requireIdentity, writeGuard({ windowMs: 60 * 60 * 1000, max: 20, name: 'comment' }), async (req, res) => {
   try {
     const ret = await community.createComment({
@@ -105,7 +107,18 @@ router.post('/post/:id/comment', requireIdentity, writeGuard({ windowMs: 60 * 60
       postId: req.params.id,
       content: (req.body || {}).content,
       parentId: (req.body || {}).parentId,
+      // 答价（Batch E）：客户身份传了也会在服务层被忽略，不报错
+      quotePrice: (req.body || {}).quotePrice,
+      quoteValidDays: (req.body || {}).quoteValidDays,
     });
+    res.json(ok(ret));
+  } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
+});
+
+// POST /post/:id/accept-quote — 帖主采纳一条工厂答价（仅帖主，同帖互斥，幂等）
+router.post('/post/:id/accept-quote', requireIdentity, async (req, res) => {
+  try {
+    const ret = await community.acceptQuote(req.identity, req.params.id, (req.body || {}).commentId);
     res.json(ok(ret));
   } catch (err) { res.status(err.status || 400).json(fail(err.message)); }
 });

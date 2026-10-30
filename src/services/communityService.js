@@ -19,6 +19,7 @@
  */
 const { pool } = require('../config/db');
 const contentGuard = require('./contentGuard');
+const communityPricing = require('./communityPricing');
 
 /** 社区媒体一律落这个前缀，入库前必校：防止把外链 URL 塞进 post 变成钓鱼跳板 */
 const UPLOAD_PREFIX = '/uploads/community/';
@@ -106,7 +107,7 @@ async function toggleCategory(id, isActive) {
  * 标题与正文合并成一次机审：外部接口有配额，两段文本分开检测要双倍调用，收益只是
  * 报错时能指出哪一段违规——社区场景直接告诉用户「含违规内容」就够了。
  */
-async function createPost({ identity, title, content, categoryCode, images, videoUrl, coverUrl }) {
+async function createPost({ identity, title, content, categoryCode, images, videoUrl, coverUrl, spec }) {
   const t = likeStr(title).slice(0, MAX_TITLE_LEN);
   const body = likeStr(content).slice(0, MAX_CONTENT_LEN);
   if (!t) throw bad('标题不能为空');
@@ -122,6 +123,12 @@ async function createPost({ identity, title, content, categoryCode, images, vide
   const cover = normalizeMediaUrl(coverUrl, '封面');
   // 纯文字帖（经验交流、工艺问答）是社区主体，不强制配图；正文上面的 5 字下限已经保证不是空帖
 
+  // 结构化规格 + 平台参考价快照（Batch E）：算不出价的组合只丢掉规格，帖子照常发，
+  // 把原因通过 estimateError 回给端上提示——不能因为一个选填项让人白写一屏正文
+  const norm = communityPricing.normalizeSpec(spec);
+  const est = norm.spec ? communityPricing.estimateOf(norm.spec) : { ok: false, estimate: null, error: null };
+  const estimateError = norm.error || est.error || null;
+
   const openid = await openidOf(identity);
   const guard = await contentGuard.checkText(`${t}\n${body}`, { openid, scene: 'community' });
   // 机审命中就整条压住待人工；否则按身份分级：工厂直接公开、客户先发后审
@@ -131,14 +138,19 @@ async function createPost({ identity, title, content, categoryCode, images, vide
 
   const [r] = await pool.query(
     `INSERT INTO community_post
-       (user_id, author_type, factory_id, category_code, title, content, images, video_url, cover_url, status, audit_note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (user_id, author_type, factory_id, category_code, title, content, images, video_url, cover_url, status, audit_note, spec, estimate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [identity.userId, identity.type, identity.factoryId || null, cat, t, body,
-      JSON.stringify(imgArr), video, cover, status, note]);
-  return getPostById(r.insertId);
+      JSON.stringify(imgArr), video, cover, status, note,
+      norm.spec ? JSON.stringify(norm.spec) : null,
+      est.estimate ? JSON.stringify(est.estimate) : null]);
+  const post = await getPostById(r.insertId);
+  // 单价算出来了但没落成快照属于事故，estimateError 置空的唯一条件是 estimate 已就位
+  if (estimateError) post.estimateError = estimateError;
+  return post;
 }
 
-async function createComment({ identity, postId, content, parentId }) {
+async function createComment({ identity, postId, content, parentId, quotePrice, quoteValidDays }) {
   const body = likeStr(content).slice(0, 1000);
   if (body.length < 1) throw bad('评论内容不能为空');
   const pid = Number(postId) || 0;
@@ -151,6 +163,23 @@ async function createComment({ identity, postId, content, parentId }) {
     if (!p || Number(p.post_id) !== pid) throw bad('回复的评论不存在');
   }
 
+  // 答价（Batch E）：只有工厂身份带价才算结构化报价。客户身份误传 quotePrice 一律忽略
+  // 而不报错——端上拼参数出错不该把整条评论打回，评论内容本身才是主体。
+  let isQuote = 0;
+  let price = null;
+  let validDays = null;
+  if (identity.type === 'factory' && quotePrice !== undefined && quotePrice !== null && quotePrice !== '') {
+    const p = Number(quotePrice);
+    if (!Number.isFinite(p) || p <= 0 || p > 1000000) throw bad('答价需在 0~1000000 元/个之间');
+    const d = (quoteValidDays === undefined || quoteValidDays === null || quoteValidDays === '')
+      ? 7 : Number(quoteValidDays);
+    if (!Number.isFinite(d) || d < 1 || d > 30) throw bad('报价有效期需在 1~30 天之间');
+    isQuote = 1;
+    // quote_price 是 decimal(12,4)，四舍五入到 4 位再入库，避免 1.23456 被 MySQL 截断成误差
+    price = Math.round(p * 10000) / 10000;
+    validDays = Math.round(d);
+  }
+
   const openid = await openidOf(identity);
   const guard = await contentGuard.checkText(body, { openid, scene: 'community' });
   const status = guard.pass ? 'published' : 'pending';
@@ -158,13 +187,59 @@ async function createComment({ identity, postId, content, parentId }) {
     : (identity.type === 'factory' ? null : '待人工抽查');
 
   const [r] = await pool.query(
-    `INSERT INTO community_comment (post_id, user_id, author_type, factory_id, parent_id, content, status, audit_note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [pid, identity.userId, identity.type, identity.factoryId || null, parent, body, status, note]);
+    `INSERT INTO community_comment
+       (post_id, user_id, author_type, factory_id, parent_id, content, status, audit_note,
+        is_quote, quote_price, quote_valid_days)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [pid, identity.userId, identity.type, identity.factoryId || null, parent, body, status, note,
+      isQuote, price, validDays]);
   if (status === 'published') {
     await pool.query('UPDATE community_post SET comment_count = comment_count + 1 WHERE id = ?', [pid]);
   }
   return getComment(r.insertId);
+}
+
+/**
+ * 采纳答价（Batch E）：只有帖主能采纳自己帖子里的一条工厂报价，同帖互斥（至多一条 is_accepted=1）。
+ *
+ * 为什么不同时自动建询价单：采纳是信任信号（反哺撮合），不是下单动作。自动建单会产生一堆
+ * 无人跟进的死单（询价还必须带联系人与收货地址），客户真要下单走详情页「按此参数询价」
+ * → 计算器（已带规格回填）→ 现有 POST /api/c/quote，链路本来就有。
+ */
+async function acceptQuote(identity, postId, commentId) {
+  const pid = Number(postId) || 0;
+  const cid = Number(commentId) || 0;
+  const [[post]] = await pool.query(
+    'SELECT id, user_id, author_type, accepted_comment_id FROM community_post WHERE id = ?', [pid]);
+  if (!post) throw bad('帖子不存在', 404);
+  if (post.author_type !== identity.type || Number(post.user_id) !== Number(identity.userId)) {
+    throw bad('只有帖主可以采纳报价', 403);
+  }
+  if (!cid) throw bad('缺少要采纳的评论');
+  const [[c]] = await pool.query(
+    'SELECT id, post_id, author_type, is_quote, status FROM community_comment WHERE id = ?', [cid]);
+  if (!c) throw bad('评论不存在', 404);
+  if (Number(c.post_id) !== pid) throw bad('该评论不属于这个帖子');
+  if (c.author_type !== 'factory' || Number(c.is_quote) !== 1) throw bad('只能采纳工厂的报价评论');
+  if (c.status !== 'published') throw bad('该报价当前不可采纳');
+  // 幂等：重复点同一条直接返回 unchanged，不重复写库（端上按钮会连点）
+  if (Number(post.accepted_comment_id) === cid) return { accepted: true, unchanged: true, commentId: cid };
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 同帖互斥：先撤旧采纳再置位新条，事务保证不会出现「两条同时被采纳」
+    await conn.query('UPDATE community_comment SET is_accepted = 0 WHERE post_id = ? AND is_accepted = 1', [pid]);
+    await conn.query('UPDATE community_comment SET is_accepted = 1 WHERE id = ?', [cid]);
+    await conn.query('UPDATE community_post SET accepted_comment_id = ? WHERE id = ?', [cid, pid]);
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+  return { accepted: true, unchanged: false, commentId: cid };
 }
 
 /* ==================== 点赞 / 收藏 ==================== */
@@ -377,8 +452,14 @@ const POST_SELECT = `SELECT p.id, p.title, p.content, p.category_code, p.author_
        p.images, p.video_url, p.cover_url, p.status, p.audit_note,
        p.view_count, p.like_count, p.comment_count, p.favorite_count, p.report_count,
        p.is_top, p.is_essence, p.created_at, p.updated_at,
+       p.spec, p.estimate, p.accepted_comment_id,
        COALESCE(cu.nickname, f.name, fu.real_name, fu.username, '匿名') AS author_name,
-       f.name AS factory_name, cu.avatar_url AS author_avatar, cc.name AS category_name
+       f.name AS factory_name, cu.avatar_url AS author_avatar, cc.name AS category_name,
+       f.verification_level AS author_verification_level,
+       f.license_verified AS author_license_verified,
+       (SELECT 1 FROM factory_media fm
+         WHERE fm.factory_id = p.factory_id AND fm.media_type = 'certificate'
+           AND fm.audit_status = 'approved' LIMIT 1) AS author_has_certificate
 FROM community_post p
 LEFT JOIN c_end_user cu ON cu.id = p.user_id AND p.author_type = 'user'
 LEFT JOIN factory_user fu ON fu.id = p.user_id AND p.author_type = 'factory'
@@ -394,6 +475,31 @@ function parseImages(raw) {
   } catch (e) {
     return [];
   }
+}
+
+/** JSON 列经 mysql2 可能返回对象/数组或字符串（spec / estimate 两个 Batch E 新列同此） */
+function parseJson(raw, fallback) {
+  if (raw == null || raw === '') return fallback;
+  if (typeof raw === 'object') return raw;
+  try {
+    const v = JSON.parse(raw);
+    return v == null ? fallback : v;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+/**
+ * 工厂作者的信任徽章（Batch E）。客户作者一律 null，**不是空对象**：
+ * 端上 `wx:if="{{authorTrust}}"` 判空比逐字段判更省事，给 {} 会让它一律亮徽章。
+ */
+function trustOf(authorType, level, licenseVerified, hasCertificate) {
+  if (authorType !== 'factory') return null;
+  return {
+    verificationLevel: Number(level) || 0,
+    licenseVerified: Number(licenseVerified) === 1,
+    hasCertificate: !!hasCertificate,
+  };
 }
 
 function shapePost(row, { full = false, withNote = false } = {}) {
@@ -418,7 +524,25 @@ function shapePost(row, { full = false, withNote = false } = {}) {
     isTop: Number(row.is_top) || 0,
     isEssence: Number(row.is_essence) || 0,
     createdAt: row.created_at,
+    authorTrust: trustOf(row.author_type, row.author_verification_level,
+      row.author_license_verified, row.author_has_certificate),
+    acceptedCommentId: Number(row.accepted_comment_id) || null,
   };
+  // 规格与参考价（Batch E）：列表只给单价与数量（卡片上一个「¥x/个起」就够了），
+  // 详情才下发整份成本拆解（material/plate/printing/finishing/fixed）
+  const spec = parseJson(row.spec, null);
+  if (spec) {
+    out.spec = spec;
+    out.specText = communityPricing.specTextOf(spec);
+  }
+  const estimate = parseJson(row.estimate, null);
+  if (estimate) {
+    out.estimate = full ? estimate : {
+      unitPrice: estimate.unitPrice,
+      quantity: estimate.quantity,
+      calculatedAt: estimate.calculatedAt,
+    };
+  }
   // 摘要只给列表用；详情才下发全文与 audit_note（作者本人能看到驳回原因）
   if (full) {
     out.content = row.content;
@@ -491,8 +615,14 @@ async function listComments(postId, { adminAll = false } = {}) {
   const [rows] = await pool.query(
     `SELECT c.id, c.post_id, c.parent_id, c.content, c.like_count, c.status, c.audit_note, c.created_at,
             c.author_type, c.user_id, c.factory_id,
+            c.is_quote, c.quote_price, c.quote_valid_days, c.is_accepted,
             COALESCE(cu.nickname, f.name, fu.real_name, fu.username, '匿名') AS author_name,
-            f.name AS factory_name
+            f.name AS factory_name,
+            f.verification_level AS author_verification_level,
+            f.license_verified AS author_license_verified,
+            (SELECT 1 FROM factory_media fm
+              WHERE fm.factory_id = c.factory_id AND fm.media_type = 'certificate'
+                AND fm.audit_status = 'approved' LIMIT 1) AS author_has_certificate
      FROM community_comment c
      LEFT JOIN c_end_user cu ON cu.id = c.user_id AND c.author_type = 'user'
      LEFT JOIN factory_user fu ON fu.id = c.user_id AND c.author_type = 'factory'
@@ -510,6 +640,13 @@ async function listComments(postId, { adminAll = false } = {}) {
     authorType: r.author_type,
     authorName: r.author_name,
     factoryName: r.factory_name,
+    // 答价三件套（Batch E）：isQuote=0 的普通评论这三项全为空，端上据此区分渲染
+    isQuote: Number(r.is_quote) || 0,
+    quotePrice: r.quote_price == null ? null : Number(r.quote_price),
+    quoteValidDays: r.quote_valid_days == null ? null : Number(r.quote_valid_days),
+    isAccepted: Number(r.is_accepted) || 0,
+    authorTrust: trustOf(r.author_type, r.author_verification_level,
+      r.author_license_verified, r.author_has_certificate),
     createdAt: r.created_at,
   }));
 }
@@ -517,7 +654,7 @@ async function listComments(postId, { adminAll = false } = {}) {
 async function getComment(id) {
   const [[r]] = await pool.query(
     `SELECT c.id, c.post_id, c.parent_id, c.content, c.like_count, c.status, c.audit_note, c.created_at,
-            c.author_type, c.user_id,
+            c.author_type, c.user_id, c.is_quote, c.quote_price, c.quote_valid_days, c.is_accepted,
             COALESCE(cu.nickname, fu.real_name, fu.username, '匿名') AS author_name
      FROM community_comment c
      LEFT JOIN c_end_user cu ON cu.id = c.user_id AND c.author_type = 'user'
@@ -528,6 +665,10 @@ async function getComment(id) {
     id: r.id, postId: r.post_id, parentId: r.parent_id, content: r.content,
     likeCount: Number(r.like_count) || 0, status: r.status, auditNote: r.audit_note,
     authorType: r.author_type, authorName: r.author_name, createdAt: r.created_at,
+    isQuote: Number(r.is_quote) || 0,
+    quotePrice: r.quote_price == null ? null : Number(r.quote_price),
+    quoteValidDays: r.quote_valid_days == null ? null : Number(r.quote_valid_days),
+    isAccepted: Number(r.is_accepted) || 0,
   };
 }
 
@@ -604,6 +745,7 @@ async function adminListComments({ status = 'pending', page = 1, size = 20 }) {
     'SELECT COUNT(*) AS total FROM community_comment WHERE status = ?', [st]);
   const [rows] = await pool.query(
     `SELECT c.id, c.post_id, c.content, c.status, c.audit_note, c.like_count, c.created_at, c.author_type, c.user_id,
+            c.is_quote, c.quote_price, c.quote_valid_days, c.is_accepted,
             COALESCE(cu.nickname, f.name, fu.real_name, fu.username, '匿名') AS author_name,
             p.title AS post_title
      FROM community_comment c
@@ -620,6 +762,11 @@ async function adminListComments({ status = 'pending', page = 1, size = 20 }) {
       id: r.id, postId: r.post_id, postTitle: r.post_title, content: r.content,
       status: r.status, auditNote: r.audit_note, likeCount: Number(r.like_count) || 0,
       authorType: r.author_type, authorName: r.author_name, createdAt: r.created_at,
+      // 后台也要看得见答价与采纳（运营据此核查报价是否被滥用）
+      isQuote: Number(r.is_quote) || 0,
+      quotePrice: r.quote_price == null ? null : Number(r.quote_price),
+      quoteValidDays: r.quote_valid_days == null ? null : Number(r.quote_valid_days),
+      isAccepted: Number(r.is_accepted) || 0,
     })),
   };
 }
@@ -681,7 +828,7 @@ async function adminStats() {
 module.exports = {
   UPLOAD_PREFIX, MAX_IMAGES, REASONS, POST_STATUS, REPORT_HOLD,
   listCategories, upsertCategory, toggleCategory,
-  createPost, createComment,
+  createPost, createComment, acceptQuote,
   toggleLike, toggleFavorite, report,
   audit, handleReport,
   listPosts, getPostById, listComments, getComment, mine, deleteMine,

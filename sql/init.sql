@@ -315,9 +315,14 @@ CREATE TABLE `community_comment`  (
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'published' COMMENT 'published/pending/rejected/removed（分级审核与帖子同一套）',
   `audit_note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核备注（驳回/下架原因，对作者可见）',
   `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  `is_quote` tinyint(0) NOT NULL DEFAULT 0 COMMENT '1=工厂答价（带价格的结构化报价，Batch E）',
+  `quote_price` decimal(12, 4) NULL DEFAULT NULL COMMENT '答价（元/个，仅工厂答价时有值）',
+  `quote_valid_days` int(0) NULL DEFAULT NULL COMMENT '报价有效期天数（1-30，缺省 7）',
+  `is_accepted` tinyint(0) NOT NULL DEFAULT 0 COMMENT '1=被帖主采纳（同一帖至多一条，服务层互斥）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_post`(`post_id`, `status`) USING BTREE,
-  INDEX `idx_parent`(`parent_id`) USING BTREE
+  INDEX `idx_parent`(`parent_id`) USING BTREE,
+  INDEX `idx_factory_quote`(`factory_id`, `is_quote`, `author_type`, `created_at`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区评论（Batch D4）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -388,6 +393,9 @@ CREATE TABLE `community_post`  (
   `is_essence` tinyint(0) NOT NULL DEFAULT 0 COMMENT '1=加精（后台运营位，列表亮徽章）',
   `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '发布时间',
   `updated_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
+  `spec` json NULL COMMENT '结构化规格（报价求助/供需用）：productType/printMode/lengthMm/widthMm/heightMm/quantity/materialCode/processes/boxType/nUp/filmLayers',
+  `estimate` json NULL COMMENT '发帖时按平台计价模型算出的参考价快照（unitPrice/finalPrice/breakdown/calculatedAt），无规格或算不出为 NULL',
+  `accepted_comment_id` bigint(0) NULL DEFAULT NULL COMMENT '帖主采纳的报价评论 id（社区反哺撮合的唯一强信号）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_feed`(`status`, `is_top`, `is_essence`, `created_at`) USING BTREE,
   INDEX `idx_cat`(`category_code`, `status`) USING BTREE,
