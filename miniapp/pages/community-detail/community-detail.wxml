@@ -43,6 +43,7 @@
       </view>
 
       <view class="de-note">按平台计价模型估算，实际以工厂报价为准</view>
+      <view class="de-note-conf" wx:if="{{post.confidenceText}}">校准信度：{{post.confidenceText}}</view>
       <view class="de-note-warn" wx:if="{{post.estimateStale}}">{{post.estimateStale}}</view>
       <view class="de-btn" bindtap="calcFromSpec">按此参数算一算</view>
     </view>

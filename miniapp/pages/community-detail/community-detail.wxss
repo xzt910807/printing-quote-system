@@ -93,6 +93,7 @@
 .de-row-cost { font-size: 23rpx; color: #1f2937; margin-left: auto; }
 .de-row-detail { font-size: 21rpx; color: #94a3b8; line-height: 1.5; margin-top: 4rpx; }
 .de-note { font-size: 21rpx; color: #94a3b8; margin-top: 16rpx; }
+.de-note-conf { font-size: 21rpx; color: #0369a1; margin-top: 6rpx; }
 .de-note-warn { font-size: 21rpx; color: #b45309; background: #fffbeb; border-radius: 8rpx; padding: 8rpx 14rpx; margin-top: 8rpx; }
 .de-btn { text-align: center; font-size: 26rpx; color: #2563eb; background: #eff6ff; border-radius: 999rpx; padding: 16rpx 0; margin-top: 18rpx; }
 

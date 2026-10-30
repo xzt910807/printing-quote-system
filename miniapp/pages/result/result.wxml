@@ -18,6 +18,8 @@
     </view>
     <view class="price-total">总价 ¥{{result.systemQuote.totalPrice}} · 含税 ¥{{result.systemQuote.finalPrice}}</view>
     <view class="price-notice" wx:if="{{result.systemQuote.notice}}">ℹ️ {{result.systemQuote.notice}}</view>
+    <!-- 校准信度：用真实成交价对账后的偏差，样本不足时只显示「积累中」，不拿几笔单充统计 -->
+    <view class="price-conf" wx:if="{{result.quoteConfidence}}">校准信度：{{result.quoteConfidence.text}}</view>
     <view class="price-valid {{statusData && statusData.expired ? 'price-valid-expired' : ''}}">
       {{statusData && statusData.expired ? '⚠️ 报价已失效（超过 7 天有效期），可重新询价获取新报价' : '⏰ 报价 7 天内有效，逾期请重新询价'}}
     </view>
@@ -51,6 +53,11 @@
   <view class="card fq-card" wx:if="{{statusData.status === 'factory_quoted' && !statusData.factoryQuoteExpired}}">
     <view class="card-title">工厂正式报价</view>
     <view class="fq-price">¥{{statusData.factoryQuotedPrice}}</view>
+    <!-- 贵不贵直接摆在主视觉：客户真正的焦虑是这两行，而不是藏在「查看报价」弹窗里 -->
+    <view class="fq-compare" wx:if="{{quoteCompare}}">
+      <text class="fqc-unit" wx:if="{{quoteCompare.unitText}}">{{quoteCompare.unitText}}</text>
+      <text class="fqc-diff fqc-{{quoteCompare.tone}}">{{quoteCompare.label}}</text>
+    </view>
     <view class="fq-designfee" wx:if="{{statusData.designFee > 0}}">含设计费 ¥{{statusData.designFee}}，已计入总价</view>
     <view class="fq-remark" wx:if="{{statusData.factoryQuoteRemark}}">工厂说明：{{statusData.factoryQuoteRemark}}</view>
     <view class="fq-valid">⏰ 有效期至 {{statusData.factoryQuoteExpiresAtText}}，逾期需重新询价</view>
@@ -102,6 +109,8 @@
           <view class="fc-name-wrap">
             <text class="factory-name">{{item.factoryName}}</text>
             <text class="badge badge-orange" wx:if="{{index === 0 && !statusData.factory}}">推荐</text>
+            <!-- F-6：信任徽章进结果页（L1 执照已核验 / L2 实地验厂 / L3 深度验厂），未核验不出标签 -->
+            <text class="badge badge-green" wx:if="{{item.trustLabel}}">✓ {{item.trustLabel}}</text>
             <text class="badge badge-purple" wx:if="{{item.followed}}">★ 已关注</text>
             <text class="badge badge-blue" wx:if="{{item.isPreferred}}">✓ 已推送</text>
           </view>

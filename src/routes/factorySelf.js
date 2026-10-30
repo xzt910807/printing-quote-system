@@ -13,6 +13,9 @@ const { videoUpload, coverUpload } = require('../middlewares/upload');
 const { requirePermission } = require('../config/permissions');
 const sessionService = require('../services/sessionService');
 const opLog = require('../services/opLogService');
+const communityService = require('../services/communityService');
+const calibrationService = require('../services/calibrationService');
+const { trustOf } = require('../utils/trust');
 const QRCode = require('qrcode');
 const { hashPassword, verifyPassword } = require('../utils/password');
 
@@ -53,7 +56,8 @@ router.get('/me/profile', requireFactory, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT id, code, name, username, contact, phone, address, intro, c_end_enabled, audit_status, created_at,
               rating, rating_count, total_pushes, total_accepts, avg_response_hours, last_login_at,
-              license_verified, capacity_status, capacity_note, capacity_updated_at,
+              license_verified, verification_level, verification_note, verified_at,
+              capacity_status, capacity_note, capacity_updated_at,
               province, city, factory_area, annual_volume, employee_count, equipment_count,
               assembly_lines, outer_processing, view_count, lat, lng
        FROM factory WHERE id = ?`,
@@ -642,6 +646,137 @@ router.post('/me/capabilities', requireFactory, async (req, res) => {
     res.status(400).json(fail(err.message));
   } finally {
     conn.release();
+  }
+});
+
+// ===== 社区求助（工厂侧入口：让答价与声望数据真的能产生）=====
+
+/**
+ * GET /api/factory/me/community-requests 待我答价的求助帖（按本方产能筛 + 排序）
+ * 没有这个入口时，工厂只能自己去 C 端社区碰运气，答价记录与反哺撮合的排序分数就永远是空的。
+ */
+router.get('/me/community-requests', requireFactory, async (req, res) => {
+  try {
+    const data = await communityService.listFactoryRequests(req.factory.id, { limit: req.query.limit });
+    res.json(ok(data));
+  } catch (err) {
+    res.status(400).json(fail(err.message));
+  }
+});
+
+/**
+ * GET /api/factory/me/quote-accuracy 我方历史报价 vs 平台估价的偏差
+ * 这是平台能免费给工厂、而工厂自己算不出来的情报（它不掌握其他厂的成交价）。
+ * 口径：按询价单逐笔算（我方报价总额/数量）÷（下单时引擎预估单价），再取平均。
+ */
+router.get('/me/quote-accuracy', requireFactory, async (req, res) => {
+  try {
+    const [[row]] = await pool.query(
+      `SELECT COUNT(*) AS n,
+              ROUND(AVG(t.ratio - 1), 4) AS bias,
+              ROUND(MIN(t.ratio - 1), 4) AS bias_min,
+              ROUND(MAX(t.ratio - 1), 4) AS bias_max
+       FROM (
+         SELECT (q.factory_quoted_price / q.quantity)
+                / CAST(JSON_UNQUOTE(JSON_EXTRACT(q.system_quote, '$.unitPrice')) AS DECIMAL(12, 4)) AS ratio
+         FROM c_inquiry q
+         WHERE q.matched_factory_id = ?
+           AND q.factory_quoted_price > 0
+           AND q.quantity > 0
+           AND q.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY)
+       ) t
+       WHERE t.ratio > 0`,
+      [req.factory.id]
+    );
+    const n = Number(row && row.n) || 0;
+    const level = calibrationService.levelOf(n);
+    let text;
+    if (!n) text = '还没有可比对的报价记录';
+    else if (level === 'none') text = '报价样本积累中（已 ' + n + ' 次）';
+    else {
+      const pct = Math.abs(Number(row.bias) || 0) * 100;
+      text = '近 180 天 ' + n + ' 次报价，平均' + (Number(row.bias) > 0 ? '高于' : '低于')
+        + '平台估价 ' + pct.toFixed(1) + '%';
+    }
+    res.json(ok({
+      sampleN: n,
+      bias: n ? Number(row.bias) : null,
+      biasMin: n ? Number(row.bias_min) : null,
+      biasMax: n ? Number(row.bias_max) : null,
+      level,
+      text,
+    }));
+  } catch (err) {
+    res.status(400).json(fail(err.message));
+  }
+});
+
+/**
+ * GET /api/factory/me/trust 本方验真状态 + 同行获单率对比（F-6）
+ *
+ * 为什么把「同行获单率」也给工厂：验真对工厂唯一有意义的问题是「它能不能带来单」，
+ * 而这句话不能靠一句「提升信任度」空说。平台手里恰好有全部工厂的推送/接单计数，
+ * 算一个已验真 vs 未验真的平均获单率就是现成的、只有平台能给的证据。
+ * 样本不足时只给状态不给对比（两三家厂的过往比率贴在端上就是误导）。
+ */
+router.get('/me/trust', requireFactory, async (req, res) => {
+  // 推送量门槛：全站推送量还是以十计（当前两组 17 次 / 19 次），定 20 会让这组对比永远不出现；
+  // 但 3 推 2 中的 "66.7%" 不具备可比性。所以门槛定 10，并在文案里把样本量一并写出，
+  // 让工厂自己判断这个数字有多可信——只给百分比不带样本量是在偷换尺度。
+  const MIN_PEER_PUSHES = 10;
+  try {
+    const [[me]] = await pool.query(
+      'SELECT license_verified, verification_level, verification_note, verified_at FROM factory WHERE id = ?',
+      [req.factory.id]
+    );
+    const trust = trustOf(me || {});
+
+    // 同行口径：开了 C 端且状态正常的工厂，按「是否已验真」分两组算加权获单率
+    const [peerRows] = await pool.query(
+      `SELECT CASE WHEN (license_verified = 1 OR verification_level >= 1) THEN 1 ELSE 0 END AS verified,
+              COUNT(*) AS factories,
+              SUM(total_pushes) AS pushes,
+              SUM(total_accepts) AS accepts
+       FROM factory WHERE status = 1 AND c_end_enabled = 1
+       GROUP BY verified`
+    );
+    const peer = { verified: null, unverified: null };
+    for (const r of peerRows) {
+      const pushes = Number(r.pushes) || 0;
+      const key = Number(r.verified) === 1 ? 'verified' : 'unverified';
+      peer[key] = {
+        factories: Number(r.factories) || 0,
+        pushes,
+        accepts: Number(r.accepts) || 0,
+        // 推送量太小时比率没有意义（1 推 1 中 = 100%），前端也不应拿它做参照
+        rate: pushes >= MIN_PEER_PUSHES ? Math.round((Number(r.accepts) / pushes) * 1000) / 10 : null,
+      };
+    }
+
+    let tip = '';
+    if (trust.level === 0) {
+      const a = peer.verified && peer.verified.rate;
+      const b = peer.unverified && peer.unverified.rate;
+      // total_pushes/total_accepts 是累计计数（没有按窗口切分），文案里不能说「近 N 天」，
+      // 只能说「累计」——把累计值写成窗口值是对工厂撒谎
+      tip = (a != null && b != null)
+        ? '已验真工厂累计获单率 ' + a + '%（' + peer.verified.pushes + ' 次推送），未验真 ' + b + '%（' + peer.unverified.pushes + ' 次推送）'
+        : '提交营业执照后可由平台核验，验真工厂在找厂列表与询价匹配中优先展示';
+    } else {
+      tip = '已通过「' + trust.label + '」，在找厂列表与询价匹配中优先展示';
+    }
+
+    res.json(ok({
+      level: trust.level,
+      verified: trust.verified,
+      label: trust.label,
+      note: (me && me.verification_note) || null,
+      verifiedAt: (me && me.verified_at) || null,
+      peer,
+      tip,
+    }));
+  } catch (err) {
+    res.status(400).json(fail(err.message));
   }
 });
 

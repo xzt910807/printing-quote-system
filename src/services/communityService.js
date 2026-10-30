@@ -20,6 +20,8 @@
 const { pool } = require('../config/db');
 const contentGuard = require('./contentGuard');
 const communityPricing = require('./communityPricing');
+const calibrationService = require('./calibrationService');
+const capabilityService = require('./capabilityService');
 
 /** 社区媒体一律落这个前缀，入库前必校：防止把外链 URL 塞进 post 变成钓鱼跳板 */
 const UPLOAD_PREFIX = '/uploads/community/';
@@ -537,11 +539,21 @@ function shapePost(row, { full = false, withNote = false } = {}) {
   }
   const estimate = parseJson(row.estimate, null);
   if (estimate) {
-    out.estimate = full ? estimate : {
+    // 信度动态算：快照里的金额是发布当时的，但「准不准」要看现在的成交样本。
+    // 若把发布当日的信度一起落库再原样回放，老帖会永远显示「样本积累中」。
+    const conf = calibrationService.confidenceOf({
+      productType: spec ? spec.productType : null,
+      materialCode: spec ? spec.materialCode : null,
+      printMode: spec ? spec.printMode : null,
+    });
+    out.estimate = full ? { ...estimate, confidence: conf } : {
       unitPrice: estimate.unitPrice,
       quantity: estimate.quantity,
       calculatedAt: estimate.calculatedAt,
+      confidenceLevel: conf.level,
     };
+    // 端上 wxml 不能调函数取嵌套字段，平铺一层直接渲染
+    out.confidenceText = conf.text;
   }
   // 摘要只给列表用；详情才下发全文与 audit_note（作者本人能看到驳回原因）
   if (full) {
@@ -670,6 +682,62 @@ async function getComment(id) {
     quoteValidDays: r.quote_valid_days == null ? null : Number(r.quote_valid_days),
     isAccepted: Number(r.is_accepted) || 0,
   };
+}
+
+/**
+ * 工厂侧的「待答价求助」：把报价求助/供需帖按本方生产能力筛出来。
+ *
+ * 为什么必须做这个入口：答价（createComment 的 is_quote）与社区声望（反哺撮合的 tiebreaker）
+ * 都要靠工厂先看到帖子才可能产生。此前工厂端没有任何社区入口，只能自己逛 C 端社区碰运气，
+ * 等于让供给侧靠缘分——那条数据链就一直是空的。
+ *
+ * 能力匹配分两步：SQL 只做粗筛（时间/板块/未采纳/自己没答过），能力匹配在内存里做，
+ * 因为 spec 是 JSON 列，在 SQL 里展开数组匹配工艺的写法既不通用也读不懂。
+ */
+async function listFactoryRequests(factoryId, { limit = 5 } = {}) {
+  const fid = Number(factoryId) || 0;
+  const size = Math.min(Math.max(Number(limit) || 5, 1), 20);
+  const [rows] = await pool.query(
+    `${POST_SELECT}
+     WHERE p.status = 'published'
+       AND p.category_code IN ('price', 'demand')
+       AND p.estimate IS NOT NULL
+       AND p.accepted_comment_id IS NULL
+       AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       AND NOT EXISTS (
+         SELECT 1 FROM community_comment c
+         WHERE c.post_id = p.id AND c.author_type = 'factory' AND c.factory_id = ?
+       )
+     ORDER BY p.created_at DESC
+     LIMIT 60`,
+    [fid]);
+  const caps = capabilityService.getByFactory(fid);
+  // 未配置产能标签的工厂 canHandle 永远是 false，硬过滤会让新厂看到一片空——
+  // 改成不过滤但标注「待完善标签」，让新工厂先有活干，再引导去补标签
+  const capEmpty = !caps.productType.length && !caps.printMode.length
+    && !caps.material.length && !caps.process.length;
+  const scored = [];
+  for (const r of rows) {
+    const spec = parseJson(r.spec, null) || {};
+    let score = 0;
+    let hit = 0;
+    if (spec.productType && caps.productType.includes(spec.productType)) { score += 2; hit += 1; }
+    if (spec.printMode && caps.printMode.includes(spec.printMode)) { score += 1; hit += 1; }
+    if (spec.materialCode && caps.material.includes(spec.materialCode)) { score += 1; hit += 1; }
+    for (const p of (Array.isArray(spec.processes) ? spec.processes : [])) {
+      if (caps.process.includes(p)) { score += 1; hit += 1; }
+    }
+    // 配了产能却一个维度都不匹配：不是本方工艺范围内的活，不占屏
+    if (!capEmpty && score === 0) continue;
+    scored.push({ row: r, score, hit });
+  }
+  scored.sort((a, b) => (b.score - a.score)
+    || (new Date(b.row.created_at).getTime() - new Date(a.row.created_at).getTime()));
+  const list = scored.slice(0, size).map(({ row, hit }) => ({
+    ...shapePost(row),
+    matchText: hit > 0 ? '匹配你的产能 ' + hit + ' 项' : '待完善产能标签',
+  }));
+  return { list, total: list.length, capEmpty };
 }
 
 /** 我的：帖子（含被驳回/下架，带原因）+ 收藏的帖子 */
@@ -832,6 +900,7 @@ module.exports = {
   toggleLike, toggleFavorite, report,
   audit, handleReport,
   listPosts, getPostById, listComments, getComment, mine, deleteMine,
+  listFactoryRequests,
   bumpView,
   adminListComments, adminListReports, adminStats,
 };

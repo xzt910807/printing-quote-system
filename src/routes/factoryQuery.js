@@ -10,6 +10,7 @@ const { haversineKm, roundKm } = require('../utils/geo');
 const { requireAdmin, optionalUser } = require('../middlewares/auth');
 const { requirePermission } = require('../config/permissions');
 const { hashPassword } = require('../utils/password');
+const { trustOf } = require('../utils/trust');
 
 // ===== 浏览量（Batch D1）=====
 // 60 秒内同一来源看同一厂只计一次：小程序详情页返回再进去不该算两遍，
@@ -50,6 +51,7 @@ if (viewCleanTimer.unref) viewCleanTimer.unref();
  *   keyword=鑫             按工厂名称/地址模糊搜索
  *   sort=rating|accepts|response|capacity|distance
  *                          排序：评分/接单量/响应速度/产能优先/距离最近（缺省综合：接单量+评分）
+ *   verified=1               只看已验真（F-6：执照已核/实地验厂/深度验厂任一命中）
  *   userLat / userLng      用户当前位置（Batch D2）：传了才下发 distanceKm，
  *                          sort=distance 且未带坐标时回落综合排序
  * 携带 C 端登录头时，列表项额外返回 followed（该用户是否已关注此厂）
@@ -94,11 +96,17 @@ router.get('/list', optionalUser, async (req, res) => {
     if (province && String(province).trim()) { regionConds.push('province = ?'); regionParams.push(String(province).trim()); }
     if (city && String(city).trim()) { regionConds.push('city = ?'); regionParams.push(String(city).trim()); }
     const regionSql = regionConds.length ? ' AND ' + regionConds.join(' AND ') : '';
+    // F-6 只看已验真：客户在找厂页显式勾选的筛选，而非平台偷改曝光——
+    // 撮合侧刻意不做硬门槛（线上 41/53 家未验真，硬门槛会让询价大面积匹配到 0 家），
+    // 所以「愿不愿意只看验真厂」交给客户自己决定。两套验真字段任一命中即算。
+    const verifiedOnly = String(req.query.verified || '') === '1';
+    const verifiedSql = verifiedOnly ? ' AND (license_verified = 1 OR verification_level >= 1)' : '';
     const [rows] = await pool.query(
       // lat/lng 只拿进来算距离，不下发给 C 端（下面 map 里剔掉）：
       // 工厂精确坐标属于经营信息，列表里客户需要的只是“多远”，不是“在哪”
       `SELECT ${FACTORY_C_COLS}, lat, lng FROM factory WHERE status = 1 AND id IN (?)`
         + (kw ? ' AND (name LIKE ? OR address LIKE ?)' : '')
+        + verifiedSql
         + regionSql
         + ' ORDER BY ' + orderBy,
       kw ? [matchedIds, '%' + kw + '%', '%' + kw + '%', ...regionParams] : [matchedIds, ...regionParams]
@@ -107,6 +115,7 @@ router.get('/list', optionalUser, async (req, res) => {
     // 附上每家工厂的完整能力 + 产能/验真画像；F-30：找厂列表态工厂联系人脱敏（询价看价流程中才对归属者下发全文）
     let list = rows.map((f) => {
       const cap = capacityOf(f);
+      const trust = trustOf(f);
       const { lat, lng, ...rest } = f;
       return {
         ...rest,
@@ -116,7 +125,9 @@ router.get('/list', optionalUser, async (req, res) => {
         capacityLabel: cap.label,
         capacityNote: cap.note,
         capacityWeight: cap.weight,
-        verified: !!f.license_verified,
+        verified: trust.verified,
+        trustLevel: trust.level,
+        trustLabel: trust.label,
         // 距离（km，1 位小数）：无用户坐标或本厂未选址时为 null，前端就不显示距离/不参与距离排序
         distanceKm: hasUserGeo ? roundKm(haversineKm(userLat, userLng, lat, lng)) : null,
       };
@@ -206,6 +217,7 @@ router.get('/public/:id', async (req, res) => {
       capacityNote: cap.note,
       // 验真徽章：平台显式核验（license_verified）或注册审核通过（audit_status=approved）均算已核验
       verified: !!rows[0].license_verified || rows[0].audit_status === 'approved',
+      trustLabel: trustOf(rows[0]).label,
       media,
       names: buildNames(),
     }));

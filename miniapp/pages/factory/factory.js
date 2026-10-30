@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const { productName } = require('../../utils/productText');
 const { getAvatarConfig } = require('../../utils/avatar');
+const community = require('../../utils/community');
 
 const ORDER_STATUS_TEXT = {
   pending: '待确认',
@@ -80,6 +81,11 @@ Page({
     // 017 正式报价弹窗：报价金额 + 有效期 + 调价说明（新流程：报价 → 客户确认 → 订单）
     // 021 designFee：客户「需要设计」时可单列设计费，随报价一并展示给客户
     quoteModal: { show: false, pushId: 0, inquiryNo: '', systemPrice: '', price: '', remark: '', validDays: '7', needDesign: false, designFee: '', submitting: false },
+    // 社区求助（工厂侧入口）：待本方答价的报价求助/供需帖
+    requests: [],
+    requestCapEmpty: false,
+    // F-6 验真状态 + 同行获单率对比（未验真时是升级引导，已验真时是状态复述）
+    trust: null,
   },
 
   onLoad() {
@@ -123,6 +129,8 @@ Page({
     this.checkCapabilities();
     this.checkNewInquiries();
     this.loadChatUnread();
+    this.loadCommunityRequests();
+    this.loadTrust();
     this.syncTabBar();
   },
 
@@ -254,6 +262,49 @@ Page({
       'X-Factory-Id': String(a.factoryId),
       'X-Factory-Token': a.token,
     };
+  },
+
+  /**
+   * 社区求助（工厂侧入口）：把报价求助/供需帖按本方产能推到工作台。
+   * 这条路是答价与社区声望唯一的数据来源——没有它，工厂只能自己去 C 端社区碰运气。
+   * 拉取失败必须静默：社区是增量能力，不能因为它挂了把接单主流程拖停。
+   */
+  async loadCommunityRequests() {
+    if (!this.data.auth) return;
+    try {
+      const res = await api.request('/api/factory/me/community-requests', {
+        data: { limit: 3 },
+        headers: this.authHeaders(),
+      });
+      const d = res.data || {};
+      this.setData({
+        requests: (d.list || []).map(community.shapeItem),
+        requestCapEmpty: !!d.capEmpty,
+      });
+    } catch (err) { /* 静默 */ }
+  },
+
+  goRequestDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    if (id) wx.navigateTo({ url: '/pages/community-detail/community-detail?id=' + id });
+  },
+
+  /**
+   * 验真状态与同行获单率对比（F-6）。
+   * 验真对工厂唯一有意义的问题是「它能不能带来单」，而平台恰好掌握全部工厂的推送/接单计数，
+   * 这组对比是工厂自己算不出来的——所以它比一句「提升信任度」的横幅更有说服力。
+   * 失败静默：不因为验真查询挂了就把工作台弄成报错页。
+   */
+  async loadTrust() {
+    if (!this.data.auth) return;
+    try {
+      const res = await api.request('/api/factory/me/trust', { headers: this.authHeaders() });
+      this.setData({ trust: res.data || null });
+    } catch (err) { /* 静默 */ }
+  },
+
+  goCommunity() {
+    wx.switchTab({ url: '/pages/community/community' });
   },
 
   // 检查生产能力配置：四维全空则无法被任何询价匹配到，展示引导横幅

@@ -6,6 +6,8 @@ const catalog = require('./catalogService');
 const wxSubscribe = require('./wxService');
 const guard = require('./contentGuard');
 const communityReputation = require('./communityReputation');
+const calibrationService = require('./calibrationService');
+const { trustOf } = require('../utils/trust');
 
 /**
  * 021 设计需求入参清洗：
@@ -132,7 +134,7 @@ async function createCInquiry(input) {
     input.contactName = input.contactName || u.nickname || null;
     input.contactPhone = input.contactPhone || u.phone;
     const [lf] = await pool.query(
-      'SELECT id, name, address, status, c_end_enabled FROM factory WHERE id = ?', [lockedId]
+      'SELECT id, name, address, status, c_end_enabled, license_verified, verification_level FROM factory WHERE id = ?', [lockedId]
     );
     if (!lf.length || lf[0].status !== 1 || !lf[0].c_end_enabled) {
       throw httpError('该工厂暂未开通接单，无法直接向其询价', 400);
@@ -159,6 +161,14 @@ async function createCInquiry(input) {
     throw new Error('报价计算失败：系统未返回有效报价结果');
   }
   console.log('[createCInquiry] 系统报价生成成功: 总价 ' + systemQuote.totalPrice + ' 元 / 单价 ' + systemQuote.unitPrice + ' 元');
+  // 报价信度（校准回路）：用真实成交价对账后的偏差，样本不足时 level='none'。
+  // 刻意作为独立字段而不是塞进 systemQuote——system_quote 要落库当快照，
+  // 信度是「现在的」而不是「当时的」，混进去会让详情页展示陈旧偏差。
+  const quoteConfidence = calibrationService.confidenceOf({
+    productType: input.productType,
+    materialCode: input.materialCode,
+    printMode: input.printMode,
+  });
   // 查询所有状态为1且启用C端功能的工厂
   // const [factories] = await pool.query(
   //   'SELECT id, name, address FROM factory WHERE status = 1 AND c_end_enabled = 1'
@@ -177,6 +187,7 @@ async function createCInquiry(input) {
       inquiryId: null,
       inquiryNo: null,
       systemQuote,
+      quoteConfidence,
       matches: [],
       message: '当前没有具备该生产能力的工厂',
     };
@@ -186,7 +197,7 @@ async function createCInquiry(input) {
   const [factories] = await pool.query(
     `SELECT id, name, address, logo_url, rating, rating_count,
             total_pushes, total_accepts, avg_response_hours,
-            license_verified, capacity_status, capacity_note, capacity_updated_at
+            license_verified, verification_level, capacity_status, capacity_note, capacity_updated_at
      FROM factory WHERE status = 1 AND c_end_enabled = 1 AND id IN (?)`,
     [capableIds]
   );
@@ -225,6 +236,7 @@ async function createCInquiry(input) {
       if (facProc.has(p)) capabilityTags.push((catalog.baseData.finishing[p] || {}).name || p);
     }
     const rep = communityReputation.repOf(communityRep, f.id);
+    const trust = trustOf(f);
     matches.push({
       factoryId: f.id,
       factoryName: f.name,
@@ -241,7 +253,10 @@ async function createCInquiry(input) {
       processMatchCount,
       capabilityTags,
       // 印查查式信任/产能信号（C 端卡片徽章 + 排序加权）
-      verified: !!f.license_verified,
+      // F-6：verified 改为「两级验真字段归一后 > 0」，与结果页徽章同一套口径（utils/trust）
+      verified: trust.verified,
+      trustLevel: trust.level,
+      trustLabel: trust.label,
       capacity: cap,
       followed: followedSet.has(Number(f.id)),
       // 社区声望（Batch E）：只在排序链最末尾作 tiebreaker；badge 文案服务层拼好直出
@@ -249,7 +264,9 @@ async function createCInquiry(input) {
       communityBadge: rep.badge,
     });
   }
-  // F-05：排序优先已关注工厂（033 供应商关系沉淀），再闲置产能（空闲>正常>饱和/未填报）、评分降序、接单率降序、工艺命中数降序（不按价格）
+  // F-05：排序优先已关注工厂（033 供应商关系沉淀），再闲置产能（空闲>正常>饱和/未填报）、评分降序、验真等级降序、接单率降序、工艺命中数降序（不按价格）
+  // F-6：验真放在评分之后、接单率之前——评分是客户口碑、验真是平台核验，都属于「这家厂靠不靠得住」，
+  //      而接单率只说明「它活跃不活跃」。刻意不做准入过滤（理由见 utils/trust 文件头）。
   // Batch E：社区分只追加在**末尾**。发帖答价是低成本行为，放到评分前会让「爱聊天但做工一般」的
   // 厂挤掉口碑厂（激励反向）；末尾 tiebreaker 在真实分布里仍起作用——大量工厂 rating 默认 5.00、
   // capacity 同为 unknown、acceptRate 同为 0，前面几个键全打平时就靠它。要调得更激进只需改这一行。
@@ -257,6 +274,7 @@ async function createCInquiry(input) {
     ((b.followed ? 1 : 0) - (a.followed ? 1 : 0)) ||
     (b.capacity.weight - a.capacity.weight) ||
     b.rating - a.rating ||
+    b.trustLevel - a.trustLevel ||
     b.acceptRate - a.acceptRate ||
     b.processMatchCount - a.processMatchCount ||
     b.community.score - a.community.score
@@ -387,6 +405,7 @@ async function createCInquiry(input) {
       matches.length = 0;
       const lockAvatar = avatarOf(lockedFactory.name);
       const lockRep = communityReputation.repOf(communityRep, preferredId);
+      const lockTrust = trustOf(lockedFactory);
       matches.push({
         factoryId: preferredId,
         factoryName: lockedFactory.name,
@@ -397,7 +416,9 @@ async function createCInquiry(input) {
         rating: 5, ratingCount: 0, totalPushes: 0, totalAccepts: 0,
         acceptRate: 0, avgResponseHours: 0, processMatchCount: 0,
         capabilityTags: [productName],
-        verified: false,
+        verified: lockTrust.verified,
+        trustLevel: lockTrust.level,
+        trustLabel: lockTrust.label,
         capacity: { status: 'unknown', label: '', note: null, fresh: false, weight: 0 },
         followed: followedSet.has(Number(preferredId)),
         // 最小卡片也要给社区字段，否则端上读 matches[0].communityBadge 会拿到 undefined
@@ -413,6 +434,7 @@ async function createCInquiry(input) {
     inquiryId,
     inquiryNo,
     systemQuote,
+    quoteConfidence,
     preferredFactoryId: preferredId,
     lockedFactoryId: lockedFactory ? preferredId : null,
     preferredRejected,

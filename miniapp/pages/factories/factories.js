@@ -38,6 +38,8 @@ Page({
     ],
     // 名称/地址关键词搜索（与能力筛选叠加生效）
     keyword: '',
+    // F-6 只看已验真：客户主动勾选的筛选（后端 verified=1），不是平台偷改曝光
+    verifiedOnly: false,
     // F-100 排序：综合（缺省）/ 评分 / 接单量 / 响应速度 / 产能优先 / 距离最近
     sort: '',
     sortOptions: [
@@ -246,6 +248,12 @@ Page({
     this.loadFactories();
   },
 
+  // F-6 只看已验真：只是收窄候选集，选中后码位上的空结果由通用空态提示
+  toggleVerified() {
+    this.setData({ verifiedOnly: !this.data.verifiedOnly });
+    this.loadFactories();
+  },
+
   // F-100：切换排序（综合/评分/接单量/响应速度）
   setSort(e) {
     const code = e.currentTarget.dataset.code;
@@ -280,6 +288,7 @@ Page({
       params.push('keyword=' + encodeURIComponent(this.data.keyword.trim()));
     }
     if (this.data.sort) params.push('sort=' + this.data.sort);
+    if (this.data.verifiedOnly) params.push('verified=1');
     // Batch D2 用户坐标：传了后端才下发 distanceKm
     if (this.data.userGeo) {
       params.push('userLat=' + this.data.userGeo.lat);
@@ -307,6 +316,8 @@ Page({
           distanceText: x.distanceKm === null || x.distanceKm === undefined ? '' : x.distanceKm + 'km',
           // 印查查式：已核验 + 产能状态（后端 capacityStatus 为 idle/normal/busy 才展示）
           verified: !!x.verified,
+          // F-6：分级信任徽章文案（L1 执照已核验 / L2 实地验厂 / L3 深度验厂），未核验为空串
+          trustLabel: x.trustLabel || '',
           // 关注态由后端按登录用户下发（匿名访问恒 false）
           followed: !!x.followed,
           capacityLabel: x.capacityStatus && x.capacityStatus !== 'unknown' ? x.capacityLabel : '',

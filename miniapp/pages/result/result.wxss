@@ -26,6 +26,7 @@
 
 .price-total { font-size: 26rpx; opacity: 0.9; margin-bottom: 10rpx; }
 .price-notice { font-size: 22rpx; opacity: 0.75; margin-bottom: 8rpx; }
+.price-conf { font-size: 22rpx; opacity: 0.75; margin-bottom: 8rpx; }
 .price-valid { font-size: 22rpx; opacity: 0.75; margin-bottom: 28rpx; }
 .price-valid-expired { color: #fef2f2; opacity: 1; font-weight: 600; }
 
@@ -354,6 +355,26 @@
 }
 
 .fq-remark { font-size: 26rpx; color: #92400e; line-height: 1.6; margin-top: 8rpx; }
+
+/* 工厂报价 vs 平台估价：单价与偏差并排，直接回答「贵不贵」 */
+.fq-compare {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 6rpx;
+}
+
+.fqc-unit { font-size: 26rpx; color: #92400e; font-weight: 600; }
+
+.fqc-diff {
+  font-size: 22rpx;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.fqc-up { background: #fff7ed; color: #c2410c; }
+.fqc-down { background: #ecfdf5; color: #047857; }
+.fqc-flat { background: #f1f5f9; color: #475569; }
 
 .fq-valid { font-size: 24rpx; color: #b45309; margin-top: 12rpx; }
 

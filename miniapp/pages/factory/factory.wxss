@@ -351,6 +351,100 @@
 .setup-banner .setup-title { font-size: 29rpx; font-weight: 600; color: #b91c1c; }
 .setup-banner .setup-sub { font-size: 24rpx; color: #dc2626; margin-top: 8rpx; line-height: 1.6; }
 
+/* ---------- F-6 验真提示（同行获单率对比）---------- */
+.trust-block {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 20rpx 26rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(15, 23, 42, 0.06);
+}
+
+.trust-chip {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  border-radius: 999rpx;
+  padding: 4rpx 16rpx;
+}
+
+.trust-on { color: #059669; background: #ecfdf5; }
+.trust-off { color: #b45309; background: #fffbeb; }
+
+.trust-tip {
+  flex: 1;
+  font-size: 23rpx;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.trust-arrow { font-size: 30rpx; color: #cbd5e1; flex-shrink: 0; }
+
+/* ---------- 社区求助（工厂侧） ---------- */
+.cr-block {
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 24rpx 26rpx 8rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(15, 23, 42, 0.06);
+}
+
+.cr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.cr-title { font-size: 28rpx; font-weight: 600; color: #1e293b; }
+.cr-more { font-size: 24rpx; color: #2563eb; }
+
+.cr-item {
+  padding: 18rpx 0;
+  border-top: 2rpx solid #f1f5f9;
+}
+
+.cr-item-hover { background: #f8fafc; }
+
+.cr-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+}
+
+.cr-name {
+  flex: 1;
+  font-size: 27rpx;
+  color: #334155;
+  /* 标题限一行，长帖不把卡片顶高 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cr-price { font-size: 25rpx; font-weight: 600; color: #dc2626; flex-shrink: 0; }
+
+.cr-meta {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 8rpx;
+}
+
+.cr-tag {
+  font-size: 21rpx;
+  color: #0369a1;
+  background: #e0f2fe;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+}
+
+.cr-time { font-size: 21rpx; color: #94a3b8; }
+
+.cr-cap { font-size: 21rpx; color: #b45309; padding: 0 0 14rpx; }
+
 .taken-tip {
   margin-top: 16rpx;
   font-size: 24rpx;

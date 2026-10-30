@@ -15,6 +15,7 @@ const cUserRoutes = require('./routes/cUser');
 const designRoutes = require('./routes/design');
 const factoryPushRoutes = require('./routes/factoryPush');
 const capabilityService = require('./services/capabilityService');
+const calibrationService = require('./services/calibrationService');
 const factoryQueryRoutes = require('./routes/factoryQuery');
 const factoryRegisterRoutes = require('./routes/factoryRegister');
 const factorySelfRoutes = require('./routes/factorySelf');
@@ -310,6 +311,7 @@ async function bootstrap() {
     } catch (e) { /* schema_migrations 表尚未建立（bootstrap 前）不阻断启动 */ }
     await catalog.loadAll();
     await capabilityService.loadAll();
+    await calibrationService.loadAll(); // 报价校准信度（表缺失时自动退化为「无校准数据」，不阻启动）
     cronService.start();  // F-33/F-55/F-78：失效标记 / 超时回滚 / 每日统计
     // P0 支付就绪提醒：配了商户号但验签材料不齐 → 回调会被验签拦截，提前告警而不是等丢单
     try {
@@ -320,6 +322,7 @@ async function bootstrap() {
       }
     } catch (e) { /* 诊断失败不影响启动 */ }
     console.log('[Catalog] 已加载材料：原纸' + Object.keys(catalog.baseData.rawPaper).length + ' / 纸板' + Object.keys(catalog.baseData.boardPaper).length + ' / 卡纸' + Object.keys(catalog.baseData.cardPaper).length);
+    console.log('[Calibration] 校准维度 ' + calibrationService.size() + ' 组（低于 ' + calibrationService.MIN_SAMPLE + ' 笔样本不对外宣称偏差）');
     app.listen(PORT, () => {
       console.log('\n✅ 报价系统已启动: http://localhost:' + PORT);
       console.log('   管理后台: http://localhost:' + PORT + '/admin/');

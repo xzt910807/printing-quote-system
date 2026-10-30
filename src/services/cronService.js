@@ -5,6 +5,7 @@
  *   F-78 每日统计：daily_stats 按天 UPSERT（启动补昨天 + 每 10 分钟刷新今天，跨天边界双写保险）
  *   P1 监控：每轮 tick 结果写 sys_kv 心跳（/health 拨测判活），失败走 alertService 告警；
  *   P1 清理：语音临时目录孤儿录音（进程崩溃残留）超过 2 小时自动删除
+ *   报价校准：每日重算 quote_calibration（引擎预估 vs 真实成交价），是「报价越用越准」的数据基础
  */
 const fs = require('fs');
 const path = require('path');
@@ -157,6 +158,8 @@ async function tick() {
     await autoReleaseEscrow();
     // 028 资讯抓取：每 NEWS_CRAWL_INTERVAL_HOURS(默认 2) 小时一次，以 sys_kv 时间戳节流
     await crawlNewsIfNeeded();
+    // 报价校准：每日重算一次（引擎预估 vs 真实成交价），用 sys_kv 时间戳节流
+    await refreshCalibrationIfNeeded();
     // 035 订阅资讯每日早报/晚报推送（默认 8/20 点窗口，每窗口只推一次）
     await newsDigestPushIfNeeded();
     // 心跳：成功也落库（含耗时），/health 据此判活
@@ -244,6 +247,25 @@ async function newsDigestPushIfNeeded() {
   }
 }
 
+// ===== 报价校准（引擎预估 vs 真实成交价）=====
+const CALIBRATION_INTERVAL_HOURS = Number(process.env.CALIBRATION_INTERVAL_HOURS) || 24;
+const CALIBRATION_LAST_KEY = 'calibration_last_run_at';
+async function refreshCalibrationIfNeeded() {
+  try {
+    const rec = await kvGet(CALIBRATION_LAST_KEY);
+    const ageH = rec ? (Date.now() - new Date(rec.updatedAt).getTime()) / 3600000 : Infinity;
+    if (ageH < CALIBRATION_INTERVAL_HOURS) return;
+    const calibration = require('./calibrationService');
+    const ret = await calibration.refresh();
+    // 无论有无样本都记时间戳：刚上线的库没有历史成交，不能每 10 分钟白扫一遍
+    await kvSet(CALIBRATION_LAST_KEY, JSON.stringify(ret || { ok: true }));
+    if (ret && ret.samples) console.log('[cron] 报价校准重算 ' + ret.groups + ' 组 / ' + ret.samples + ' 笔样本');
+  } catch (e) {
+    // 表未建（存量库未执行迁移）不告警不阻断——校准是增强项，不能让它影响主链路
+    if (e.code !== 'ER_NO_SUCH_TABLE') console.warn('[cron] 报价校准失败:', e.message);
+  }
+}
+
 /** 启动定时任务：立即跑一轮（补昨天统计 + 失效标记），之后每 TICK_MINUTES 分钟一轮 */
 function start() {
   setTimeout(tick, 3000); // 等库连接就绪
@@ -251,4 +273,4 @@ function start() {
   console.log('[cron] 定时任务已启动：每 ' + TICK_MINUTES + ' 分钟（失效标记/超时回滚/每日统计）');
 }
 
-module.exports = { start, tick, statDay, getCronHealth, kvSet, kvGet, STALE_MINUTES };
+module.exports = { start, tick, statDay, getCronHealth, kvSet, kvGet, STALE_MINUTES, refreshCalibrationIfNeeded };

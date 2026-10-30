@@ -2211,6 +2211,31 @@ CREATE TABLE `profit_sharing_log`  (
 -- ----------------------------
 
 -- ----------------------------
+-- Table structure for quote_calibration
+-- ----------------------------
+DROP TABLE IF EXISTS `quote_calibration`;
+CREATE TABLE `quote_calibration`  (
+  `id` int(0) NOT NULL AUTO_INCREMENT,
+  `product_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品类型（product_config.product_type）',
+  `material_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '材料编码；空串=该品类全材料口径（不能用 NULL，MySQL 唯一索引里 NULL 互不相等会重复插行）',
+  `print_mode` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '印刷方式；空串=不限（口径语义同上）',
+  `sample_n` int(0) NOT NULL DEFAULT 0 COMMENT '参与校准的已成交样本数（低于 30 不对外宣称偏差）',
+  `engine_unit_avg` decimal(12, 4) NULL DEFAULT NULL COMMENT '引擎预估单价均值（元/个，不含税）',
+  `actual_unit_avg` decimal(12, 4) NULL DEFAULT NULL COMMENT '真实成交单价均值（元/个，order_main.unit_price）',
+  `bias` decimal(8, 4) NULL DEFAULT NULL COMMENT '偏差率=实际/预估-1，按金额加权；正=平台估价偏低',
+  `bias_min` decimal(8, 4) NULL DEFAULT NULL COMMENT '逐笔偏差最小值（看离散度，样本外推要留余量）',
+  `bias_max` decimal(8, 4) NULL DEFAULT NULL COMMENT '逐笔偏差最大值',
+  `window_days` int(0) NOT NULL DEFAULT 180 COMMENT '统计窗口天数（行情会变，久远成交不进样本）',
+  `computed_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '最近一次重算时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_dim`(`product_type`, `material_code`, `print_mode`, `window_days`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '报价校准（引擎预估 vs 真实成交价，cron 每日重算）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of quote_calibration
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for quote_order
 -- ----------------------------
 DROP TABLE IF EXISTS `quote_order`;

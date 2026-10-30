@@ -52,6 +52,35 @@
       <view class="setup-sub">询价按「产品/印刷/材料/工艺」匹配工厂，配置后才能收到派单 → 去设置</view>
     </view>
 
+    <!-- F-6 验真：把「信任」从标签变成工厂能算得过来的收益（同行获单率对比）。
+         未验真时是升级引导，已验真时是状态复述；数据抽取失败时 trust 为空不渲染 -->
+    <view class="trust-block" wx:if="{{trust}}" bindtap="goProfile">
+      <text class="trust-chip {{trust.verified ? 'trust-on' : 'trust-off'}}">{{trust.verified ? '✓ ' + trust.label : '未验真'}}</text>
+      <text class="trust-tip">{{trust.tip}}</text>
+      <text class="trust-arrow" wx:if="{{!trust.verified}}">›</text>
+    </view>
+
+    <!-- 社区求助（工厂侧入口）：答价与社区声望的数据来源。
+         此前工厂端没有社区入口，只能自己去 C 端社区碰运气，反哺撮合的数据链一直是空的 -->
+    <view class="cr-block" wx:if="{{requests.length}}">
+      <view class="cr-head">
+        <text class="cr-title">待你答价的求助</text>
+        <text class="cr-more" bindtap="goCommunity">去社区 ›</text>
+      </view>
+      <view class="cr-item" wx:for="{{requests}}" wx:key="id"
+            data-id="{{item.id}}" bindtap="goRequestDetail" hover-class="cr-item-hover">
+        <view class="cr-row">
+          <text class="cr-name">{{item.title}}</text>
+          <text class="cr-price" wx:if="{{item.priceChip}}">{{item.priceChip}}</text>
+        </view>
+        <view class="cr-meta">
+          <text class="cr-tag">{{item.matchText}}</text>
+          <text class="cr-time">{{item.timeText}}</text>
+        </view>
+      </view>
+      <view class="cr-cap" wx:if="{{requestCapEmpty}}">补齐生产能力标签，能匹配到更多适合你的求助</view>
+    </view>
+
     <!-- 顶部页签：询价单 / 订单 -->
     <view class="tabs">
       <view class="tab {{tab === 'inquiry' ? 'active' : ''}}"

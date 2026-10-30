@@ -42,6 +42,15 @@
     </view>
 
     <view class="filter-row">
+      <text class="filter-label">信任</text>
+      <view class="filter-tags">
+        <!-- F-6：只看已验真（向后端传 verified=1）。默认不选：线上未验真工厂占多数，
+             默认开启会让人以为平台没几家厂 -->
+        <view class="tag {{verifiedOnly ? 'tag-active' : ''}}" bindtap="toggleVerified">✓ 只看已验真</view>
+      </view>
+    </view>
+
+    <view class="filter-row">
       <text class="filter-label">产品</text>
       <view class="filter-tags">
         <view class="tag {{filter.productType === item.code ? 'tag-active' : ''}}"
@@ -74,8 +83,8 @@
         <view class="factory-name">{{item.name}}</view>
         <view class="factory-addr"><view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{item.address || '龙港'}}</view>
         <!-- 印查查式信任/产能徽章 -->
-        <view class="fi-trust" wx:if="{{item.verified || item.capacityLabel}}">
-          <text class="fi-verified" wx:if="{{item.verified}}">✓ 已核验</text>
+        <view class="fi-trust" wx:if="{{item.trustLabel || item.capacityLabel}}">
+          <text class="fi-verified" wx:if="{{item.trustLabel}}">✓ {{item.trustLabel}}</text>
           <text class="fi-cap fi-cap-{{item.capacityStatus}}" wx:if="{{item.capacityLabel}}">⚡ {{item.capacityLabel}}</text>
         </view>
         <!-- F-100：评分 / 接单量徽标（后端排序已按此加权）；距离为 Batch D2，没定位时不显示 -->

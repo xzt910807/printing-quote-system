@@ -169,6 +169,7 @@ Page({
           ...s,
           factoryQuoteExpiresAtText: s.factoryQuoteExpiresAt ? fmtTime(s.factoryQuoteExpiresAt) : '',
         },
+        quoteCompare: this.buildCompare(s, this.data.result),
         statusText: textMap[s.status] || s.status,
         currentStep: done ? 3 : (['matched', 'factory_quoted'].includes(s.status) ? 2 : 1),
         rejected: s.status === 'rejected',
@@ -181,6 +182,31 @@ Page({
   },
 
   noop() {},
+
+  /**
+   * 工厂报价 vs 平台估价（同口径取总价，与「查看报价」弹窗里的 diff 一致）。
+   * 把「贵不贵」摆到主视觉而不是埋在弹窗里：客户真正焦虑的就是这个。
+   * 刻意不做「其他几家报了多少」的比价——撮合卡片不带价是既有商业策略（F-01/05），
+   * 一旦同屏展示各家报价，工厂之间就是纯价格内卷，平台也失去差异价值。
+   */
+  buildCompare(status, result) {
+    const sys = result && result.systemQuote;
+    if (!status || !status.factoryQuotedPrice || !sys) return null;
+    const sysTotal = Number(sys.totalPrice);
+    const facTotal = Number(status.factoryQuotedPrice);
+    if (!(sysTotal > 0) || !(facTotal > 0)) return null;
+    const qty = Number(sys.quantity) || 0;
+    const diff = Math.round(((facTotal - sysTotal) / sysTotal) * 1000) / 10;
+    const label = diff > 0 ? '高于平台估价 ' + diff + '%'
+      : (diff < 0 ? '低于平台估价 ' + Math.abs(diff) + '%' : '与平台估价持平');
+    return {
+      unitText: qty ? '¥' + (facTotal / qty).toFixed(2) + '/个' : '',
+      totalText: '¥' + facTotal.toFixed(2),
+      diff,
+      label,
+      tone: diff > 0 ? 'up' : (diff < 0 ? 'down' : 'flat'),
+    };
+  },
 
   // 返回上一页（自定义导航栏无原生返回按钮）
   goBack() {

@@ -516,3 +516,74 @@ SELECT post_id, COUNT(*) FROM community_comment
 常见问题排查顺序：列表没显示参考价 → 查 `community_post.spec/estimate` 是否 NULL →
 NULL 属预期（未填规格或算不出价，见 14.9 的两条 SQL）；工厂答价不显示采纳按钮 → 只有帖主可见
 （详情接口的 `isAuthor`）；工厂看不到「附报价」开关 → 身份头缺失（`X-Factory-*`），不是权限问题。
+
+### 14.11 报价校准回路与信任徽章进决策路径
+
+**新表 `quote_calibration`**（`sql/init.sql` 已带建表语句，存量库执行一次即可）：
+
+```powershell
+node scripts/schema-sync.js --apply    # 只做加法，会 CREATE TABLE IF NOT EXISTS
+# 若 schema-sync 不可用，手工执行 init.sql 里 quote_calibration 那段 CREATE TABLE（含 uk_dim 唯一索引）
+```
+
+**这层在做什么**：`c_inquiry.system_quote` 是下单当时的引擎输出快照，`order_main.unit_price` 是真实成交单价，
+两者靠 `order_main.inquiry_id` 一一对应（唯一键）。每天聚合一次「同一规格下 引擎预估 vs 实际成交」的偏差，
+写进 `quote_calibration`，再反向供给三处展示：结果页的报价信度、社区帖的参考价信度、工厂端「我方报价 vs 平台估价」偏差。
+
+两个不能改的口径：
+
+1. **用快照，不用当前引擎重算历史订单。** 重算会引入参数漂移的自指——引擎参数一旦被调到贴近成交价，
+   重算偏差自动趋近 0，看着很准其实什么都没测到。快照 + 成交价才是纯粹的「预测 vs 实际」。
+2. **样本不足不对外宣称偏差。** 低于 30 笔成交一律 `level='none'`，端上只显示「样本积累中（已收集 N 笔成交）」；
+   30/100/300 分 low/medium/high 三档。`bias` 用 `SUM(实际)/SUM(预估)-1`（按金额加权），不是逐笔偏差取平均。
+
+**维度编码用空串表示「不限」，不能用 NULL**：`uk_dim` 是普通唯一索引，MySQL 里 NULL 互不相等，
+用 NULL 会让同一维度反复插行、越积越多。品类级口径即 `material_code='' AND print_mode=''`。
+
+可调环境变量：`CALIBRATION_WINDOW_DAYS`（默认 180，统计窗口）/ `CALIBRATION_INTERVAL_HOURS`（默认 24，cron 重算间隔）。
+`MIN_SAMPLE=30` 与分级表写在 `calibrationService.js` 里，是代码常量，改要发版。手动重算：
+
+```powershell
+node -e "require('./src/services/calibrationService').refresh().then(r => { console.log(r); process.exit(0); })"
+```
+
+重算失败不动已有校准行（先算完再批量 UPSERT），表不存在时启动阶段静默退化为「无校准数据」，报价照常可用。
+线上核对：
+
+```sql
+SELECT product_type, material_code, print_mode, sample_n, bias, window_days, computed_at
+  FROM quote_calibration ORDER BY sample_n DESC;
+-- 配对样本总量（应与 refresh() 打印的「配对样本 N 笔」一致）
+SELECT COUNT(*) FROM order_main o JOIN c_inquiry q ON q.id = o.inquiry_id
+ WHERE o.unit_price > 0 AND o.created_at >= DATE_SUB(NOW(), INTERVAL 180 DAY);
+```
+
+**工厂侧新接口**（`src/routes/factorySelf.js`，鉴权均为 `X-Factory-*`）：
+
+| 接口 | 用途 |
+|---|---|
+| `GET /api/factory/me/community-requests` | 工作台「待你答价的求助」：按本方产能打分排序，只出 7 天内、未被采纳、自己没答过的帖 |
+| `GET /api/factory/me/quote-accuracy` | 本厂历史报价 vs 平台估价的偏差（近 180 天，样本不足只给「积累中」） |
+| `GET /api/factory/me/trust` | 本厂验真等级 + 同行获单率对比（`MIN_PEER_PUSHES=10`，文案里带推送量） |
+
+社区求助是答价与社区声望**唯一的数据来源**：工厂端此前没有社区入口，只能自己去 C 端碰运气，
+反哺撮合的分数一直是空的。该接口失败时端上静默（社区是增量能力，不能拖停接单主流程）。
+
+**信任徽章（`src/utils/trust.js`）**把 `verification_level` 与旧的 `license_verified` 归并成 0~3：
+0 不出徽章 / 1 执照已核验 / 2 实地验厂 / 3 深度验厂。展示位：结果页撮合卡片、找厂列表（找厂页另有
+「只看已验真」筛选，后端 `GET /api/factory/list?verified=1`）、工厂工作台顶部条。
+
+**撮合没有做验真硬门槛**，这是有意的取舍：线上 53 家开 C 端的工厂里 `verification_level=0` 的有 41 家、
+有过审资质图集（`media_type='certificate' AND audit_status='approved'`）的 0 家。硬门槛会让 77% 的工厂
+永久失去曝光、让大量询价「匹配到 0 家工厂」。所以信任只作排序权重：
+`已关注 → 闲置产能 → 评分 → 验真等级 → 接单率 → 工艺命中 → 社区分`。
+验真率上来之后要收紧，改 `matchService.createCInquiry` 那一行排序 + 在 `capableIds` 后加过滤即可。
+
+上线前先确认两套字段没有分叉（`license_verified=1` 但 `verification_level=0` 属历史数据，归一后会算 L1）：
+
+```sql
+SELECT verification_level, license_verified, COUNT(*) FROM factory WHERE status = 1 GROUP BY 1,2;
+-- 有执照却没核验等级的（这些厂在端上显示「执照已核验」，需运营补等级）
+SELECT id, name FROM factory WHERE status = 1 AND license_verified = 1 AND verification_level = 0;
+```
+
