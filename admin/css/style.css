@@ -1232,3 +1232,51 @@ textarea.ui-dialog-input {
 
 /* 订单评分星：暖黄色, 与金额/状态徽章区分开 */
 .rate-stars { color: #f59e0b; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+
+/* ===== 后台只读补齐：询价会话 IM / 站内消息 / 设计稿台账 ===== */
+/* 会话列表的「最后一条」：发送人徽标 + 正文折一行, 防止报价长文把行撑高 */
+.chat-preview { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #475569; font-size: 13px; }
+
+/* 会话弹窗比普通弹窗宽: 顶部单据卡 + 消息流要能一眼看完一轮议价 */
+.chat-modal { max-width: 860px; }
+.chat-context {
+  margin: 12px 0 14px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.chat-context-line { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
+.chat-context-line + .chat-context-line { margin-top: 8px; }
+.chat-context-line .spec-tags { margin-top: 0; }
+
+/* 消息流：超高滚动; 后台没有自我视角, 气泡一律左领, 只按发送方区分底色 */
+.chat-body { max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+.chat-msg { margin-bottom: 12px; }
+.chat-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.chat-sender { color: #475569; font-weight: 500; }
+.chat-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 13.5px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.chat-factory .chat-bubble { background: #eff6ff; }
+.chat-system .chat-bubble { background: #fafafa; color: #64748b; }
+.chat-bubble .design-thumb { display: block; margin: 6px 0 0; height: 84px; width: auto; }
+
+/* 站内信正文列：只占一行, 全文靠 title 悬停看 */
+.msg-content {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #475569;
+}

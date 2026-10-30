@@ -262,6 +262,9 @@ async function attachLastInfo(rows, selfType) {
     const last = map[r.lastId];
     r.lastMessage = last ? (last.sender_type === selfType ? '我：' : '') + previewText(last.content) : '';
     r.lastTime = last ? last.created_at : null;
+    // 发送方身份一并带出：后台只读视图要靠它区分「客户说的 / 工厂说的 / 系统留痕」,
+    // 传 selfType=null 时不拼「我：」前缀, 对原有两端列表无副作用
+    r.lastSenderType = last ? last.sender_type : '';
     r.unread = Number(r.unread) || 0;
   }
   return rows;
@@ -360,4 +363,87 @@ async function factoryUnread(factoryId) {
   return Number(r.c) || 0;
 }
 
-module.exports = { sendMessage, sendFileMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread, getThreadContext };
+/**
+ * 管理端会话列表（只读, 全平台）
+ * 与用户/工厂侧的三个区别：不做归属校验、可按工厂/关键词筛、
+ * 绝不写 is_read——运营看一眼会话就把客户的新消息红点消掉属于篡改用户状态
+ * @param {Object} p { page, size, keyword, factoryId }
+ */
+async function listThreadsAdmin({ page = 1, size = 20, keyword = '', factoryId = 0 } = {}) {
+  const limit = Math.min(Math.max(parseInt(size, 10) || 20, 1), 100);
+  const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * limit;
+  const where = [];
+  const params = [];
+  if (factoryId) { where.push('im.factory_id = ?'); params.push(parseInt(factoryId, 10)); }
+  // 运营找会话的口径就是「哪个单号 / 哪家厂 / 哪个客户」, 不检消息正文（正文量大且无索引）
+  const kw = String(keyword || '').trim();
+  if (kw) {
+    const like = `%${kw}%`;
+    where.push('(ci.inquiry_no LIKE ? OR f.name LIKE ? OR eu.nickname LIKE ? OR ci.contact_name LIKE ? OR ci.contact_phone LIKE ?)');
+    params.push(like, like, like, like, like);
+  }
+  const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const joins = `JOIN c_inquiry ci ON ci.id = im.inquiry_id
+     JOIN factory f ON f.id = im.factory_id
+     LEFT JOIN c_end_user eu ON eu.id = ci.user_id`;
+
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(DISTINCT im.inquiry_id, im.factory_id) total FROM inquiry_message im ${joins} ${whereSql}`,
+    params
+  );
+  const [rows] = await pool.query(
+    `SELECT im.inquiry_id AS inquiryId, im.factory_id AS factoryId,
+            ci.inquiry_no AS inquiryNo, ci.status AS inquiryStatus,
+            ci.product_type AS productType, ci.quantity AS quantity, ci.design_status AS designStatus,
+            f.name AS factoryName, eu.nickname AS customerNickname,
+            ci.contact_name AS contactName, ci.contact_phone AS contactPhone,
+            COUNT(*) AS msgCount, MAX(im.id) AS lastId,
+            SUM(CASE WHEN im.is_read = 0 THEN 1 ELSE 0 END) AS unread
+     FROM inquiry_message im ${joins} ${whereSql}
+     GROUP BY im.inquiry_id, im.factory_id, ci.inquiry_no, ci.status, ci.product_type,
+              ci.quantity, ci.design_status, f.name, eu.nickname, ci.contact_name, ci.contact_phone
+     ORDER BY lastId DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+  await attachLastInfo(rows, null);
+  rows.forEach((r) => {
+    r.msgCount = Number(r.msgCount) || 0;
+    r.unread = Number(r.unread) || 0;
+    r.customerName = r.customerNickname || r.contactName || r.contactPhone || '客户';
+  });
+  return { total: Number(total) || 0, list: rows };
+}
+
+/**
+ * 管理端读单个会话（只读）：不标记已读, 额外带出发送人昵称便于运营辨别
+ * @param {Object} p { inquiryId, factoryId }
+ */
+async function getThreadAdmin({ inquiryId, factoryId }) {
+  const iid = parseInt(inquiryId, 10);
+  const fid = parseInt(factoryId, 10);
+  if (!iid || !fid) throw httpError('参数不完整', 400);
+  const [rows] = await pool.query(
+    `SELECT im.id, im.sender_type, im.sender_id, im.content, im.is_read, im.created_at,
+            im.msg_type, im.file_id,
+            ft.file_name, ft.file_url, ft.file_size, ft.mime_type,
+            eu.nickname AS sender_nickname, fu.real_name AS sender_real_name, fu.username AS sender_username
+     FROM inquiry_message im
+     LEFT JOIN file_transfer ft ON ft.id = im.file_id
+     LEFT JOIN c_end_user eu ON im.sender_type = 'user' AND eu.id = im.sender_id
+     LEFT JOIN factory_user fu ON im.sender_type = 'factory' AND fu.id = im.sender_id
+     WHERE im.inquiry_id = ? AND im.factory_id = ?
+     ORDER BY im.id ASC LIMIT 300`,
+    [iid, fid]
+  );
+  rows.forEach((r) => {
+    r.senderName = r.sender_type === 'user'
+      ? (r.sender_nickname || '客户')
+      : r.sender_type === 'factory'
+        ? (r.sender_real_name || r.sender_username || '工厂')
+        : '系统';
+  });
+  // viewerType 传 admin：getThreadContext 只对 factory 开放就地改价, 运营侧不会拿到可写标记
+  return { list: rows, context: await getThreadContext({ inquiryId: iid, factoryId: fid, viewerType: 'admin' }) };
+}
+
+module.exports = { sendMessage, sendFileMessage, listThread, listUserThreads, listFactoryThreads, userUnread, factoryUnread, getThreadContext, listThreadsAdmin, getThreadAdmin };

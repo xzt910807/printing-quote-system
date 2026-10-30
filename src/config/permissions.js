@@ -31,6 +31,9 @@ const PERMISSIONS = [
   'session:view',     // 查看在线设备/会话（F-148）
   'session:revoke',   // 强制下线（F-150）
   'news:manage',      // 行业资讯管理与选稿（028/031，仅平台侧）
+  'chat:view',        // 询价会话（买卖双方 IM）只读查看，仅平台侧介入纠纷用
+  'message:view',     // C 端站内消息（c_message）只读查看，仅平台侧
+  'design:view',      // 设计稿台账（询价单 design_* 汇总）只读查看，仅平台侧
 ];
 
 // 工厂侧全权限（owner 基准，manager 去掉员工管理）

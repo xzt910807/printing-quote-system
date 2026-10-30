@@ -25,6 +25,7 @@ const adminLogisticsRoutes = require('./routes/adminLogistics');
 const voiceRoutes = require('./routes/voice');
 const opsRoutes = require('./routes/ops');
 const messagesRoutes = require('./routes/messages');
+const adminMessagesRoutes = require('./routes/adminMessages');
 const fileTransferRoutes = require('./routes/fileTransfer');
 const issuesRoutes = require('./routes/issues');
 const newsRoutes = require('./routes/news');
@@ -225,6 +226,13 @@ app.use('/api/c/issue', requireUser, issuesRoutes);
 // 工厂/管理端子路由另需内部鉴权，当行入口在 routes/issues.js 内部注册
 app.use('/api/factory/issue', issuesRoutes.factoryRouter);
 app.use('/api/admin/issue', issuesRoutes.adminRouter);
+// 后台只读补齐三项（商家↔客户沟通与交付物）, 鉴权均在子路由内部完成：
+//   /api/admin/chat 询价会话 IM（只看不能代读, 不会吃掉对方未读红点）
+//   /api/admin/messages C 端站内消息（c_message, 含 user_id=0 的工厂侧留痕）
+//   /api/admin/designs 设计稿台账（c_inquiry 的 design_* 汇总）
+app.use('/api/admin/chat', messagesRoutes.adminRouter);
+app.use('/api/admin/messages', adminMessagesRoutes);
+app.use('/api/admin/designs', designRoutes.adminRouter);
 // 028 行业资讯：/api/c/news 与 /api/admin/news/crawl（管理端手动触发）
 app.use('/api/c/news', newsRoutes);
 const newsService = require('./services/newsService');

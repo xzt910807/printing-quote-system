@@ -146,6 +146,11 @@ const app = createApp({
       { key: 'catalog', title: '目录数据', group: '管理', svg: NAV_ICONS.database, mode: 'admin', perm: 'catalog:view' },
       // 028/031 行业资讯：小程序有资讯页, 后台此前只能改精选（无列表页）
       { key: 'news', title: '资讯管理', group: '管理', svg: NAV_ICONS.file, mode: 'admin', perm: 'news:manage' },
+      // 后台只读补齐三项：小程序早已上线买卖双方 IM / 我的消息 / 设计稿交付, 后台一条都看不到
+      // 三项一律 mode:'admin' 且只读——工厂端看自家会话走小程序接单页, 不放后台避免越权翻别家
+      { key: 'chats', title: '询价会话', group: '管理', svg: NAV_ICONS.inbox, mode: 'admin', perm: 'chat:view' },
+      { key: 'messages', title: '站内消息', group: '管理', svg: NAV_ICONS.card, mode: 'admin', perm: 'message:view' },
+      { key: 'designs', title: '设计稿台账', group: '管理', svg: NAV_ICONS.tag, mode: 'admin', perm: 'design:view' },
       { key: 'accounts', title: '账户管理', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'account:manage' },
       { key: 'sessions', title: '在线设备', group: '系统', svg: NAV_ICONS.monitor, mode: 'admin', perm: 'session:view' },
       { key: 'fee-ledger', title: '服务费台账', group: '系统', svg: NAV_ICONS.banknote, mode: 'admin', perm: 'finance:view' },
@@ -209,6 +214,9 @@ const app = createApp({
       issues: state.isFactoryMode ? '售后工单' : '工单管理',
       arbitration: '仲裁中心',
       news: '资讯管理',
+      chats: '询价会话',
+      messages: '站内消息',
+      designs: '设计稿台账',
     })[state.page]);
 
       const materialCount = computed(() =>
@@ -563,6 +571,151 @@ const app = createApp({
         newsState.crawling = false;
       }
     }
+
+    // ===== 询价会话 IM（后台只读）=====
+    // 只读是硬约束：后端给后台单独开了 getThreadAdmin, 看一眼不会把对方消息置为已读；
+    // 小程序那套 listThread 一进会话就消红点, 运营代为“已读”属于篡改用户状态
+    const CHAT_SENDER_TEXT = { user: '客户', factory: '工厂', system: '系统' };
+    const CHAT_SENDER_STYLE = {
+      user: 'background:#dbeafe;color:#1d4ed8',
+      factory: 'background:#dcfce7;color:#15803d',
+      system: 'background:#f1f5f9;color:#64748b',
+    };
+    const chatSenderLabel = (t) => CHAT_SENDER_TEXT[t] || t || '系统';
+    const chatSenderStyle = (t) => CHAT_SENDER_STYLE[t] || CHAT_SENDER_STYLE.system;
+    // 会话里的文件消息只有 mime 是 image/ 才补缩略图, 其余（PDF/刀模图）只给下载链接
+    const isImageMsg = (m) => /^image\//i.test(String((m && m.mime_type) || ''));
+    const chatState = reactive({ list: [], total: 0, page: 1, keyword: '', factoryId: '', loading: false });
+    const chatPages = computed(() => Math.max(1, Math.ceil(chatState.total / LIST_PAGE_SIZE)));
+    const chatModal = reactive({ open: false, loading: false, inquiryNo: '', factoryId: 0, list: [], context: null });
+
+    async function loadChatThreads(page) {
+      chatState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (chatState.keyword) q.set('keyword', chatState.keyword);
+        if (chatState.factoryId) q.set('factoryId', chatState.factoryId);
+        q.set('page', page || chatState.page || 1);
+        q.set('size', LIST_PAGE_SIZE);
+        const res = await api.request('/api/admin/chat/threads?' + q.toString());
+        chatState.list = res.list || [];
+        chatState.total = res.total || 0;
+        chatState.page = res.page || page || 1;
+      } catch (err) {
+        alert('会话加载失败：' + err.message);
+      } finally {
+        chatState.loading = false;
+      }
+    }
+    function onChatSearch() { debounceSearch('chat', () => loadChatThreads(1)); }
+    function onChatFilterChange() { loadChatThreads(1); }
+
+    // 会话弹窗：只展示, 不提供输入框——平台代任何一方发言会把纠纷责任搅浑
+    async function openChatThread(t) {
+      Object.assign(chatModal, {
+        open: true, loading: true, inquiryNo: t.inquiryNo, factoryId: t.factoryId,
+        list: [], context: null,
+      });
+      try {
+        const res = await api.request(`/api/admin/chat/thread/${t.inquiryId}?factoryId=${t.factoryId}`);
+        chatModal.list = res.list || [];
+        chatModal.context = res.context || null;
+      } catch (err) {
+        alert('消息加载失败：' + err.message);
+      } finally {
+        chatModal.loading = false;
+      }
+    }
+    function closeChatThread() { chatModal.open = false; }
+
+    // ===== 站内消息（c_message）只读 =====
+    // 类型码由各业务各自写死, 后端不做白名单拦截：历史种子里还出现过 note_accepted 这种
+    // 拼错的码, 查不到映射就原样显示原文, 不能把存量消息吞成「未知类型」
+    const MSG_TYPE_TEXT = {
+      system: '系统通知', security: '安全提醒',
+      quote_accepted: '报价已接受', factory_quoted: '工厂已报价', factory_requoted: '工厂改价',
+      note_accepted: '工厂已报价（旧码）', quote_rematch: '重新匹配工厂',
+      order_created: '订单创建', order_status: '订单状态',
+      chat_message: '工厂回复会话', issue_new: '新工单', issue_reply: '工单回复',
+      issue_stale: '工单超时未处理', escrow_arbitrate: '交易担保仲裁',
+    };
+    const msgTypeLabel = (t) => MSG_TYPE_TEXT[t] || t || '系统';
+    const msgTypeStyle = (t) => {
+      if (t === 'security' || t === 'escrow_arbitrate' || t === 'issue_stale') return 'background:#fee2e2;color:#dc2626';
+      if (t === 'issue_new' || t === 'issue_reply') return 'background:#ede9fe;color:#6d28d9';
+      if (String(t).indexOf('quote') === 0 || String(t).indexOf('factory') === 0 || t === 'note_accepted') return 'background:#fef3c7;color:#b45309';
+      if (String(t).indexOf('order') === 0) return 'background:#dbeafe;color:#1d4ed8';
+      if (t === 'chat_message') return 'background:#dcfce7;color:#15803d';
+      return 'background:#f1f5f9;color:#475569';
+    };
+    const msgState = reactive({
+      list: [], total: 0, page: 1, type: '', target: '', keyword: '', unreadOnly: false,
+      loading: false, unreadTotal: 0, typeCounts: [],
+    });
+    const msgPages = computed(() => Math.max(1, Math.ceil(msgState.total / LIST_PAGE_SIZE)));
+
+    async function loadMessages(page) {
+      msgState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (msgState.type) q.set('type', msgState.type);
+        if (msgState.target) q.set('target', msgState.target);
+        if (msgState.keyword) q.set('keyword', msgState.keyword);
+        if (msgState.unreadOnly) q.set('unreadOnly', '1');
+        q.set('page', page || msgState.page || 1);
+        q.set('size', LIST_PAGE_SIZE);
+        const res = await api.request('/api/admin/messages?' + q.toString());
+        msgState.list = res.list || [];
+        msgState.total = res.total || 0;
+        msgState.page = res.page || page || 1;
+        msgState.unreadTotal = res.unreadTotal || 0;
+        msgState.typeCounts = res.typeCounts || [];
+      } catch (err) {
+        alert('站内消息加载失败：' + err.message);
+      } finally {
+        msgState.loading = false;
+      }
+    }
+    function onMsgSearch() { debounceSearch('msg', () => loadMessages(1)); }
+    function onMsgFilterChange() { loadMessages(1); }
+    // 接收方：user_id=0 是平台/工厂侧留痕（新工单通知工厂、工单超时告警都算）,
+    // 跟真实客户消息混在一列会让人误判「几百条没人读」, 行内必须如实标出
+    const msgTargetLabel = (m) => (Number(m.user_id) > 0
+      ? (m.user_nickname || m.user_phone || ('用户 #' + m.user_id))
+      : '平台/工厂侧留痕');
+
+    // ===== 设计稿台账（c_inquiry 的 design_* 汇总）=====
+    // 没有独立设计稿表：客户附稿/设计描述/制版 PDF 全落在询价单上,
+    // 所以这里就是一张带筛选的询价视图, 不另外造数据源
+    const DESIGN_STATUS_TEXT = { none: '客户自带稿', public: '工厂公版', need: '需要设计' };
+    const designState = reactive({
+      list: [], total: 0, page: 1, status: '', has: '', keyword: '', loading: false,
+      stat: { total: 0, need: 0, public: 0, hasImg: 0, hasPdf: 0, hasFee: 0, feeSum: 0 },
+    });
+    const designPages = computed(() => Math.max(1, Math.ceil(designState.total / LIST_PAGE_SIZE)));
+
+    async function loadDesigns(page) {
+      designState.loading = true;
+      try {
+        const q = new URLSearchParams();
+        if (designState.status) q.set('status', designState.status);
+        if (designState.has) q.set('has', designState.has);
+        if (designState.keyword) q.set('keyword', designState.keyword);
+        q.set('page', page || designState.page || 1);
+        q.set('size', LIST_PAGE_SIZE);
+        const res = await api.request('/api/admin/designs?' + q.toString());
+        designState.list = res.list || [];
+        designState.total = res.total || 0;
+        designState.page = res.page || page || 1;
+        designState.stat = Object.assign(designState.stat, res.stat || {});
+      } catch (err) {
+        alert('设计稿台账加载失败：' + err.message);
+      } finally {
+        designState.loading = false;
+      }
+    }
+    function onDesignSearch() { debounceSearch('design', () => loadDesigns(1)); }
+    function onDesignFilterChange() { loadDesigns(1); }
 
     // ===== 订单：状态文案 / 徽章颜色 / 操作按钮 =====
     const ORDER_STATUS_TEXT = {
@@ -1349,6 +1502,9 @@ const app = createApp({
       if (page === 'issues') loadIssues(1);
       if (page === 'arbitration') loadArbitration(1);
       if (page === 'news') loadNews(1);
+      if (page === 'chats') loadChatThreads(1);
+      if (page === 'messages') loadMessages(1);
+      if (page === 'designs') loadDesigns(1);
       if (page === 'pricing' && state.isFactoryMode) loadFactoryData();
       if (page === 'staff' && state.isFactoryMode) loadStaffs();
       if (page === 'dashboard' && state.isFactoryMode) { loadFactoryData(); loadFactoryStats(); }
@@ -2760,6 +2916,11 @@ const app = createApp({
       // 028/031 资讯管理（选稿 + 手动补采）
       NEWS_CATEGORY_TEXT, newsCategoryStyle, newsState, newsPages, loadNews, onNewsSearch, onNewsFilterChange,
       newsModal, openNewsEditor, closeNewsEditor, saveNewsFeature, crawlNewsNow,
+      // 后台只读补齐：询价会话 IM / 站内消息 / 设计稿台账
+      CHAT_SENDER_TEXT, chatSenderLabel, chatSenderStyle, isImageMsg, chatState, chatPages, loadChatThreads,
+      onChatSearch, onChatFilterChange, chatModal, openChatThread, closeChatThread,
+      MSG_TYPE_TEXT, msgTypeLabel, msgTypeStyle, msgState, msgPages, loadMessages, onMsgSearch, onMsgFilterChange, msgTargetLabel,
+      DESIGN_STATUS_TEXT, designState, designPages, loadDesigns, onDesignSearch, onDesignFilterChange,
     };
   },
 });

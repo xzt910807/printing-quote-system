@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { ok, fail } = require('../utils/helpers');
-const { requireUser, requireFactory } = require('../middlewares/auth');
+const { requireUser, requireFactory, requireAdmin } = require('../middlewares/auth');
+const { requirePermission } = require('../config/permissions');
 const chat = require('../services/inquiryChatService');
 
 /**
@@ -94,4 +95,51 @@ router.get('/unread', byIdentity, async (req, res) => {
   }
 });
 
+// ========== 管理端只读会话（/api/admin/chat） ==========
+// 鉴权在内、菜单在外：与 routes/issues.js 的 adminRouter 写法保持一致
+const adminRouter = express.Router();
+adminRouter.use(requireAdmin);
+adminRouter.use(requirePermission('chat:view'));
+
+/**
+ * GET /api/admin/chat/threads?page=&size=&keyword=&factoryId=
+ * 全平台询价会话列表（inquiry×factory 维度）：后台以前只能看到询价状态,
+ * 看到不了买卖双方聊到哪一步, 纠纷/超时无人可断
+ */
+adminRouter.get('/threads', async (req, res) => {
+  try {
+    const r = await chat.listThreadsAdmin({
+      page: parseInt(req.query.page, 10) || 1,
+      size: req.query.size,
+      keyword: req.query.keyword,
+      factoryId: parseInt(req.query.factoryId, 10) || 0,
+    });
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const size = Math.min(Math.max(parseInt(req.query.size, 10) || 20, 1), 100);
+    res.json(ok({ list: r.list, total: r.total, page, size }));
+  } catch (err) {
+    res.status(err.status || 500).json(fail(err.message, err.status || 500));
+  }
+});
+
+/**
+ * GET /api/admin/chat/thread/:inquiryId?factoryId=
+ * 单会话消息（只读）：走专用的 getThreadAdmin 而非 listThread,
+ * 因为 listThread 会把对方消息置为已读——运营查看不能吃掉客户/工厂的红点
+ */
+adminRouter.get('/thread/:inquiryId', async (req, res) => {
+  try {
+    const factoryId = parseInt(req.query.factoryId, 10) || 0;
+    if (!factoryId) throw Object.assign(new Error('缺少 factoryId'), { status: 400 });
+    const data = await chat.getThreadAdmin({
+      inquiryId: parseInt(req.params.inquiryId, 10),
+      factoryId,
+    });
+    res.json(ok(data));
+  } catch (err) {
+    res.status(err.status || 500).json(fail(err.message, err.status || 500));
+  }
+});
+
 module.exports = router;
+module.exports.adminRouter = adminRouter;

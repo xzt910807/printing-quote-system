@@ -11,6 +11,9 @@ const multer = require('multer');
 const path = require('path');
 const designService = require('../services/designService');
 const { ok, fail } = require('../utils/helpers');
+const { pool } = require('../config/db');
+const { requireAdmin } = require('../middlewares/auth');
+const { requirePermission } = require('../config/permissions');
 
 const router = express.Router();
 
@@ -106,4 +109,87 @@ router.post('/upload/design', ipLimit, (req, res) => {
   });
 });
 
+// ========== 管理端设计稿台账（/api/admin/designs） ==========
+// 没有独立的设计稿表：客户附稿/设计描述/制版 PDF 全部落在 c_inquiry 的 design_* 列上,
+// 所以后台的「设计稿」就是一张带筛选的询价单视图, 不另外造数据源
+const adminRouter = express.Router();
+adminRouter.use(requireAdmin);
+adminRouter.use(requirePermission('design:view'));
+
+/**
+ * GET /api/admin/designs?page=&size=&status=&has=&keyword=
+ * status：need=需设计 public=工厂公版 none=客户自带稿
+ * has：img=有参考图 pdf=有制版文件 fee=已计设计费
+ * keyword：询价号 / 联系人 / 客户昵称 / 设计需求描述
+ */
+adminRouter.get('/', async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const size = Math.min(Math.max(parseInt(req.query.size, 10) || 20, 1), 100);
+    const offset = (page - 1) * size;
+    const status = String(req.query.status || '').trim();
+    const has = String(req.query.has || '').trim();
+    const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+
+    const where = [];
+    const params = [];
+    if (['need', 'public', 'none'].includes(status)) { where.push('ci.design_status = ?'); params.push(status); }
+    // JSON_LENGTH 对 NULL 列返回 NULL, 必须先判非空, 否则整个条件为 UNKNOWN 把行全筛掉
+    if (has === 'img') where.push("ci.design_images IS NOT NULL AND JSON_LENGTH(ci.design_images) > 0");
+    else if (has === 'pdf') where.push("ci.design_pdfs IS NOT NULL AND JSON_LENGTH(ci.design_pdfs) > 0");
+    else if (has === 'fee') where.push('ci.design_fee IS NOT NULL');
+    if (keyword) {
+      const like = `%${keyword}%`;
+      where.push('(ci.inquiry_no LIKE ? OR ci.contact_name LIKE ? OR eu.nickname LIKE ? OR ci.design_note LIKE ?)');
+      params.push(like, like, like, like);
+    }
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const joins = ` LEFT JOIN c_end_user eu ON eu.id = ci.user_id
+     LEFT JOIN factory f ON f.id = ci.matched_factory_id
+     LEFT JOIN order_main o ON o.inquiry_id = ci.id`;
+
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(*) total FROM c_inquiry ci${joins} ${whereSql}`, params);
+    const [rows] = await pool.query(
+      `SELECT ci.id, ci.inquiry_no, ci.product_type, ci.quantity, ci.status,
+              ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs, ci.design_fee,
+              ci.contact_name, ci.contact_phone, ci.created_at, ci.accepted_at,
+              eu.nickname AS user_nickname, f.name AS factory_name,
+              o.id AS order_id, o.order_no, o.status AS order_status
+       FROM c_inquiry ci${joins} ${whereSql}
+       ORDER BY ci.id DESC LIMIT ? OFFSET ?`,
+      [...params, size, offset]);
+
+    // 全库概况（不受筛选影响）：顶部四个数就是给运营看总量、不看他当前筛了什么
+    const [[stat]] = await pool.query(
+      `SELECT COUNT(*) total,
+              SUM(design_status = 'need') need_cnt,
+              SUM(design_status = 'public') public_cnt,
+              SUM(design_images IS NOT NULL AND JSON_LENGTH(design_images) > 0) has_img,
+              SUM(design_pdfs IS NOT NULL AND JSON_LENGTH(design_pdfs) > 0) has_pdf,
+              SUM(design_fee IS NOT NULL) has_fee,
+              IFNULL(SUM(design_fee), 0) fee_sum
+       FROM c_inquiry`);
+
+    res.json(ok({
+      list: rows,
+      total,
+      page,
+      size,
+      stat: {
+        total: Number(stat.total) || 0,
+        need: Number(stat.need_cnt) || 0,
+        public: Number(stat.public_cnt) || 0,
+        hasImg: Number(stat.has_img) || 0,
+        hasPdf: Number(stat.has_pdf) || 0,
+        hasFee: Number(stat.has_fee) || 0,
+        feeSum: Number(stat.fee_sum) || 0,
+      },
+    }));
+  } catch (err) {
+    res.status(500).json(fail(err.message));
+  }
+});
+
 module.exports = router;
+module.exports.adminRouter = adminRouter;
