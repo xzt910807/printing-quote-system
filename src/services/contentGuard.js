@@ -19,6 +19,7 @@ const CHECK_TIMEOUT_MS = Number(process.env.SEC_TIMEOUT_MS || 1500);
 
 /** 业务场景 → 微信 scene 码（1=论坛 2=社交日志 3=电商 4=其他） */
 const SCENE_CODES = {
+  community: 1,   // Batch D4 UGC 社区（论坛场景码以前没人用，现在帖子/评论都走这一类）
   chat: 2, comment: 2,
   inquiry: 3, media: 3,
   profile: 4,

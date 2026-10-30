@@ -1,0 +1,113 @@
+<view class="navbar" style="padding-top: {{statusBarHeight || 20}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight || 44}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">帖子详情</view>
+  </view>
+</view>
+
+<view class="page" wx:if="{{post}}" style="padding-top: {{statusBarHeight + navBarHeight + 10}}px;">
+  <view class="detail-card">
+    <view class="dc-head">
+      <text class="badge {{post.authorBadge}}">{{post.authorText}}</text>
+      <text class="dc-cat">{{post.categoryName}}</text>
+      <text class="dc-top" wx:if="{{post.isTop}}">置顶</text>
+      <text class="dc-essence" wx:if="{{post.isEssence}}">精</text>
+    </view>
+    <view class="dc-title">{{post.title}}</view>
+    <view class="dc-author">{{post.authorShow}} · {{post.timeText}}</view>
+
+    <view class="dc-content">{{post.content}}</view>
+
+    <!-- 九宫格：详情页摆全（列表页只给 3 格）-->
+    <view class="dc-imgs" wx:if="{{post.imageCount}}">
+      <image class="dc-img" wx:for="{{post.imageUrl}}" wx:for-item="u" wx:for-index="i" wx:key="*this"
+             src="{{u}}" mode="aspectFill" data-index="{{i}}" bindtap="previewImage"/>
+    </view>
+
+    <video wx:if="{{post.videoSrc}}" class="dc-video" src="{{post.videoSrc}}" poster="{{post.coverSrc}}"
+           object-fit="contain" show-mute-btn controls></video>
+
+    <view class="dc-stats">
+      <text class="dc-stat">{{post.viewCount}}浏览</text>
+      <text class="dc-stat">{{post.likeCount}}赞</text>
+      <text class="dc-stat">{{post.commentCount}}评论</text>
+      <text class="dc-stat" wx:if="{{post.favoriteCount}}">{{post.favoriteCount}}收藏</text>
+    </view>
+
+    <!-- 作者本人看得到审核结论：被驳回/下架却一句解释都没有, 只会让人反复重发 -->
+    <view class="dc-note" wx:if="{{post.auditNote && isAuthor}}">
+      <text class="dc-note-title">{{post.status === 'published' ? '审核备注' : (post.status === 'pending' ? '内容正在复核' : '内容已被处理')}}</text>
+      <text class="dc-note-text">{{post.auditNote}}</text>
+    </view>
+
+    <view class="dc-tools">
+      <text class="dc-tool" wx:if="{{isAuthor}}" data-type="post" data-id="{{post.id}}" bindtap="removeContent">删除</text>
+      <text class="dc-tool" data-type="post" data-id="{{post.id}}" bindtap="openReport">举报</text>
+    </view>
+  </view>
+
+  <!-- 评论：作者进详情时后端会把待审/已删的一并下发, 所以这里能看到自己的全部评论状态 -->
+  <view class="cm-block">
+    <view class="cm-count">评论 {{comments.length}}</view>
+    <view class="cm-empty" wx:if="{{!comments.length}}">还没有评论，来说两句</view>
+    <view class="cm-item" wx:for="{{comments}}" wx:key="id">
+      <view class="cm-head">
+        <text class="badge {{item.authorBadge}}">{{item.authorText}}</text>
+        <text class="cm-name">{{item.authorShow}}</text>
+        <text class="cm-time">{{item.timeText}}</text>
+      </view>
+      <view class="cm-body">{{item.content}}</view>
+      <view class="cm-pending" wx:if="{{item.status !== 'published'}}">{{item.status === 'pending' ? '复核中，暂不对他人展示' : '已隐藏'}}{{item.auditNote ? '：' + item.auditNote : ''}}</view>
+      <view class="cm-foot">
+        <text class="cm-act" data-id="{{item.id}}" bindtap="likeComment">赞 {{item.likeCount}}</text>
+        <text class="cm-act" data-id="{{item.id}}" data-name="{{item.authorShow}}" bindtap="goAuthorPost">回复</text>
+        <text class="cm-act" wx:if="{{isAuthor}}" data-type="comment" data-id="{{item.id}}" bindtap="removeContent">删除</text>
+        <text class="cm-act" data-type="comment" data-id="{{item.id}}" bindtap="openReport">举报</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部占位：固定输入栏不跟着内容滚, 得留出一段高度 -->
+  <view class="bottom-holder"></view>
+</view>
+
+<view class="loading" wx:elif="{{loading}}">加载中…</view>
+
+<!-- 底部互动栏：点赞 / 收藏 / 评论输入 -->
+<view class="act-bar" wx:if="{{post}}">
+  <view class="act-icon {{liked ? 'act-on' : ''}}" bindtap="toggleLike">
+    <text class="act-glyph">♥</text>
+    <text class="act-num">{{post.likeCount}}</text>
+  </view>
+  <view class="act-icon {{favorited ? 'act-on' : ''}}" bindtap="toggleFavorite">
+    <text class="act-glyph">★</text>
+    <text class="act-num">{{post.favoriteCount}}</text>
+  </view>
+  <view class="act-input-wrap">
+    <view class="act-reply" wx:if="{{replyTo}}" bindtap="cancelReply">回复 {{replyTo.name}} ✕</view>
+    <input class="act-input" value="{{inputText}}" placeholder="写评论…"
+           placeholder-class="act-ph" confirm-type="send" bindinput="onInput" />
+  </view>
+  <view class="act-send {{sending ? 'act-send-off' : ''}}" bindtap="sendComment">发送</view>
+</view>
+
+<!-- 举报弹层：理由必选（与后端 REASONS 同集合）, 补充说明选填 -->
+<view class="rp-mask" wx:if="{{reportVisible}}" bindtap="closeReport">
+  <view class="rp-box" catchtap="noop">
+    <view class="rp-title">举报内容</view>
+    <view class="rp-reasons">
+      <view class="rp-reason {{reportReason === item.code ? 'rp-reason-on' : ''}}"
+            wx:for="{{reasons}}" wx:key="code"
+            data-code="{{item.code}}" bindtap="pickReason">{{item.name}}</view>
+    </view>
+    <textarea class="rp-textarea" value="{{reportDetail}}" maxlength="300"
+              placeholder="补充说明（选填，300 字内）" placeholder-class="act-ph"
+              bindinput="onReportDetail"></textarea>
+    <view class="rp-actions">
+      <view class="rp-btn" bindtap="closeReport">取消</view>
+      <view class="rp-btn rp-btn-ok {{reportSubmitting ? 'rp-btn-off' : ''}}" bindtap="submitReport">
+        {{reportSubmitting ? '提交中…' : '提交举报'}}
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,73 @@
+<view class="navbar" style="padding-top: {{statusBarHeight || 20}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight || 44}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">我的社区</view>
+  </view>
+</view>
+
+<view class="page" style="padding-top: {{statusBarHeight + navBarHeight + 8}}px;">
+
+  <view class="tab-row">
+    <view class="tab-chip {{tab === 'posts' ? 'tab-on' : ''}}" data-tab="posts" bindtap="switchTab">
+      我的帖子 {{posts.length ? '(' + posts.length + ')' : ''}}
+    </view>
+    <view class="tab-chip {{tab === 'favs' ? 'tab-on' : ''}}" data-tab="favs" bindtap="switchTab">
+      我的收藏 {{favorites.length ? '(' + favorites.length + ')' : ''}}
+    </view>
+  </view>
+
+  <view class="id-tip">{{identityHint}}</view>
+
+  <view class="empty" wx:if="{{loading}}">加载中…</view>
+  <view class="empty" wx:elif="{{needLogin}}">登录后查看自己发过的内容与收藏夹</view>
+
+  <!-- 我的帖子：含复核中/已驳回/已下架, 状态与原因都要摆出来（否则人只会反复重发）-->
+  <block wx:elif="{{tab === 'posts'}}">
+    <view class="empty" wx:if="{{!posts.length}}">
+      还没发过内容，去社区发第一条
+      <view class="link" bindtap="goCreate">去发布 ›</view>
+    </view>
+    <view class="m-card" wx:for="{{posts}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="mc-head">
+        <text class="mc-status {{item.statusClass}}">{{item.statusText}}</text>
+        <text class="mc-cat">{{item.categoryName}}</text>
+        <text class="mc-time">{{item.timeText}}</text>
+      </view>
+      <view class="mc-title">{{item.title}}</view>
+      <view class="mc-summary" wx:if="{{item.summary}}">{{item.summary}}</view>
+      <view class="mc-imgs" wx:if="{{item.imageCount}}">
+        <image class="mc-img" wx:for="{{item.imageUrl}}" wx:for-item="u" wx:key="*this" src="{{u}}" mode="aspectFill"/>
+      </view>
+      <view class="mc-video" wx:if="{{item.videoSrc}}">▶ 含视频</view>
+      <view class="mc-note" wx:if="{{item.auditNote}}">审核说明：{{item.auditNote}}</view>
+      <view class="mc-foot">
+        <text class="mc-stat">{{item.likeCount}}赞</text>
+        <text class="mc-stat">{{item.commentCount}}评论</text>
+        <text class="mc-stat">{{item.viewCount}}浏览</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 收藏夹：后端只回 published, 被作者删掉的会自动从列表消失, 不需要状态徽章 -->
+  <block wx:else>
+    <view class="empty" wx:if="{{!favorites.length}}">还没有收藏，去社区里挑几条</view>
+    <view class="m-card" wx:for="{{favorites}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="mc-head">
+        <text class="badge {{item.authorBadge}}">{{item.authorText}}</text>
+        <text class="mc-cat">{{item.categoryName}}</text>
+        <text class="mc-time">{{item.timeText}}</text>
+      </view>
+      <view class="mc-title">{{item.title}}</view>
+      <view class="mc-summary" wx:if="{{item.summary}}">{{item.summary}}</view>
+      <view class="mc-foot">
+        <text class="mc-stat">{{item.likeCount}}赞</text>
+        <text class="mc-stat">{{item.commentCount}}评论</text>
+        <text class="mc-stat">作者：{{item.authorShow}}</text>
+      </view>
+    </view>
+  </block>
+
+  <view class="bottom-holder"></view>
+</view>
+
+<view class="fab" bindtap="goCreate">＋</view>

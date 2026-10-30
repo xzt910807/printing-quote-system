@@ -274,6 +274,157 @@ INSERT INTO `card_paper` VALUES (21, 'CUP_PE', '单PE淋膜杯纸', 250, 1.6500,
 INSERT INTO `card_paper` VALUES (22, 'CUP_PLA', 'PLA淋膜杯纸', 250, 2.2000, '浙江C材料', 1, '2026-09-22 03:08:36');
 
 -- ----------------------------
+-- Table structure for community_category
+-- ----------------------------
+DROP TABLE IF EXISTS `community_category`;
+CREATE TABLE `community_category`  (
+  `id` int(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `code` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '版块编码（帖子按 code 关联，改 code 等于让老帖掉出版块）',
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '版块名称',
+  `sort` int(0) NOT NULL DEFAULT 0 COMMENT '排序（小在前）',
+  `is_active` tinyint(0) NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用（停用后小程序不再列出，已有帖子不受影响）',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_code`(`code`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区版块分类（Batch D4）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_category
+-- 六个版块对齐印查查社区结构，后台可增删；新增版块只需在此补一行（或走后台「分类维护」）
+-- ----------------------------
+INSERT INTO `community_category` VALUES (1, 'experience', '经验交流', 10, 1, '2026-10-30 08:00:00');
+INSERT INTO `community_category` VALUES (2, 'tech', '工艺问答', 20, 1, '2026-10-30 08:00:00');
+INSERT INTO `community_category` VALUES (3, 'price', '报价求助', 30, 1, '2026-10-30 08:00:00');
+INSERT INTO `community_category` VALUES (4, 'material', '素材模板', 40, 1, '2026-10-30 08:00:00');
+INSERT INTO `community_category` VALUES (5, 'chat', '行业闲聊', 50, 1, '2026-10-30 08:00:00');
+INSERT INTO `community_category` VALUES (6, 'demand', '供需信息', 60, 1, '2026-10-30 08:00:00');
+
+-- ----------------------------
+-- Table structure for community_comment
+-- ----------------------------
+DROP TABLE IF EXISTS `community_comment`;
+CREATE TABLE `community_comment`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `post_id` bigint(0) NOT NULL COMMENT '所属帖子',
+  `user_id` bigint(0) NOT NULL COMMENT '作者ID（按 author_type 分别指向 c_end_user / factory_user）',
+  `author_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '作者身份：user=客户 factory=工厂员工（服务端由令牌推导，不采信请求体）',
+  `factory_id` bigint(0) NULL DEFAULT NULL COMMENT '工厂ID（author_type=factory 时有值，用于亮工厂徽章）',
+  `parent_id` bigint(0) NULL DEFAULT NULL COMMENT '父评论（一层回复，NULL=顶级评论）',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '评论内容',
+  `like_count` int(0) NOT NULL DEFAULT 0 COMMENT '点赞数（原子累加）',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'published' COMMENT 'published/pending/rejected/removed（分级审核与帖子同一套）',
+  `audit_note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核备注（驳回/下架原因，对作者可见）',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_post`(`post_id`, `status`) USING BTREE,
+  INDEX `idx_parent`(`parent_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区评论（Batch D4）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_comment
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for community_favorite
+-- ----------------------------
+DROP TABLE IF EXISTS `community_favorite`;
+CREATE TABLE `community_favorite`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `post_id` bigint(0) NOT NULL COMMENT '被收藏的帖子',
+  `user_id` bigint(0) NOT NULL COMMENT '收藏人ID（按 author_type 解释）',
+  `author_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '收藏人身份',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_post_user`(`post_id`, `author_type`, `user_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区收藏（Batch D4）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_favorite
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for community_like
+-- ----------------------------
+DROP TABLE IF EXISTS `community_like`;
+CREATE TABLE `community_like`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `target_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '点赞对象类型：post/comment',
+  `target_id` bigint(0) NOT NULL COMMENT '点赞对象ID',
+  `user_id` bigint(0) NOT NULL COMMENT '点赞人ID（按 author_type 解释）',
+  `author_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '点赞人身份：客户与工厂员工的 id 各自独立自增，不纳入唯一键会互相顶掉',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_target`(`target_type`, `target_id`, `author_type`, `user_id`) USING BTREE,
+  INDEX `idx_user`(`author_type`, `user_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区点赞（唯一键幂等，Batch D4）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_like
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for community_post
+-- ----------------------------
+DROP TABLE IF EXISTS `community_post`;
+CREATE TABLE `community_post`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint(0) NOT NULL COMMENT '作者ID（按 author_type 分别指向 c_end_user / factory_user）',
+  `author_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '作者身份：user=客户 factory=工厂员工（服务端由令牌推导，不采信请求体）',
+  `factory_id` bigint(0) NULL DEFAULT NULL COMMENT '工厂ID（author_type=factory 时有值，用于亮工厂徽章与工厂主页跳转）',
+  `category_code` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '版块编码（community_category.code）',
+  `title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '正文',
+  `images` json NULL COMMENT '图片地址数组（/uploads/community/ 前缀，最多 9 张）',
+  `video_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '视频地址（/uploads/community/ 前缀）',
+  `cover_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '视频封面',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT 'pending/published/rejected/removed（表默认 pending：宁可不出现也不能漏审）',
+  `audit_note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '审核备注（先发后审留痕与驳回原因，对作者可见）',
+  `view_count` int(0) NOT NULL DEFAULT 0 COMMENT '详情页浏览量（同身份 60 秒去重，允许不准）',
+  `like_count` int(0) NOT NULL DEFAULT 0 COMMENT '点赞数（与 community_like 行数严格一致）',
+  `comment_count` int(0) NOT NULL DEFAULT 0 COMMENT '评论数（只统计 published）',
+  `favorite_count` int(0) NOT NULL DEFAULT 0 COMMENT '收藏数',
+  `report_count` int(0) NOT NULL DEFAULT 0 COMMENT '被举报次数（同一举报人对同一目标只计一次）',
+  `is_top` tinyint(0) NOT NULL DEFAULT 0 COMMENT '1=置顶（后台运营位，信息流排前）',
+  `is_essence` tinyint(0) NOT NULL DEFAULT 0 COMMENT '1=加精（后台运营位，列表亮徽章）',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '发布时间',
+  `updated_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_feed`(`status`, `is_top`, `is_essence`, `created_at`) USING BTREE,
+  INDEX `idx_cat`(`category_code`, `status`) USING BTREE,
+  INDEX `idx_author`(`author_type`, `user_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区帖子（Batch D4，分级审核）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_post
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for community_report
+-- ----------------------------
+DROP TABLE IF EXISTS `community_report`;
+CREATE TABLE `community_report`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `target_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '举报对象类型：post/comment',
+  `target_id` bigint(0) NOT NULL COMMENT '举报对象ID',
+  `reporter_id` bigint(0) NOT NULL COMMENT '举报人ID（按 reporter_type 解释）',
+  `reporter_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '举报人身份',
+  `reason` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'porn/ad/abuse/fake/other',
+  `detail` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '补充说明',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT 'pending/handled/dismissed',
+  `handler_id` bigint(0) NULL DEFAULT NULL COMMENT '处置人（admin_user.id）',
+  `handle_note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '处置备注',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '举报时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_reporter`(`target_type`, `target_id`, `reporter_type`, `reporter_id`) USING BTREE,
+  INDEX `idx_status`(`status`, `created_at`) USING BTREE,
+  INDEX `idx_target`(`target_type`, `target_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '社区举报（Batch D4，唯一键使同人重复举报不能刷回退阈值）' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of community_report
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for customer
 -- ----------------------------
 DROP TABLE IF EXISTS `customer`;

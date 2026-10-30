@@ -100,4 +100,12 @@ const imageUpload = makeUploader({
   mimes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], label: '图片',
 });
 
-module.exports = { videoUpload, coverUpload, imageUpload, UPLOAD_ROOT, VIDEO_MAX_MB, IMAGE_MAX_MB };
+// 社区视频（Batch D4）：限额与工厂图集一致，但必须落 /uploads/community/
+// 不能直接复用 videoUpload：那个实例写死落 factory-media，而社区入库前会校验 url 前缀必须是
+// /uploads/community/（防塞任意外链），复用会让视频通道永远存不进去
+const communityVideoUpload = makeUploader({
+  sub: 'community', prefix: 'cvid', maxMb: VIDEO_MAX_MB,
+  exts: ['mp4', 'mov'], mimes: ['video/mp4', 'video/quicktime'], label: '视频',
+});
+
+module.exports = { videoUpload, coverUpload, imageUpload, communityVideoUpload, UPLOAD_ROOT, VIDEO_MAX_MB, IMAGE_MAX_MB };

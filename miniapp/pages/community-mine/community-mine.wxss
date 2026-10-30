@@ -1,0 +1,56 @@
+/* D4 我的社区页 */
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; justify-content: center; position: relative; }
+.navbar-back { position: absolute; left: 24rpx; bottom: 12rpx; font-size: 46rpx; color: #0f172a; line-height: 1; padding: 0 14rpx; }
+.navbar-title { text-align: center; font-size: 32rpx; font-weight: 400; color: #0f172a; }
+
+.page { padding: 20rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
+
+.tab-row { display: flex; background: #fff; border-radius: 12rpx; padding: 8rpx; margin-bottom: 12rpx; }
+.tab-chip { flex: 1; text-align: center; font-size: 26rpx; color: #64748b; padding: 16rpx 0; border-radius: 10rpx; }
+.tab-on { color: #fff; background: #2563eb; font-weight: 600; }
+
+.id-tip { font-size: 22rpx; color: #94a3b8; padding: 0 8rpx 14rpx; }
+
+.empty { text-align: center; color: #94a3b8; font-size: 26rpx; padding: 80rpx 20rpx; line-height: 1.7; }
+.link { color: #2563eb; font-size: 26rpx; margin-top: 14rpx; }
+
+.m-card { background: #fff; border-radius: 14rpx; padding: 22rpx 24rpx; margin-bottom: 16rpx; }
+.mc-head { display: flex; align-items: center; margin-bottom: 10rpx; }
+.mc-status { font-size: 20rpx; border-radius: 6rpx; padding: 3rpx 12rpx; margin-right: 10rpx; }
+.st-ok { color: #15803d; background: #dcfce7; }
+.st-pending { color: #b45309; background: #fef3c7; }
+.st-bad { color: #dc2626; background: #fee2e2; }
+.mc-cat { font-size: 21rpx; color: #64748b; background: #f1f5f9; border-radius: 6rpx; padding: 2rpx 12rpx; }
+.mc-time { font-size: 21rpx; color: #94a3b8; margin-left: auto; }
+
+.mc-title { font-size: 30rpx; font-weight: 600; color: #0f172a; line-height: 1.45; }
+.mc-summary { font-size: 25rpx; color: #64748b; line-height: 1.55; margin-top: 8rpx; }
+
+.mc-imgs { display: flex; flex-wrap: wrap; margin-top: 14rpx; }
+.mc-img { width: 150rpx; height: 150rpx; border-radius: 8rpx; margin: 0 10rpx 10rpx 0; background: #f1f5f9; }
+.mc-video { font-size: 22rpx; color: #2563eb; margin-top: 12rpx; }
+
+/* 审核说明：作者看得见的原因, 浅黄一行（与详情页同色, 但更紧凑）*/
+.mc-note { font-size: 22rpx; color: #92400e; background: #fffbeb; border-radius: 8rpx; padding: 10rpx 14rpx; margin-top: 12rpx; line-height: 1.5; }
+
+.mc-foot { display: flex; align-items: center; margin-top: 14rpx; }
+.mc-stat { font-size: 22rpx; color: #94a3b8; margin-right: 22rpx; }
+
+.bottom-holder { height: 180rpx; }
+
+.fab {
+  position: fixed;
+  right: 32rpx;
+  bottom: calc(120rpx + env(safe-area-inset-bottom));
+  width: 104rpx;
+  height: 104rpx;
+  line-height: 100rpx;
+  text-align: center;
+  font-size: 56rpx;
+  color: #fff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f7cff 0%, #2563eb 60%);
+  box-shadow: 0 10rpx 26rpx rgba(37, 99, 235, .35);
+  z-index: 90;
+}

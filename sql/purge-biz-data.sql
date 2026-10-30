@@ -44,6 +44,15 @@ TRUNCATE TABLE `factory_operation_log`;      -- 工厂员工操作日志
 TRUNCATE TABLE `factory_media`;              -- 工厂设备图文（磁盘文件见下方说明）
 TRUNCATE TABLE `user_address`;               -- 收货地址
 
+-- UGC 社区（Batch D4）
+-- 只清内容与其上的互动/举报，community_category 是 init.sql 带的 6 个版块种子，
+-- 清掉后发帖接口会因「版块不存在」整体不可用，所以不列在这里
+TRUNCATE TABLE `community_post`;             -- 帖子
+TRUNCATE TABLE `community_comment`;          -- 评论
+TRUNCATE TABLE `community_like`;             -- 点赞
+TRUNCATE TABLE `community_favorite`;         -- 收藏
+TRUNCATE TABLE `community_report`;           -- 举报
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 清理后核对：以下行数应全部为 0
@@ -61,6 +70,11 @@ UNION ALL SELECT 'user_session', COUNT(*) FROM `user_session`
 UNION ALL SELECT 'factory_operation_log', COUNT(*) FROM `factory_operation_log`
 UNION ALL SELECT 'factory_media', COUNT(*) FROM `factory_media`
 UNION ALL SELECT 'user_address', COUNT(*) FROM `user_address`
+UNION ALL SELECT 'community_post', COUNT(*) FROM `community_post`
+UNION ALL SELECT 'community_comment', COUNT(*) FROM `community_comment`
+UNION ALL SELECT 'community_like', COUNT(*) FROM `community_like`
+UNION ALL SELECT 'community_favorite', COUNT(*) FROM `community_favorite`
+UNION ALL SELECT 'community_report', COUNT(*) FROM `community_report`
 -- 保留表行数（应保持不变，用于确认没误删）
 UNION ALL SELECT 'admin_user(保留)', COUNT(*) FROM `admin_user`
 UNION ALL SELECT 'factory_user(保留)', COUNT(*) FROM `factory_user`
@@ -70,5 +84,5 @@ UNION ALL SELECT 'customer(保留)', COUNT(*) FROM `customer`
 UNION ALL SELECT 'biz_seq(保留)', COUNT(*) FROM `biz_seq`;
 
 -- 提示：TRUNCATE 只删库里的记录，不删磁盘文件。
--- 如需一并清掉上传件，人工确认后删除以下目录内容（头像/设计稿/工厂图文）：
---   uploads/avatars/   uploads/designs/   uploads/factory-media/
+-- 如需一并清掉上传件，人工确认后删除以下目录内容（头像/设计稿/工厂图文/社区图文）：
+--   uploads/avatars/   uploads/designs/   uploads/factory-media/   uploads/community/

@@ -136,6 +136,9 @@ const app = createApp({
       gavel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.4 7.4a2.1 2.1 0 0 1-3-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>',
       megaphone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M11 6.5 21 3v18l-10-3.5"/><path d="M7 17v2a2 2 0 0 0 4 0v-1.5"/></svg>',
       alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+      // D4 社区：两个错位的对话气泡（chat 那个是单气泡 + 三点, 语义上是“一对一会话”,
+      // 社区是多人发言, 复用同一个图形会在侧栏里把「询价会话」和「社区审核」看成同一件事）
+      community: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3l-1 3v-7a2 2 0 0 1 2-2h2z"/><path d="M12 6h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2"/><path d="M11.5 13h.01M14.5 13h.01"/></svg>',
     };
 
     // stage18：新增「协同」组——买卖双方沟通与交付物自成一段, 顺手把原来十几项的「管理」组拆短
@@ -155,6 +158,8 @@ const app = createApp({
       { key: 'catalog', title: '目录数据', group: '管理', svg: NAV_ICONS.database, mode: 'admin', perm: 'catalog:view' },
       // 028/031 行业资讯：小程序有资讯页, 后台此前只能改精选（无列表页）
       { key: 'news', title: '资讯管理', group: '管理', svg: NAV_ICONS.megaphone, mode: 'admin', perm: 'news:manage' },
+      // D4 UGC 社区：只开管理端（工厂在小程序能发帖, 但后台看不到也动不了审核队列）
+      { key: 'community', title: '社区审核', group: '管理', svg: NAV_ICONS.community, mode: 'admin', perm: 'community:view' },
       // 027 工单管理 + 029 仲裁中心（工单列表两端同一入口, 管理端读 /api/admin/issue 需 issue:view）
       { key: 'issues', title: '工单管理', factoryTitle: '售后工单', group: '业务', svg: NAV_ICONS.alert, mode: 'both', perm: 'inquiry:view', adminPerm: 'issue:view' },
       { key: 'arbitration', title: '仲裁中心', group: '系统', svg: NAV_ICONS.gavel, mode: 'admin', perm: 'order:view' },
@@ -233,6 +238,7 @@ const app = createApp({
       issues: state.isFactoryMode ? '售后工单' : '工单管理',
       arbitration: '仲裁中心',
       news: '资讯管理',
+      community: '社区审核',
       chats: state.isFactoryMode ? '客户会话' : '询价会话',
       messages: '站内消息',
       designs: state.isFactoryMode ? '设计稿待办' : '设计稿台账',
@@ -593,6 +599,279 @@ const app = createApp({
       } finally {
         newsState.crawling = false;
       }
+    }
+
+    // ===== D4 UGC 社区审核（帖子分级审核 / 评论抽查 / 举报处置 / 版块维护）=====
+    // 接口挂 /api/admin/community：读要 community:view, 写（审核/处置/分类）要 community:manage。
+    // 工厂令牌打不进这一层（app.js 那层 requireAdmin 只认 X-Admin-Token）, 工厂不可能自己审自己。
+    const COMMUNITY_STATUS_TEXT = { pending: '待审', published: '已发布', rejected: '已驳回', removed: '已下架' };
+    const COMMUNITY_STATUS_STYLE = {
+      pending: 'background:#fef3c7;color:#b45309',
+      published: 'background:#dcfce7;color:#15803d',
+      rejected: 'background:#fee2e2;color:#dc2626',
+      removed: 'background:#f1f5f9;color:#64748b',
+    };
+    const communityStatusStyle = (s) => COMMUNITY_STATUS_STYLE[s] || COMMUNITY_STATUS_STYLE.removed;
+    // 身份徽章要摆在最前面：工厂内容直接公开、客户内容先发后审, 审核时这是第一眼看重的信息
+    const COMMUNITY_AUTHOR_TEXT = { factory: '工厂', user: '客户' };
+    const COMMUNITY_AUTHOR_STYLE = {
+      factory: 'background:#dcfce7;color:#15803d',
+      user: 'background:#dbeafe;color:#1d4ed8',
+    };
+    const communityAuthorLabel = (t) => COMMUNITY_AUTHOR_TEXT[t] || t || '-';
+    const communityAuthorStyle = (t) => COMMUNITY_AUTHOR_STYLE[t] || COMMUNITY_STATUS_STYLE.removed;
+    const COMMUNITY_REASON_TEXT = { porn: '色情低俗', ad: '广告导流', abuse: '辱骂攻击', fake: '虚假信息', other: '其他' };
+    const communityReasonLabel = (r) => COMMUNITY_REASON_TEXT[r] || r || '-';
+    // 顶栏七个筛选态：四个帖子状态 + 举报/评论队列 + 版块维护, 数字取自 /stats
+    const COMMUNITY_VIEWS = [
+      { key: 'pending', label: '待审帖子', status: 'pending', count: 'pendingPosts' },
+      { key: 'published', label: '已发布', status: 'published', count: 'publishedPosts' },
+      { key: 'rejected', label: '已驳回', status: 'rejected', count: 'rejectedPosts' },
+      { key: 'removed', label: '已下架', status: 'removed', count: 'removedPosts' },
+      { key: 'reports', label: '举报待处理', count: 'pendingReports' },
+      { key: 'comments', label: '评论待审', count: 'pendingComments' },
+      { key: 'categories', label: '版块维护' },
+    ];
+    const communityState = reactive({
+      view: 'pending', status: 'pending', category: '', keyword: '', page: 1, total: 0, loading: false,
+      stats: {}, posts: [], comments: [], reports: [], categories: [],
+    });
+    const communityPages = computed(() => Math.max(1, Math.ceil(communityState.total / LIST_PAGE_SIZE)));
+    const communityViewCount = (v) => Number(communityState.stats[v.count]) || 0;
+    // 审核/加精/置顶/删除/举报处置/分类保存全是写接口, 只读角色点一下就会吃 403
+    const canCommunityManage = computed(() => !state.isFactoryMode && hasPerm('community:manage'));
+    const communityModal = reactive({ open: false, loading: false, saving: false, post: null, comments: [] });
+    const communityCatModal = reactive({ open: false, saving: false, code: '', name: '', sort: 0, is_active: 1 });
+
+    async function loadCommunityStats() {
+      try {
+        communityState.stats = await api.request('/api/admin/community/stats');
+      } catch (err) {
+        // 数字只给筛选条当徽标, 拉不到就留空, 不能弹窗打断正在审核的页面
+        communityState.stats = {};
+      }
+    }
+
+    async function loadCommunity(page) {
+      communityState.loading = true;
+      try {
+        if (communityState.view === 'categories') {
+          // 后台这个接口固定含停用项（老帖挂着的版块要能看到、也能重新启用）
+          const res = await api.request('/api/admin/community/categories');
+          communityState.categories = res.list || [];
+          communityState.total = 0;
+        } else if (communityState.view === 'reports') {
+          const q = new URLSearchParams();
+          q.set('status', 'pending');
+          q.set('page', page || communityState.page || 1);
+          q.set('size', LIST_PAGE_SIZE);
+          const res = await api.request('/api/admin/community/reports?' + q.toString());
+          communityState.reports = res.list || [];
+          communityState.total = res.total || 0;
+          communityState.page = res.page || page || 1;
+        } else if (communityState.view === 'comments') {
+          const q = new URLSearchParams();
+          q.set('status', 'pending');
+          q.set('page', page || communityState.page || 1);
+          q.set('size', LIST_PAGE_SIZE);
+          const res = await api.request('/api/admin/community/comments?' + q.toString());
+          communityState.comments = res.list || [];
+          communityState.total = res.total || 0;
+          communityState.page = res.page || page || 1;
+        } else {
+          // 版块下拉得先有数据：进页默认落在待审列表, 此时还没走过 categories 视图
+          if (!communityState.categories.length) {
+            try {
+              const cr = await api.request('/api/admin/community/categories');
+              communityState.categories = cr.list || [];
+            } catch (e) { /* 拉不到只是不能按版块筛, 不该挡住整个列表 */ }
+          }
+          const q = new URLSearchParams();
+          if (communityState.status) q.set('status', communityState.status);
+          if (communityState.category) q.set('category', communityState.category);
+          if (communityState.keyword) q.set('keyword', communityState.keyword);
+          q.set('sort', 'new');
+          q.set('page', page || communityState.page || 1);
+          q.set('size', LIST_PAGE_SIZE);
+          const res = await api.request('/api/admin/community/posts?' + q.toString());
+          communityState.posts = res.list || [];
+          communityState.total = res.total || 0;
+          communityState.page = res.page || page || 1;
+        }
+      } catch (err) {
+        alert('社区列表加载失败：' + err.message);
+      } finally {
+        communityState.loading = false;
+      }
+    }
+
+    function switchCommunityView(key) {
+      const v = COMMUNITY_VIEWS.find((x) => x.key === key);
+      if (!v) return;
+      communityState.view = key;
+      communityState.status = v.status || '';
+      loadCommunity(1);
+    }
+    function onCommunitySearch() { debounceSearch('community', () => loadCommunity(1)); }
+    function onCommunityFilterChange() { loadCommunity(1); }
+
+    // 详情弹窗：列表只给 80 字摘要, 审核要看全文 + 全部评论（含待审与被删的, 否则判不准）
+    async function openCommunityDetail(post) {
+      Object.assign(communityModal, { open: true, loading: false, post, comments: [] });
+      communityModal.loading = true;
+      try {
+        const res = await api.request('/api/admin/community/post/' + post.id);
+        communityModal.post = res.post || post;
+        communityModal.comments = res.comments || [];
+      } catch (err) {
+        communityModal.open = false;
+        alert('详情加载失败：' + err.message);
+      } finally {
+        communityModal.loading = false;
+      }
+    }
+    function closeCommunityDetail() { communityModal.open = false; }
+
+    /**
+     * 帖子审核动作
+     * approve/reject/remove 改状态（后两者后端强制要原因, 空原因等于让作者猜）,
+     * top/essence 是开关式运营位（后端 IF(col=1,0,1) 取反, 重复点即撤销）
+     */
+    const COMMUNITY_AUDIT_TIP = {
+      approve: '通过后立即对外可见（同时清掉「待人工抽查」标记）',
+      reject: '驳回后仅作者可见, 原因会显示给他的内容页',
+      remove: '下架后作者也看不到, 原因同样会留痕',
+      top: '置顶帖在小程序信息流最前面',
+      essence: '加精帖在列表带「精」标',
+    };
+
+    async function doCommunityAudit(target, action) {
+      if (!canCommunityManage.value) return;
+      const id = target && target.id;
+      if (!id) return;
+      const needNote = action === 'reject' || action === 'remove';
+      let note = '';
+      if (needNote) {
+        note = await ui.prompt(
+          `#${id}\n${(target.title || target.content || '').slice(0, 60)}\n${COMMUNITY_AUDIT_TIP[action] || ''}`,
+          '',
+          {
+            title: action === 'reject' ? '驳回原因' : '下架原因',
+            multiline: true, rows: 3, okLabel: '确认', placeholder: '必填, 作者会看到这句话',
+          }
+        );
+        // 取消返回 null 要中止, 不能当空原因提交（后端会 400, 但白点一次没意义）
+        if (note === null) return;
+        if (!note.trim()) return ui.alert('驳回或下架必须填写原因');
+        note = note.trim();
+      } else if (!(await ui.confirm(`#${id}：${COMMUNITY_AUDIT_TIP[action] || '确认执行？'}`))) {
+        return;
+      }
+      communityModal.saving = true;
+      try {
+        await api.request(`/api/admin/community/post/${id}/audit`, { method: 'PUT', body: { action, note } });
+        await loadCommunity(communityState.page);
+        await loadCommunityStats();
+        if (communityModal.open) {
+          // 驳回/下架后内容已离开当前队列, 留在弹窗里只会让人再点一次
+          if (action === 'reject' || action === 'remove' || action === 'approve') closeCommunityDetail();
+          else {
+            const res = await api.request('/api/admin/community/post/' + id);
+            communityModal.post = res.post || communityModal.post;
+          }
+        }
+      } catch (err) {
+        alert('操作失败：' + err.message);
+      } finally {
+        communityModal.saving = false;
+      }
+    }
+
+    // 评论只能过/驳/删（加精置顶对一条评论没有意义, 后端也会 400 拦掉）
+    async function doCommunityCommentAudit(c, action) {
+      if (!canCommunityManage.value) return;
+      const needNote = action === 'reject' || action === 'remove';
+      let note = '';
+      if (needNote) {
+        note = await ui.prompt(`评论 #${c.id}：${(c.content || '').slice(0, 80)}`, '', {
+          title: '填写原因', multiline: true, rows: 2, okLabel: '确认', placeholder: '必填',
+        });
+        if (note === null) return;
+        if (!note.trim()) return ui.alert('驳回或下架必须填写原因');
+        note = note.trim();
+      } else if (!(await ui.confirm(`通过评论 #${c.id}？通过后计入帖子评论数。`))) {
+        return;
+      }
+      try {
+        await api.request('/api/admin/community/comment/' + c.id + '/audit', { method: 'PUT', body: { action, note } });
+        await loadCommunity(communityState.page);
+        await loadCommunityStats();
+      } catch (err) { alert('操作失败：' + err.message); }
+    }
+
+    // 举报处置：reject=举报成立(目标下架)、dismiss=不成立(目标不动), 两者后端都要求填备注
+    async function doCommunityReportHandle(rec, action) {
+      if (!canCommunityManage.value) return;
+      const label = action === 'reject' ? '举报成立, 下架目标内容' : '举报不成立, 保留内容';
+      const note = await ui.prompt(
+        `举报 #${rec.id} · ${communityReasonLabel(rec.reason)}\n目标：${rec.targetType === 'comment' ? '评论' : '帖子'} #${rec.targetId}\n${rec.targetTitle || '-'}\n${label}`,
+        rec.detail || '',
+        { title: '处置备注', multiline: true, rows: 3, okLabel: '确认处置', placeholder: '必填, 写清判断依据' }
+      );
+      if (note === null) return;
+      if (!note.trim()) return ui.alert('处置必须填写备注');
+      try {
+        await api.request('/api/admin/community/report/' + rec.id + '/handle', {
+          method: 'PUT', body: { action, note: note.trim() },
+        });
+        await loadCommunity(communityState.page);
+        await loadCommunityStats();
+      } catch (err) { alert('处置失败：' + err.message); }
+    }
+
+    // ===== 版块维护（code 是帖子上的关联键, 所以只做启停、不物理删）=====
+    function openCommunityCategory(row) {
+      Object.assign(communityCatModal, {
+        open: true, saving: false,
+        code: row ? row.code : '',
+        name: row ? row.name : '',
+        sort: row ? Number(row.sort) || 0 : 0,
+        is_active: row ? (Number(row.is_active) ? 1 : 0) : 1,
+      });
+    }
+    function closeCommunityCategory() { communityCatModal.open = false; }
+
+    async function saveCommunityCategory() {
+      if (communityCatModal.saving) return;
+      communityCatModal.saving = true;
+      try {
+        // 后端按 code 做 UPSERT：新增与改名/排序走同一个接口
+        await api.request('/api/admin/community/category', {
+          method: 'POST',
+          body: {
+            code: (communityCatModal.code || '').trim(),
+            name: (communityCatModal.name || '').trim(),
+            sort: Number(communityCatModal.sort) || 0,
+            isActive: communityCatModal.is_active ? 1 : 0,
+          },
+        });
+        communityCatModal.open = false;
+        await loadCommunity(1);
+      } catch (err) {
+        alert('保存失败：' + err.message);
+      } finally {
+        communityCatModal.saving = false;
+      }
+    }
+
+    async function toggleCommunityCategory(row) {
+      if (!canCommunityManage.value) return;
+      const next = Number(row.is_active) ? 0 : 1;
+      if (!(await ui.confirm((next ? '启用' : '停用') + `版块「${row.name}」？` + (next ? '' : '停用后该版块不再出现在小程序发帖页, 已发的帖子保留。')))) return;
+      try {
+        await api.request('/api/admin/community/category/' + row.id, { method: 'PUT', body: { isActive: next } });
+        await loadCommunity(communityState.page);
+      } catch (err) { alert('操作失败：' + err.message); }
     }
 
     // ===== 询价会话 IM（管理端只读 / 工厂端可回复）=====
@@ -1615,6 +1894,8 @@ const app = createApp({
       if (page === 'issues') loadIssues(1);
       if (page === 'arbitration') loadArbitration(1);
       if (page === 'news') loadNews(1);
+      // 社区面板进页先拉列表再补筛选条上的数字（stats 只是徽标, 不阻塞列表渲染）
+      if (page === 'community') { loadCommunity(1); loadCommunityStats(); }
       if (page === 'chats') loadChatThreads(1);
       if (page === 'messages') loadMessages(1);
       if (page === 'designs') loadDesigns(1);
@@ -3100,6 +3381,13 @@ const app = createApp({
       // 028/031 资讯管理（选稿 + 手动补采）
       NEWS_CATEGORY_TEXT, newsCategoryStyle, newsState, newsPages, loadNews, onNewsSearch, onNewsFilterChange,
       newsModal, openNewsEditor, closeNewsEditor, saveNewsFeature, crawlNewsNow,
+      // D4 UGC 社区审核面板
+      COMMUNITY_STATUS_TEXT, COMMUNITY_VIEWS, communityStatusStyle, communityAuthorLabel, communityAuthorStyle,
+      communityReasonLabel, communityViewCount, communityState, communityPages, canCommunityManage,
+      loadCommunity, loadCommunityStats, switchCommunityView, onCommunitySearch, onCommunityFilterChange,
+      communityModal, openCommunityDetail, closeCommunityDetail, doCommunityAudit,
+      doCommunityCommentAudit, doCommunityReportHandle,
+      communityCatModal, openCommunityCategory, closeCommunityCategory, saveCommunityCategory, toggleCommunityCategory,
       // 后台补齐三项：询价会话 IM（管理端只读 / 工厂端可回复）、站内消息、设计稿（台账/本厂待办）
       CHAT_SENDER_TEXT, chatSenderLabel, chatSenderStyle, isImageMsg, chatState, chatPages, loadChatThreads,
       onChatSearch, onChatFilterChange, chatModal, openChatThread, closeChatThread, sendChatReply, uploadChatFile,

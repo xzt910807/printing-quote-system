@@ -1,0 +1,85 @@
+/* D4 帖子详情页 */
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; justify-content: center; position: relative; }
+.navbar-back { position: absolute; left: 24rpx; bottom: 10rpx; font-size: 46rpx; color: #0f172a; line-height: 1; padding: 0 14rpx; }
+.navbar-title { text-align: center; font-size: 32rpx; font-weight: 400; color: #0f172a; }
+
+.page { padding: 24rpx; padding-top: 24rpx; }
+
+.detail-card { background: #fff; border-radius: 14rpx; padding: 26rpx 28rpx; margin-bottom: 16rpx; }
+.dc-head { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 12rpx; }
+.dc-cat { font-size: 21rpx; color: #64748b; background: #f1f5f9; border-radius: 6rpx; padding: 2rpx 12rpx; margin: 0 12rpx 0 10rpx; }
+.dc-top, .dc-essence { font-size: 20rpx; border-radius: 6rpx; padding: 2rpx 10rpx; margin-right: 8rpx; }
+.dc-top { color: #dc2626; background: #fef2f2; }
+.dc-essence { color: #d97706; background: #fff7ed; }
+.dc-title { font-size: 34rpx; font-weight: 600; color: #0f172a; line-height: 1.4; }
+.dc-author { font-size: 23rpx; color: #94a3b8; margin-top: 10rpx; }
+
+/* 正文保留发帖时的换行, 否则一段长文全挤成一行 */
+.dc-content { font-size: 28rpx; color: #1f2937; line-height: 1.7; margin-top: 20rpx; white-space: pre-wrap; word-break: break-word; }
+
+.dc-imgs { display: flex; flex-wrap: wrap; margin-top: 20rpx; }
+.dc-img { width: 215rpx; height: 215rpx; border-radius: 10rpx; margin: 0 10rpx 10rpx 0; background: #f1f5f9; }
+
+.dc-video { width: 100%; height: 380rpx; border-radius: 12rpx; margin-top: 20rpx; background: #000; }
+
+.dc-stats { display: flex; align-items: center; margin-top: 22rpx; padding-top: 18rpx; border-top: 1rpx solid #f1f5f9; }
+.dc-stat { font-size: 22rpx; color: #94a3b8; margin-right: 22rpx; }
+
+/* 审核备注：只有作者看得到, 浅黄底一行说明, 别让它长得像系统公告 */
+.dc-note { background: #fffbeb; border-radius: 10rpx; padding: 16rpx 18rpx; margin-top: 18rpx; }
+.dc-note-title { display: block; font-size: 23rpx; color: #b45309; font-weight: 600; margin-bottom: 6rpx; }
+.dc-note-text { font-size: 23rpx; color: #92400e; line-height: 1.5; }
+
+.dc-tools { display: flex; justify-content: flex-end; margin-top: 18rpx; }
+.dc-tool { font-size: 24rpx; color: #64748b; padding: 8rpx 22rpx; margin-left: 12rpx; border-radius: 999rpx; background: #f1f5f9; }
+
+/* 评论 */
+.cm-block { background: #fff; border-radius: 14rpx; padding: 24rpx 28rpx; }
+.cm-count { font-size: 27rpx; font-weight: 600; color: #0f172a; margin-bottom: 8rpx; }
+.cm-empty { font-size: 24rpx; color: #94a3b8; padding: 30rpx 0; text-align: center; }
+.cm-item { padding: 20rpx 0; border-top: 1rpx solid #f1f5f9; }
+.cm-head { display: flex; align-items: center; margin-bottom: 8rpx; }
+.cm-name { font-size: 24rpx; color: #475569; margin: 0 12rpx 0 10rpx; }
+.cm-time { font-size: 21rpx; color: #94a3b8; margin-left: auto; }
+.cm-body { font-size: 27rpx; color: #1f2937; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.cm-pending { font-size: 22rpx; color: #b45309; background: #fffbeb; border-radius: 8rpx; padding: 8rpx 14rpx; margin-top: 10rpx; }
+.cm-foot { display: flex; align-items: center; margin-top: 10rpx; }
+.cm-act { font-size: 22rpx; color: #94a3b8; margin-right: 28rpx; }
+
+/* 底部固定互动栏：内容多时长, 用占位块避免最后一条评论被压住 */
+.bottom-holder { height: 140rpx; }
+.act-bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center;
+  padding: 12rpx 20rpx;
+  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(15, 23, 42, .06);
+  z-index: 100;
+}
+.act-icon { display: flex; flex-direction: column; align-items: center; width: 84rpx; }
+.act-glyph { font-size: 32rpx; color: #94a3b8; line-height: 1.1; }
+.act-num { font-size: 19rpx; color: #94a3b8; }
+.act-on .act-glyph, .act-on .act-num { color: #2563eb; }
+.act-input-wrap { flex: 1; position: relative; }
+.act-reply { font-size: 21rpx; color: #2563eb; background: #eff6ff; border-radius: 8rpx 8rpx 0 0; padding: 6rpx 14rpx; }
+.act-input { height: 64rpx; background: #f2f3f5; border-radius: 32rpx; padding: 0 22rpx; font-size: 25rpx; color: #1f2937; }
+.act-ph { color: #94a3b8; }
+.act-send { width: 108rpx; text-align: center; font-size: 26rpx; color: #fff; background: #2563eb; border-radius: 30rpx; padding: 14rpx 0; margin-left: 16rpx; }
+.act-send-off { background: #bfdbfe; }
+
+.loading { text-align: center; color: #94a3b8; font-size: 26rpx; padding: 80rpx 0; }
+
+/* 举报弹层 */
+.rp-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 200; display: flex; align-items: flex-end; }
+.rp-box { width: 100%; background: #fff; border-radius: 24rpx 24rpx 0 0; padding: 30rpx 30rpx 40rpx; box-sizing: border-box; }
+.rp-title { font-size: 30rpx; font-weight: 600; color: #0f172a; text-align: center; margin-bottom: 22rpx; }
+.rp-reasons { display: flex; flex-wrap: wrap; }
+.rp-reason { width: 210rpx; text-align: center; font-size: 25rpx; color: #475569; background: #f2f3f5; border-radius: 12rpx; padding: 16rpx 0; margin: 0 16rpx 16rpx 0; }
+.rp-reason-on { color: #fff; background: #2563eb; }
+.rp-textarea { width: 100%; height: 150rpx; background: #f7f8fa; border-radius: 12rpx; padding: 18rpx; font-size: 25rpx; color: #1f2937; box-sizing: border-box; margin-top: 8rpx; }
+.rp-actions { display: flex; margin-top: 26rpx; }
+.rp-btn { flex: 1; text-align: center; font-size: 28rpx; color: #475569; background: #f2f3f5; border-radius: 40rpx; padding: 20rpx 0; margin: 0 10rpx; }
+.rp-btn-ok { color: #fff; background: #dc2626; }
+.rp-btn-off { opacity: .6; }

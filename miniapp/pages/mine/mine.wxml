@@ -83,6 +83,14 @@
       </view>
       <view class="menu-arrow"></view>
     </view>
+    <!-- D4 社区入口：一个行入口进「我的帖子 / 我的收藏」两页合一（tab 上已有社区列表, 这里只给个人内容）-->
+    <view class="menu-row" bindtap="goCommunityMine">
+      <view class="menu-row-left">
+        <view class="menu-ic menu-ic-orange"><view class="ic ic-community"><view class="ic-a"></view></view></view>
+        <text class="menu-row-label">我的帖子 / 收藏</text>
+      </view>
+      <view class="menu-arrow"></view>
+    </view>
   </view>
 
   <!-- 029：仅纯 C 端用户（无接单会话也未绑定工厂）显示；与已入驻身份卡同构（灰调图标区分状态），两态版式统一 -->

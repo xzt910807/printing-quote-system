@@ -18,7 +18,11 @@
     "pages/issue/issue",
     "pages/issue-detail/issue-detail",
     "pages/news/news",
-    "pages/news-detail/news-detail"
+    "pages/news-detail/news-detail",
+    "pages/community/community",
+    "pages/community-detail/community-detail",
+    "pages/post-create/post-create",
+    "pages/community-mine/community-mine"
   ],
   "window": {
     "navigationBarTitleText": "印刷报价",
@@ -41,6 +45,7 @@
     "selectedColor": "#2563eb",
     "list": [
       { "pagePath": "pages/quote/quote", "text": "报价" },
+      { "pagePath": "pages/community/community", "text": "社区" },
       { "pagePath": "pages/factory/factory", "text": "工厂接单" },
       { "pagePath": "pages/factories/factories", "text": "找厂" },
       { "pagePath": "pages/mine/mine", "text": "我的" }

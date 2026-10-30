@@ -62,6 +62,7 @@ itemPerm(item) = state.isFactoryMode ? item.perm : (item.adminPerm || item.perm)
 | 管理 | `customers` | 客户管理 | 同 | both | `customer:manage` | `customer:manage` |
 | 管理 | `catalog` | 目录数据 | — | admin | — | `catalog:view` |
 | 管理 | `news` | 资讯管理 | — | admin | — | `news:manage` |
+| 管理 | `community` | 社区审核 | — | admin | — | `community:view`（读）/ `community:manage`（写） |
 | 系统 | `arbitration` | 仲裁中心 | — | admin | — | `order:view` |
 | 系统 | `accounts` | 账户管理 | — | admin | — | `account:manage`（super 专属） |
 | 系统 | `sessions` | 在线设备 | — | admin | — | `session:view` |
@@ -74,6 +75,7 @@ itemPerm(item) = state.isFactoryMode ? item.perm : (item.adminPerm || item.perm)
 | 询价会话 | `GET /api/admin/chat/threads`、`GET /api/admin/chat/thread/:inquiryId?factoryId=`（`chat:view`） | `GET /api/messages/threads`、`GET /api/messages/thread/:inquiryId`、`POST /api/messages/send`、`POST /api/factory/file/upload`（身份鉴权，见下） |
 | 站内消息 | `GET /api/admin/messages`（`message:view`） | 无（工厂侧留痕写在 `c_message` 的 `user_id=0`，管理端可筛 `target=system` 看） |
 | 设计稿 | `GET /api/admin/designs`（`design:view`） | `GET /api/factory/designs`（`inquiry:view`） |
+| 社区内容 | `GET /api/admin/community/posts`、`/comments`、`/reports`、`/categories`（`community:view`） | 无（社区对工厂开的是小程序端 `/api/c/community`，身份由 `resolveIdentity` 从 `X-Factory-*` 推导；后台审核队列不给工厂看，避免自己审自己） |
 
 三条口径必须记住：
 
@@ -123,6 +125,7 @@ itemPerm(item) = state.isFactoryMode ? item.perm : (item.adminPerm || item.perm)
 | 工单「接手 / 推进 / 关闭」 | `canIssueManage` = 非工厂视角 && `hasPerm('issue:manage')` | `PUT /api/admin/issue/:id` → `issue:manage` |
 | 仲裁「裁定退款 / 放款」 | `canArbitrate` = 非工厂视角 && `hasPerm('order:manage')` | `POST /api/admin/order/:id/arbitrate` → `order:manage` |
 | 会话「发送 / 发文件」 | 仅工厂视角渲染（管理端会话面板只读） | `/api/messages/send`、`/api/factory/file/upload` 走工厂身份 |
+| 社区「通过 / 驳回 / 下架 / 置顶 / 加精 / 举报处置 / 版块启停」 | `canCommunityManage` = 非工厂视角 && `hasPerm('community:manage')` | `/api/admin/community/post/:id/audit`、`/comment/:id/audit`、`/report/:id/handle`、`/category*` → `community:manage` |
 
 ## 8. 新增一个两端菜单项要改的四处
 

@@ -398,6 +398,27 @@ button::after { border: none; }
   box-shadow: -9rpx 0 0 currentColor, 9rpx 0 0 currentColor;
 }
 
+/* 社区（第 5 个 tab）：两个对话气泡——与 ic-chat（单气泡 + 三点, 语义是一对一会话）区分。
+   后面那只只画左上两边 + 一个圆角, 否则透线会把前面气泡的框内切碎; 前面气泡的尾巴用 clip-path 实心三角 */
+.ic-community .ic-a {
+  left: 8rpx; top: 12rpx; width: 28rpx; height: 21rpx;
+  border: 3rpx solid currentColor; border-radius: 7rpx;
+}
+
+.ic-community .ic-a::before {
+  content: ''; position: absolute; left: -6rpx; top: -10rpx;
+  width: 25rpx; height: 17rpx;
+  border-top: 3rpx solid currentColor; border-left: 3rpx solid currentColor;
+  border-top-left-radius: 8rpx;
+}
+
+.ic-community .ic-a::after {
+  content: ''; position: absolute; left: 2rpx; bottom: -8rpx;
+  width: 11rpx; height: 9rpx; background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  border-radius: 0 0 0 3rpx;
+}
+
 /* 空状态插画块：浅灰圆角块 + 灰色线性图标（替代 empty-icon 的 emoji 插画） */
 .empty-ic {
   width: 140rpx;

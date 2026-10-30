@@ -2,6 +2,7 @@
  * 登录防暴力破解限流（内存版）
  * 规则：同一 IP + 同一登录入口，5 分钟内失败 5 次 → 锁定 15 分钟；登录成功清零。
  * 单机部署足够；若日后多实例，需换 Redis 共享计数。
+ * Batch D4 起本文件另带一个通用写限流 writeGuard（社区发帖/评论/举报）。
  */
 const WINDOW_MS = 5 * 60 * 1000;      // 统计窗口 5 分钟
 const MAX_FAILS = 5;                   // 窗口内最大失败次数
@@ -70,4 +71,60 @@ function clearLoginFail(req) {
   attempts.delete(keyOf(req));
 }
 
-module.exports = { loginGuard, recordLoginFail, clearLoginFail };
+/* ===== Batch D4：通用写操作滑窗限流（社区发帖/评论/举报用）===== */
+
+/** name → 提示语里的动作名（直说“什么太频繁”比“请求过多”更能让用户知道等多久、下次怎么改） */
+const WRITE_LABELS = { post: '发帖', comment: '评论', report: '举报' };
+
+const writeHits = new Map(); // `name|身份键` -> [ts, ...]（升序）
+
+/**
+ * 计数主体优先用身份（同人换 IP 不能刷），没有身份时退回 IP
+ * 必须在鉴权中间件之后挂载，否则读不到 req.identity
+ */
+function actorKey(req) {
+  if (req.identity) return req.identity.type + ':' + req.identity.userId;
+  if (req.factoryUser) return 'factory:' + req.factoryUser.id;
+  if (req.user) return 'user:' + req.user.id;
+  if (req.admin) return 'admin:' + req.admin.id;
+  return clientIp(req);
+}
+
+/**
+ * @param {Object} opts { windowMs 窗口, max 窗口内最多几次, name 动作名（既做提示语也做计数隔离） }
+ */
+function writeGuard(opts = {}) {
+  const windowMs = Number(opts.windowMs) || 60 * 60 * 1000;
+  const max = Number(opts.max) || 20;
+  const name = opts.name || 'write';
+  return (req, res, next) => {
+    const key = name + '|' + actorKey(req);
+    const now = Date.now();
+    const hits = (writeHits.get(key) || []).filter((t) => now - t < windowMs);
+    if (hits.length >= max) {
+      writeHits.set(key, hits);
+      const waitMin = Math.max(1, Math.ceil((hits[0] + windowMs - now) / 60000));
+      const label = WRITE_LABELS[name] || '该操作';
+      console.log('[RATE-LIMIT] 写操作限流 name=' + name + ' key=' + key + ' 剩余=' + waitMin + '分钟');
+      return res.status(429).json({
+        success: false,
+        error: label + '太频繁，请 ' + waitMin + ' 分钟后再试',
+        code: 429,
+      });
+    }
+    hits.push(now);
+    writeHits.set(key, hits);
+    next();
+  };
+}
+
+function pruneWrites() {
+  const now = Date.now();
+  for (const [k, arr] of writeHits) {
+    const left = arr.filter((t) => now - t < 2 * 60 * 60 * 1000); // 上限取到 2 小时，足够覆盖现有窗口
+    if (left.length) writeHits.set(k, left); else writeHits.delete(k);
+  }
+}
+setInterval(pruneWrites, 10 * 60 * 1000).unref();
+
+module.exports = { loginGuard, recordLoginFail, clearLoginFail, writeGuard };

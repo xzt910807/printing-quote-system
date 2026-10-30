@@ -36,6 +36,10 @@ const PERMISSIONS = [
   'chat:view',        // 询价会话（买卖双方 IM）只读查看，仅平台侧介入纠纷用
   'message:view',     // C 端站内消息（c_message）只读查看，仅平台侧
   'design:view',      // 设计稿台账（询价单 design_* 汇总）只读查看，仅平台侧
+  // Batch D4 社区：只能平台侧审核，不写进 FACTORY_ALL——工厂在小程序里能发帖，
+  // 但在后台看不到审核队列，更不能自己审自己（工厂令牌打社区后台接口一律 401）
+  'community:view',   // 社区帖子/评论/举报只读查看
+  'community:manage', // 社区审核/加精/置顶/删除/举报处置
 ];
 
 // 工厂侧全权限（owner 基准，manager 去掉员工管理）

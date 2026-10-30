@@ -18,11 +18,13 @@ const TARGETS = [
   'c_inquiry', 'c_inquiry_quote_view', 'factory_inquiry_push', 'inquiry_message',
   'quote_order', 'order_main', 'order_logistics', 'platform_fee_ledger', 'daily_stats',
   'c_message', 'user_session', 'factory_operation_log', 'factory_media', 'user_address',
+  // Batch D4 社区：内容与互动/举报（版块种子不清，见 KEEP_HINT）
+  'community_post', 'community_comment', 'community_like', 'community_favorite', 'community_report',
 ];
 const KEEP_HINT = [
   'admin_user', 'factory_user', 'c_end_user', 'customer', 'factory_invite_code',
   'factory', 'factory_capability', 'factory_price_override', 'product_config',
-  'design_template', 'biz_seq', 'schema_migrations',
+  'design_template', 'biz_seq', 'schema_migrations', 'community_category',
 ];
 
 async function main() {

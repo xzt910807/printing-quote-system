@@ -4,8 +4,8 @@
         data-index="{{index}}" bindtap="switchTab">
     <view class="tbi-icon">
       <view class="ic {{item.iconClass}}"><view class="ic-a"></view></view>
-      <text class="tbi-badge" wx:if="{{index === 1 && badgeInquiry}}">{{badgeInquiry > 99 ? '99+' : badgeInquiry}}</text>
-      <text class="tbi-badge" wx:if="{{index === 3 && badgeMine}}">{{badgeMine > 99 ? '99+' : badgeMine}}</text>
+      <!-- 徽标跟着 badgeKey 走, 不再按索引写死（插第 5 个 tab 后索引全变） -->
+      <text class="tbi-badge" wx:if="{{item.badge}}">{{item.badge > 99 ? '99+' : item.badge}}</text>
     </view>
     <view class="tbi-text">{{item.text}}</view>
   </view>

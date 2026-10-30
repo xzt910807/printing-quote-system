@@ -1,0 +1,62 @@
+/* D4 发布内容页 */
+.navbar { position: fixed; top: 0; left: 0; right: 0; background: #fff; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.navbar-inner { display: flex; align-items: center; justify-content: center; position: relative; }
+.navbar-back { position: absolute; left: 24rpx; bottom: 12rpx; font-size: 46rpx; color: #0f172a; line-height: 1; padding: 0 14rpx; }
+.navbar-title { text-align: center; font-size: 32rpx; font-weight: 400; color: #0f172a; }
+
+.page { padding: 20rpx; min-height: 100vh; background: #f5f6fa; box-sizing: border-box; }
+
+/* 审核线提示：浅蓝一行, 与「我的」页提示条同色系但更弱, 只是说明不是操作引导 */
+.tip-bar { font-size: 22rpx; color: #1d4ed8; background: #e8f4ff; border-radius: 10rpx; padding: 14rpx 18rpx; margin-bottom: 16rpx; line-height: 1.5; }
+
+.f-card { background: #fff; border-radius: 14rpx; padding: 8rpx 24rpx; margin-bottom: 16rpx; }
+.f-row { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid #f1f5f9; }
+.f-row-col { flex-direction: column; align-items: stretch; border-bottom: none; }
+.f-line { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.f-label { font-size: 26rpx; color: #475569; width: 150rpx; flex: none; }
+.f-count { font-size: 21rpx; color: #cbd5e1; }
+.f-input { flex: 1; font-size: 28rpx; color: #0f172a; height: 60rpx; }
+.f-picker { flex: 1; font-size: 28rpx; color: #0f172a; }
+.f-textarea { width: 100%; min-height: 220rpx; font-size: 28rpx; color: #1f2937; line-height: 1.6; margin-top: 14rpx; box-sizing: border-box; }
+.f-ph { color: #94a3b8; font-size: 26rpx; }
+
+/* 九宫格：200rpx 一格 + 14rpx 间距, 一行正好三格（与列表页配图同宽）*/
+.img-grid { display: flex; flex-wrap: wrap; padding: 16rpx 0 24rpx; }
+.img-cell { position: relative; width: 200rpx; height: 200rpx; margin: 0 14rpx 14rpx 0; }
+.img-prev { width: 100%; height: 100%; border-radius: 10rpx; background: #f1f5f9; }
+.img-del {
+  position: absolute; top: -12rpx; right: -12rpx;
+  width: 42rpx; height: 42rpx; line-height: 40rpx; text-align: center;
+  background: rgba(15, 23, 42, .55); color: #fff; border-radius: 50%; font-size: 32rpx;
+}
+.img-add {
+  width: 200rpx; height: 200rpx; line-height: 196rpx; text-align: center;
+  border: 2rpx dashed #dcdfe6; border-radius: 10rpx;
+  font-size: 60rpx; color: #cbd5e1;
+}
+
+.video-box { padding: 16rpx 0 24rpx; }
+.video-prev { width: 100%; height: 360rpx; border-radius: 12rpx; background: #000; }
+.video-del { display: inline-block; margin-top: 14rpx; font-size: 24rpx; color: #dc2626; }
+.video-add {
+  display: flex; align-items: center; justify-content: center;
+  height: 120rpx; margin: 16rpx 0 24rpx;
+  border: 2rpx dashed #dcdfe6; border-radius: 12rpx;
+  font-size: 26rpx; color: #94a3b8;
+}
+.va-ic { font-size: 24rpx; color: #2563eb; margin-right: 10rpx; }
+
+.cover-row { display: flex; align-items: center; padding-bottom: 24rpx; }
+.cover-prev { width: 160rpx; height: 100rpx; border-radius: 10rpx; margin-right: 18rpx; background: #f1f5f9; }
+.cover-add { font-size: 25rpx; color: #2563eb; }
+.cover-del { font-size: 24rpx; color: #dc2626; }
+
+.submit {
+  text-align: center; font-size: 30rpx; font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, #4f7cff 0%, #2563eb 100%);
+  border-radius: 999rpx; padding: 26rpx 0; margin-top: 8rpx;
+  box-shadow: 0 6rpx 16rpx rgba(37, 99, 235, .28);
+}
+.submit-off { background: #cbd5e1; box-shadow: none; }
+
+.foot-note { font-size: 21rpx; color: #94a3b8; line-height: 1.6; padding: 20rpx 8rpx 40rpx; }

@@ -1,0 +1,76 @@
+<!-- D4 社区：自定义导航栏（与找厂页同规格）-->
+<view class="navbar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight}}px;">
+    <view class="navbar-title">社区</view>
+    <view class="navbar-mine" bindtap="goMine">我的</view>
+  </view>
+</view>
+
+<!-- 导航栏是 fixed 的（与工单页同款）, 内容靠 padding-top 让开, 否则首屏被压住 -->
+<view class="container page-tab" style="padding-top: {{statusBarHeight + navBarHeight + 10}}px;">
+
+  <!-- 版块横滑 -->
+  <scroll-view scroll-x class="cat-bar" enhanced show-scrollbar="{{false}}">
+    <view class="cat-chip {{activeCat === item.code ? 'cat-on' : ''}}"
+          wx:for="{{categories}}" wx:key="code"
+          data-code="{{item.code}}" bindtap="switchCat">{{item.name}}</view>
+  </scroll-view>
+
+  <!-- 热度 / 最新 -->
+  <view class="sort-row">
+    <view class="sort-chip {{sort === item.code ? 'sort-on' : ''}}"
+          wx:for="{{sortOptions}}" wx:key="code"
+          data-code="{{item.code}}" bindtap="switchSort">{{item.name}}</view>
+    <text class="sort-total">共 {{total}} 帖</text>
+  </view>
+
+  <!-- 身份提示：工厂内容直接公开、客户内容先发后审, 发帖前就该知道自己走哪条线 -->
+  <view class="id-tip">{{identityHint}}</view>
+
+  <view class="empty" wx:if="{{loading && !list.length}}">加载中…</view>
+  <view class="empty" wx:elif="{{!list.length}}">
+    <view class="empty-ic"><view class="ic ic-community"><view class="ic-a"></view></view></view>
+    还没有内容，点右下角发第一条
+  </view>
+
+  <view class="post-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+    <view class="pc-head">
+      <text class="badge {{item.authorBadge}}">{{item.authorText}}</text>
+      <text class="pc-cat">{{item.categoryName}}</text>
+      <text class="pc-top" wx:if="{{item.isTop}}">置顶</text>
+      <text class="pc-essence" wx:if="{{item.isEssence}}">精</text>
+      <text class="pc-author">{{item.authorShow}}</text>
+      <text class="pc-time">{{item.timeText}}</text>
+    </view>
+
+    <view class="pc-title">{{item.title}}</view>
+    <view class="pc-summary" wx:if="{{item.summary}}">{{item.summary}}</view>
+
+    <!-- 配图：列表最多摆 3 张, 第 4 格显剩余张数（九宫格留给详情页）-->
+    <view class="pc-imgs" wx:if="{{item.imageCount}}">
+      <view class="pc-img-wrap" wx:for="{{item.imageUrl}}" wx:for-item="u" wx:for-index="i" wx:key="*this"
+            wx:if="{{i < 3}}" data-id="{{item.id}}" data-index="{{i}}" catchtap="previewImage">
+        <image class="pc-img" src="{{u}}" mode="aspectFill"/>
+        <view class="pc-img-more" wx:if="{{i === 2 && item.imageCount > 3}}">+{{item.imageCount - 3}}</view>
+        <view class="pc-img-video" wx:if="{{item.videoSrc && i === 0}}">▶</view>
+      </view>
+    </view>
+
+    <view class="pc-video-tip" wx:if="{{item.videoSrc}}">
+      <text class="pc-video-ic">▶</text>含视频
+    </view>
+
+    <view class="pc-foot">
+      <text class="pc-stat">{{item.likeCount}}赞</text>
+      <text class="pc-stat">{{item.commentCount}}评论</text>
+      <text class="pc-stat" wx:if="{{item.favoriteCount}}">{{item.favoriteCount}}收藏</text>
+      <text class="pc-stat" wx:if="{{item.viewCount}}">{{item.viewCount}}浏览</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading && list.length}}" class="load-tip">加载中…</view>
+  <view wx:elif="{{!hasMore && list.length}}" class="load-tip">— 已加载全部 —</view>
+
+  <!-- 发帖入口：右下角悬浮, 不进导航栏（顶部已有「我的」占位）-->
+  <view class="fab" bindtap="goCreate">＋</view>
+</view>

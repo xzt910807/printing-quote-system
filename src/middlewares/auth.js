@@ -177,4 +177,100 @@ async function requireAdminOrFactory(req, res, next) {
   return res.status(401).json(fail('未登录', 401));
 }
 
-module.exports = { requireFactory, requireAdmin, requireAdminOrFactory, requireSuper, requireUser, optionalUser };
+/**
+ * Batch D4 社区身份判定：一次请求同时试工厂头与客户头，结果写 req.identity
+ *
+ * 为什么需要它：社区要按身份分级审核（工厂发→直接公开、客户发→先发后审），
+ * 所以 author_type 必须由服务端从令牌推导。绝不能采信请求体里的身份字段，
+ * 否则任何客户都能靠 body 伪装成工厂绕过审核。
+ *
+ * 工厂身份优先：小程序同一会话里工厂头是客户头的超集（登录过工厂的页面会同时带两套头）。
+ * 现有 6 个中间件一行不改，这里只是把它们当探针复用：
+ * 用一个占位 res 接住鉴权失败时的 401 写出，成功则从 next() 拿到放行信号。
+ *
+ * @returns {Promise<{ok:boolean, status?:number, body?:any, error?:Error}>}
+ */
+function probe(mw, req) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (r) => { if (!settled) { settled = true; resolve(r); } };
+    const stubRes = {
+      status(code) { this._code = code; return this; },
+      json(body) { finish({ ok: false, status: this._code || 500, body }); return this; },
+      send(body) { finish({ ok: false, status: this._code || 500, body }); return this; },
+      end() { finish({ ok: false, status: this._code || 500, body: null }); return this; },
+      setHeader() { return this; },
+      getHeader() { return undefined; },
+      headersSent: false,
+    };
+    // 原中间件异常时会走 next(err)，这里当成服务错误向上抛，不能当成“未登录”误处理
+    const next = (err) => finish(err ? { ok: false, error: err } : { ok: true });
+    try {
+      mw(req, stubRes, next);
+    } catch (e) {
+      finish({ ok: false, error: e });
+    }
+  });
+}
+
+/**
+ * 解析身份（不拦请求）：无凭证时 req.identity = null，读接口照走匿名
+ * 失败原因（带了头但校验不通过）记在 req.identityError，由 requireIdentity 统一回 401
+ */
+async function resolveIdentity(req, res, next) {
+  req.identity = null;
+  req.identityError = null;
+  try {
+    // 1) 工厂身份（优先）：requireFactory 成功后会挂好 req.factory / req.factoryUser
+    if (req.headers['x-factory-id'] && req.headers['x-factory-token']) {
+      const p = await probe(requireFactory, req);
+      if (p.ok) {
+        req.identity = {
+          type: 'factory',
+          userId: req.factoryUser.id,
+          factoryId: req.factory.id,
+          factoryName: req.factory.name,
+          role: req.factoryUser.role,
+          name: req.factoryUser.realName || req.factoryUser.username,
+        };
+        return next();
+      }
+      if (p.error) return next(p.error);
+      req.identityError = { status: p.status, body: p.body };
+    }
+    // 2) 客户身份：requireUser 成功后挂 req.user
+    if (req.headers['x-user-id'] && req.headers['x-user-token']) {
+      const p = await probe(requireUser, req);
+      if (p.ok) {
+        req.identity = {
+          type: 'user',
+          userId: req.user.id,
+          factoryId: null,
+          name: req.user.nickname || req.user.phone || ('用户' + req.user.id),
+        };
+        return next();
+      }
+      if (p.error) return next(p.error);
+      if (!req.identityError) req.identityError = { status: p.status, body: p.body };
+    }
+    return next();
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * 写接口身份：resolveIdentity 后无身份直接 401
+ * 带了无效凭证时把原中间件的 401 文案原样回出去（“登录已过期，请重新登录”比“未登录”有用）
+ */
+async function requireIdentity(req, res, next) {
+  await resolveIdentity(req, res, () => {
+    if (req.identity) return next();
+    if (req.identityError && req.identityError.body) {
+      return res.status(req.identityError.status || 401).json(req.identityError.body);
+    }
+    return res.status(401).json(fail('请先登录后再发布内容', 401));
+  });
+}
+
+module.exports = { requireFactory, requireAdmin, requireAdminOrFactory, requireSuper, requireUser, optionalUser, resolveIdentity, requireIdentity };

@@ -228,9 +228,9 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 | `node scripts/backfill-factory-geo.js [--apply] [--force]` | 按 `factory.city` 回填市中心坐标（Batch D2 距离排序） | 只处理命中表内城市；已有坐标默认跳过（工厂选址会覆盖） |
 
 **业务数据清理边界**（`sql/purge-biz-data.sql` 头部有完整清单）：
-- 清空：询价链路（`c_inquiry`/`c_inquiry_quote_view`/`factory_inquiry_push`/`inquiry_message`）、报价与订单（`quote_order`/`order_main`/`order_logistics`）、台账统计（`platform_fee_ledger`/`daily_stats`）、消息会话日志（`c_message`/`user_session`/`factory_operation_log`）、上传类（`factory_media`/`user_address`）。
-- **保留**：`admin_user`/`factory_user`/`c_end_user`（删了后台不进去）、`customer`/`factory_invite_code`（档案）、`factory` 与各参考种子表（删了报价引擎无数据）、`biz_seq`（单号计数器）、`schema_migrations`（工具表）。
-- 注意：清 `user_session` 后所有设备需重新登录；TRUNCATE 不删磁盘文件，`uploads/avatars|designs|factory-media/` 需人工确认后另行清理。
+- 清空：询价链路（`c_inquiry`/`c_inquiry_quote_view`/`factory_inquiry_push`/`inquiry_message`）、报价与订单（`quote_order`/`order_main`/`order_logistics`）、台账统计（`platform_fee_ledger`/`daily_stats`）、消息会话日志（`c_message`/`user_session`/`factory_operation_log`）、上传类（`factory_media`/`user_address`）、UGC 社区内容与其互动/举报（`community_post`/`community_comment`/`community_like`/`community_favorite`/`community_report`，Batch D4）。
+- **保留**：`admin_user`/`factory_user`/`c_end_user`（删了后台不进去）、`customer`/`factory_invite_code`（档案）、`factory` 与各参考种子表（删了报价引擎无数据）、`community_category`（社区 6 个版块种子，清了发帖直接不可用）、`biz_seq`（单号计数器）、`schema_migrations`（工具表）。
+- 注意：清 `user_session` 后所有设备需重新登录；TRUNCATE 不删磁盘文件，`uploads/avatars|designs|factory-media|community/` 需人工确认后另行清理。
 
 **一屏冒烟**：`GET /api/admin/ops/status` 汇总支付/验签/物流/语音/AI/告警/cron 心跳/迁移待执行状态，发版后先看这一屏。
 
@@ -373,4 +373,56 @@ node scripts/backfill-factory-geo.js --apply
 
 播放不需要额外配置：`app.js` 用 `express.static` 托管 `/uploads`，支持 Range 请求，mp4 可直接流播、可拖进度条。
 上线后盯 `uploads/` 所在磁盘余量：历史文件只随条目删除而删除，**没有自动过期清理**，待审后被驳回/长期无人管的条目会一直占空间。
+
+### 14.8 社区运营（Batch D4：UGC 分级审核）
+
+六张新表（全部写进 init.sql，`CREATE TABLE` 里就带索引，存量库跑 `node scripts/schema-sync.js --apply` 建表即为终态）：
+`community_category`（版块，init.sql 预置 6 个种子）/ `community_post` / `community_comment` /
+`community_like` / `community_favorite` / `community_report`。无新列、无手工补索引（新表不靠 schema-sync 建索引）。
+
+**权限点**：`community:view`（只读）、`community:manage`（审核/加精/置顶/删除/举报处置/版块维护）。
+`super`/`admin` 由全量派生自动得到；`viewer` **不给**；**不写进 `FACTORY_ALL`**——工厂在后台只能发内容，不该看得到审核队列。
+后台入口：「管理 → 社区审核」（`/api/admin/community/*`，`requireAdmin` + 逐路由 `requirePermission`）。
+
+**分级审核矩阵**（与 `src/services/communityService.js` 头部注释同口径，改代码要同步改这里）：
+
+| 触发 | 落库 status | 说明 |
+|---|---|---|
+| 工厂身份（`X-Factory-*`）发帖/评论 | `published` | 直接公开，不进人工队列（有厂名与执照背书） |
+| 客户身份发帖/评论 | `published` + `audit_note='待人工抽查'` | **先发后审**，后台「待审帖子」视图按 note 筛出抽查对象 |
+| 机审 `checkText` 返回 risky（或 review 且 `SEC_REVIEW_BLOCK=1`） | `pending` | 命中即压住，标题+正文合并成一次检测（省一次外部调用） |
+| 累计 `report_count` 达 `COMMUNITY_REPORT_HOLD`（默认 3）且当前 published | 回退 `pending` + 写 `c_message` 留痕 | 同人同目标只计一次（唯一键），一人连点三次刷不动别人的正常内容 |
+| 后台 approve / reject / remove | `published` / `rejected` / `removed` | reject、remove **必须填原因**，作者端会显示 `audit_note` |
+
+**图片与视频没有机器审核**：`contentGuard` 只有 `msg_sec_check`，没接 `mediaCheckAsync`（需企业主体与回调域名）。
+所以媒体只能靠「先发后审 + 举报回退 + 后台人工」，后台待审面板顶部的文案已把这句话写给运营看，**别在没接机审前把它改没**。
+
+可调环境变量：`COMMUNITY_REPORT_HOLD`（默认 3，设 0 等于关掉自动回退，只在举报待处理列表里人工看）。限流是**内存滑窗**
+（`writeGuard`）：发帖 5/小时、评论 20/小时、举报 10/小时，key 优先用身份 id、退回 IP。两个已知局限：
+重启即清零，且 PM2 多实例时各算各的（当前部署是单实例，扩实例数要改成 Redis 计数）。
+
+媒体上传走 multer 落 `uploads/community/`（图 5MB、视频 20MB，与工厂图集共目录不同实例）；
+**落库前必校前缀 `/uploads/community/`**（`normalizeMediaUrl`），外链与 `data:` 一律 400，防止把社区变成钓鱼跳板。
+社区视频没有单开封面接口：要封面就走 `POST /api/c/community/media-image` 拿 url 后作 `coverUrl` 提交。
+
+小程序：`tabBar.list` 与 `custom-tab-bar` 的 `ALL_TABS` 同步加第 5 项「社区」（**微信上限就是 5 个**，客户视角过滤掉「接单」后显 4 项），
+新增 4 页：`community`（列表）、`community-detail`（详情/评论/举报）、`post-create`（发布）、`community-mine`（我的帖子与收藏）。
+**身份不由前端选**：小程序已有的 `X-Factory-*` 头带了就按工厂记，前端伪造 `author_type` 在服务层根本不会被读。
+
+数据清理边界：`sql/purge-biz-data.sql` 会清 `community_post/comment/like/favorite/report`，但**保留 `community_category`**
+（它是种子表，清了发帖接口会因「版块不存在」整体不可用）；磁盘上的 `uploads/community/` 需人工确认后另删。
+
+上线后核对：
+
+```sql
+SELECT status, COUNT(*) FROM community_post GROUP BY status;   -- 预期只有 published/pending, rejected/removed 来自人工处置
+-- 计数与明细严格相等（like_count 应等于该帖实际的点赞行数, 非 0 行就是计数跑偏了）
+SELECT p.id, p.like_count, COUNT(l.id) n
+  FROM community_post p LEFT JOIN community_like l ON l.target_type = 'post' AND l.target_id = p.id
+ GROUP BY p.id, p.like_count HAVING p.like_count <> COUNT(l.id);
+-- 达阈值却没回退的条目（应为 0 行）
+SELECT target_type, target_id, COUNT(*) n FROM community_report
+ WHERE status = 'pending' GROUP BY 1,2 HAVING COUNT(*) >= 3;
+```
+
 

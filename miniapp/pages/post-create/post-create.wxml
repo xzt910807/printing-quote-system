@@ -1,0 +1,86 @@
+<view class="navbar" style="padding-top: {{statusBarHeight || 20}}px;">
+  <view class="navbar-inner" style="height: {{navBarHeight || 44}}px;">
+    <view class="navbar-back" bindtap="goBack">‹</view>
+    <view class="navbar-title">发布内容</view>
+  </view>
+</view>
+
+<view class="page" style="padding-top: {{statusBarHeight + navBarHeight + 8}}px;">
+
+  <!-- 审核线提示：工厂直接公开、客户先发后审, 让人在写之前就知道内容会怎么走 -->
+  <view class="tip-bar">{{identityHint}}，发布后其他人在社区列表即可看到</view>
+
+  <view class="f-card">
+    <view class="f-row">
+      <text class="f-label">版块</text>
+      <picker mode="selector" range="{{catNames}}" value="{{catIndex}}" bindchange="onCatChange">
+        <view class="f-picker {{categoryCode ? '' : 'f-ph'}}">
+          {{catIndex >= 0 ? catNames[catIndex] : '请选择版块'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="f-row">
+      <text class="f-label">标题</text>
+      <input class="f-input" value="{{title}}" placeholder="一句话说清楚你要问什么/分享什么"
+             placeholder-class="f-ph" maxlength="100" bindinput="onTitleInput" />
+      <text class="f-count">{{title.length}}/100</text>
+    </view>
+
+    <view class="f-row f-row-col">
+      <view class="f-line">
+        <text class="f-label">正文</text>
+        <text class="f-count">{{content.length}}/5000</text>
+      </view>
+      <textarea class="f-textarea" value="{{content}}" placeholder="至少 5 个字，细节越全越容易有人答"
+                placeholder-class="f-ph" maxlength="5000" auto-height bindinput="onContentInput"></textarea>
+    </view>
+  </view>
+
+  <!-- 配图九宫格：选完即传, 格子上显示的是后端返回的正式地址（与最终展示同一张）-->
+  <view class="f-card">
+    <view class="f-line">
+      <text class="f-label">图片（最多 9 张）</text>
+      <text class="f-count">{{images.length}}/9</text>
+    </view>
+    <view class="img-grid">
+      <view class="img-cell" wx:for="{{images}}" wx:key="url" wx:for-index="i">
+        <image class="img-prev" src="{{item.src}}" mode="aspectFill" data-i="{{i}}" bindtap="previewImage"/>
+        <text class="img-del" data-i="{{i}}" catchtap="removeImage">×</text>
+      </view>
+      <view class="img-add" wx:if="{{images.length < 9}}" bindtap="chooseImages">+</view>
+    </view>
+  </view>
+
+  <!-- 视频：一条帖只允许一个, 上传后显示时长与体积（时长由端上 chooseVideo 给, 服务端不解析容器）-->
+  <view class="f-card">
+    <view class="f-line">
+      <text class="f-label">视频</text>
+      <text class="f-count" wx:if="{{video}}">{{video.sizeText}}{{video.duration ? ' · ' + video.duration + '秒' : ''}}</text>
+    </view>
+
+    <view class="video-box" wx:if="{{video}}">
+      <video class="video-prev" src="{{video.src}}" object-fit="contain" show-mute-btn controls></video>
+      <text class="video-del" catchtap="removeVideo">移除视频</text>
+    </view>
+    <view class="video-add" wx:else bindtap="chooseVideo">
+      <text class="va-ic">▶</text>
+      <text class="va-tx">选一段视频（mp4/mov，20MB 内）</text>
+    </view>
+
+    <!-- 封面只在有视频时才给入口：没视频的帖子九宫格本身就是封面 -->
+    <view class="cover-row" wx:if="{{video}}">
+      <block wx:if="{{cover}}">
+        <image class="cover-prev" src="{{cover.src}}" mode="aspectFill"/>
+        <text class="cover-del" catchtap="removeCover">✕ 移除封面</text>
+      </block>
+      <text class="cover-add" wx:else bindtap="chooseCover">＋ 设置视频封面（选填）</text>
+    </view>
+  </view>
+
+  <view class="submit {{(submitting || uploading) ? 'submit-off' : ''}}" bindtap="submit">
+    {{submitting ? '发布中…' : (uploading ? '文件上传中…' : '发布')}}
+  </view>
+
+  <view class="foot-note">请勿发布联系方式、二维码、虚假报价与其它违规内容，违者按平台规则处理</view>
+</view>

@@ -7,7 +7,7 @@
   <!-- 关键防闪现规则内联：不依赖外部 CSS 是否命中缓存，Vue 挂载前 #app 必然隐藏
        （仅加 v-cloak 属性 + 外部样式曾被旧缓存绕过，导致首屏闪现未编译模板/弹窗） -->
   <style>[v-cloak] { display: none !important; }</style>
-  <link rel="stylesheet" href="./css/style.css?v=33">
+  <link rel="stylesheet" href="./css/style.css?v=34">
 </head>
 <body>
   <div id="app" v-cloak>
@@ -1366,6 +1366,268 @@
           </div>
         </div>
 
+        <!-- D4 UGC 社区审核：帖子分级审核 / 评论抽查 / 举报处置 / 版块维护 -->
+        <div v-show="page==='community'">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">社区内容（当前队列 {{ communityState.total }} 条）</div>
+              <div class="head-tools" v-if="['pending','published','rejected','removed'].indexOf(communityState.view) >= 0">
+                <input class="search-input" v-model.trim="communityState.keyword" placeholder="搜索标题 / 正文" @input="onCommunitySearch" />
+                <select v-model="communityState.category" class="btn btn-secondary btn-sm" @change="onCommunityFilterChange">
+                  <option value="">全部版块</option>
+                  <option v-for="c in communityState.categories" :key="c.id" :value="c.code">{{ c.name }}</option>
+                </select>
+              </div>
+              <button v-else-if="communityState.view === 'categories' && canCommunityManage"
+                      class="btn btn-primary btn-sm" @click="openCommunityCategory()">+ 新增版块</button>
+            </div>
+
+            <div class="community-views">
+              <button v-for="v in COMMUNITY_VIEWS" :key="v.key" type="button"
+                      class="community-view" :class="{ active: communityState.view === v.key }"
+                      @click="switchCommunityView(v.key)">
+                {{ v.label }}<i class="cv-count" v-if="v.count">{{ communityViewCount(v) }}</i>
+              </button>
+            </div>
+
+            <!-- 帖子队列（四个状态共用一张卡片模板, 可用动作按状态变） -->
+            <template v-if="['pending','published','rejected','removed'].indexOf(communityState.view) >= 0">
+              <div class="community-card" v-for="p in communityState.posts" :key="p.id">
+                <div class="cc-head">
+                  <!-- 身份彽章摆最前：工厂内容直接公开、客户内容先发后审, 审核时先要看的是这个 -->
+                  <span class="badge" :style="communityAuthorStyle(p.authorType)">{{ communityAuthorLabel(p.authorType) }}</span>
+                  <span class="badge" :style="communityStatusStyle(p.status)">{{ COMMUNITY_STATUS_TEXT[p.status] || p.status }}</span>
+                  <span class="badge" style="background:#f1f5f9;color:#475569">{{ p.categoryName }}</span>
+                  <span v-if="p.isTop" class="badge" style="background:#fee2e2;color:#dc2626">置顶</span>
+                  <span v-if="p.isEssence" class="badge" style="background:#fef3c7;color:#b45309">精</span>
+                  <span class="cc-title">{{ p.title }}</span>
+                  <span class="muted">{{ p.authorName }}{{ p.factoryName ? '（' + p.factoryName + '）' : '' }} · {{ formatTime(p.createdAt) }}</span>
+                </div>
+                <div class="cc-summary">{{ p.summary }}</div>
+                <div class="cc-imgs" v-if="p.images && p.images.length">
+                  <img v-for="(u, i) in p.images" :key="i" :src="u" class="design-thumb"
+                       title="点击查看大图" @click="openDesignImg(u)" />
+                </div>
+                <div class="cc-video" v-if="p.videoUrl">
+                  <!-- 媒体无机审, 能不能过只看这一屏人工判断 -->
+                  <video :src="p.videoUrl" :poster="p.coverUrl || ''" controls preload="none"></video>
+                </div>
+                <div class="cc-meta">
+                  <span>浏览 {{ p.viewCount }}</span>
+                  <span>赞 {{ p.likeCount }}</span>
+                  <span>评论 {{ p.commentCount }}</span>
+                  <span>收藏 {{ p.favoriteCount }}</span>
+                  <span v-if="p.reportCount" style="color:#dc2626">举报 {{ p.reportCount }}</span>
+                </div>
+                <div class="cc-note" v-if="p.auditNote">审核备注：{{ p.auditNote }}</div>
+                <div class="cc-actions">
+                  <button class="btn-link" @click="openCommunityDetail(p)">详情 / 评论</button>
+                  <template v-if="canCommunityManage">
+                    <button class="btn-link" v-if="p.status !== 'published'" @click="doCommunityAudit(p, 'approve')">通过</button>
+                    <button class="btn-link" v-if="p.status === 'pending'" style="color:#dc2626" @click="doCommunityAudit(p, 'reject')">驳回</button>
+                    <button class="btn-link" v-if="p.status === 'published'" @click="doCommunityAudit(p, 'top')">{{ p.isTop ? '取消置顶' : '置顶' }}</button>
+                    <button class="btn-link" v-if="p.status === 'published'" @click="doCommunityAudit(p, 'essence')">{{ p.isEssence ? '取消加精' : '加精' }}</button>
+                    <button class="btn-link" v-if="p.status === 'published' || p.status === 'rejected'" style="color:#dc2626" @click="doCommunityAudit(p, 'remove')">下架</button>
+                  </template>
+                </div>
+              </div>
+              <div class="empty" v-if="communityState.loading">加载中…</div>
+              <div class="empty" v-else-if="!communityState.posts.length">该队列暂无内容</div>
+              <div class="pager" v-if="communityState.total > LIST_PAGE_SIZE">
+                <span class="pager-info">共 {{ communityState.total }} 条 · 第 {{ communityState.page }} / {{ communityPages }} 页</span>
+                <button class="btn btn-sm" :disabled="communityState.page <= 1" @click="loadCommunity(communityState.page - 1)">上一页</button>
+                <button class="btn btn-sm" :disabled="communityState.page >= communityPages" @click="loadCommunity(communityState.page + 1)">下一页</button>
+              </div>
+            </template>
+
+            <!-- 评论待审：机审命中的与客户内容的抽查队列 -->
+            <template v-else-if="communityState.view === 'comments'">
+              <table class="table">
+                <thead><tr><th>评论内容</th><th>作者</th><th>所属帖子</th><th>时间</th><th style="width:150px">操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="c in communityState.comments" :key="c.id">
+                    <td class="msg-content" :title="c.content">{{ c.content }}</td>
+                    <td>
+                      <span class="badge" :style="communityAuthorStyle(c.authorType)">{{ communityAuthorLabel(c.authorType) }}</span>
+                      <div class="muted">{{ c.authorName }}</div>
+                    </td>
+                    <td class="muted">{{ c.postTitle || '#' + c.postId }}</td>
+                    <td class="muted">{{ formatTime(c.createdAt) }}</td>
+                    <td>
+                      <button class="btn-link" v-if="canCommunityManage" @click="doCommunityCommentAudit(c, 'approve')">通过</button>
+                      <button class="btn-link" v-if="canCommunityManage" style="color:#dc2626" @click="doCommunityCommentAudit(c, 'reject')">驳回</button>
+                      <span class="muted" v-else>无写权限</span>
+                    </td>
+                  </tr>
+                  <tr v-if="communityState.loading"><td colspan="5" class="empty">加载中…</td></tr>
+                  <tr v-else-if="!communityState.comments.length"><td colspan="5" class="empty">暂无待审评论</td></tr>
+                </tbody>
+              </table>
+              <div class="pager" v-if="communityState.total > LIST_PAGE_SIZE">
+                <span class="pager-info">共 {{ communityState.total }} 条 · 第 {{ communityState.page }} / {{ communityPages }} 页</span>
+                <button class="btn btn-sm" :disabled="communityState.page <= 1" @click="loadCommunity(communityState.page - 1)">上一页</button>
+                <button class="btn btn-sm" :disabled="communityState.page >= communityPages" @click="loadCommunity(communityState.page + 1)">下一页</button>
+              </div>
+            </template>
+
+            <!-- 举报待处理 -->
+            <template v-else-if="communityState.view === 'reports'">
+              <table class="table">
+                <thead><tr><th>举报对象</th><th>理由</th><th>补充说明</th><th>举报人</th><th>时间</th><th style="width:150px">处置</th></tr></thead>
+                <tbody>
+                  <tr v-for="r in communityState.reports" :key="r.id">
+                    <td>
+                      <span class="badge" style="background:#f1f5f9;color:#475569">{{ r.targetType === 'comment' ? '评论' : '帖子' }}</span>
+                      <div class="muted">{{ r.targetTitle || ('#' + r.targetId) }}</div>
+                    </td>
+                    <td>{{ communityReasonLabel(r.reason) }}</td>
+                    <td class="msg-content" :title="r.detail || ''">{{ r.detail || '-' }}</td>
+                    <td class="muted">{{ communityAuthorLabel(r.reporterType) }} #{{ r.reporterId }}</td>
+                    <td class="muted">{{ formatTime(r.createdAt) }}</td>
+                    <td>
+                      <button class="btn-link" v-if="canCommunityManage" style="color:#dc2626" @click="doCommunityReportHandle(r, 'reject')">举报成立</button>
+                      <button class="btn-link" v-if="canCommunityManage" @click="doCommunityReportHandle(r, 'dismiss')">不成立</button>
+                      <span class="muted" v-else>无写权限</span>
+                    </td>
+                  </tr>
+                  <tr v-if="communityState.loading"><td colspan="6" class="empty">加载中…</td></tr>
+                  <tr v-else-if="!communityState.reports.length"><td colspan="6" class="empty">暂无待处置举报</td></tr>
+                </tbody>
+              </table>
+              <div class="pager" v-if="communityState.total > LIST_PAGE_SIZE">
+                <span class="pager-info">共 {{ communityState.total }} 条 · 第 {{ communityState.page }} / {{ communityPages }} 页</span>
+                <button class="btn btn-sm" :disabled="communityState.page <= 1" @click="loadCommunity(communityState.page - 1)">上一页</button>
+                <button class="btn btn-sm" :disabled="communityState.page >= communityPages" @click="loadCommunity(communityState.page + 1)">下一页</button>
+              </div>
+            </template>
+
+            <!-- 版块维护：code 是帖子上的关联键, 所以只能启停、不能真删 -->
+            <template v-else-if="communityState.view === 'categories'">
+              <table class="table">
+                <thead><tr><th>编码</th><th>名称</th><th>排序</th><th>状态</th><th style="width:150px">操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="c in communityState.categories" :key="c.id">
+                    <td class="cat-code">{{ c.code }}</td>
+                    <td>{{ c.name }}</td>
+                    <td class="muted">{{ c.sort }}</td>
+                    <td>
+                      <span class="badge" :style="Number(c.is_active) ? 'background:#dcfce7;color:#15803d' : 'background:#fee2e2;color:#dc2626'">
+                        {{ Number(c.is_active) ? '启用' : '停用' }}
+                      </span>
+                    </td>
+                    <td>
+                      <template v-if="canCommunityManage">
+                        <button class="btn-link" @click="openCommunityCategory(c)">编辑</button>
+                        <button class="btn-link" :style="Number(c.is_active) ? 'color:#dc2626' : ''" @click="toggleCommunityCategory(c)">
+                          {{ Number(c.is_active) ? '停用' : '启用' }}
+                        </button>
+                      </template>
+                      <span class="muted" v-else>无写权限</span>
+                    </td>
+                  </tr>
+                  <tr v-if="!communityState.categories.length"><td colspan="5" class="empty">暂无版块</td></tr>
+                </tbody>
+              </table>
+            </template>
+          </div>
+
+          <!-- 帖子详情弹窗：全文 + 全部评论（含待审与已删）, 审核动作与卡片上同一套 -->
+          <div class="modal-mask" v-if="communityModal.open" @click.self="closeCommunityDetail">
+            <div class="modal-box">
+              <div class="panel-title">帖子详情</div>
+              <div v-if="communityModal.post">
+                <div class="cc-head">
+                  <span class="badge" :style="communityAuthorStyle(communityModal.post.authorType)">{{ communityAuthorLabel(communityModal.post.authorType) }}</span>
+                  <span class="badge" :style="communityStatusStyle(communityModal.post.status)">{{ COMMUNITY_STATUS_TEXT[communityModal.post.status] || communityModal.post.status }}</span>
+                  <span class="badge" style="background:#f1f5f9;color:#475569">{{ communityModal.post.categoryName }}</span>
+                </div>
+                <div class="cc-title">{{ communityModal.post.title }}</div>
+                <div class="muted">{{ communityModal.post.authorName }}{{ communityModal.post.factoryName ? '（' + communityModal.post.factoryName + '）' : '' }} · {{ formatTime(communityModal.post.createdAt) }}</div>
+                <div class="issue-block">
+                  <div class="issue-block-label">正文</div>
+                  <div class="issue-block-text" style="white-space:pre-wrap">{{ communityModal.post.content }}</div>
+                </div>
+                <div class="cc-imgs" v-if="communityModal.post.images && communityModal.post.images.length">
+                  <img v-for="(u, i) in communityModal.post.images" :key="i" :src="u" class="design-thumb"
+                       title="点击查看大图" @click="openDesignImg(u)" />
+                </div>
+                <div class="cc-video" v-if="communityModal.post.videoUrl">
+                  <video :src="communityModal.post.videoUrl" :poster="communityModal.post.coverUrl || ''" controls preload="metadata"></video>
+                </div>
+                <div class="cc-meta">
+                  <span>浏览 {{ communityModal.post.viewCount }}</span>
+                  <span>赞 {{ communityModal.post.likeCount }}</span>
+                  <span>评论 {{ communityModal.post.commentCount }}</span>
+                  <span>收藏 {{ communityModal.post.favoriteCount }}</span>
+                  <span v-if="communityModal.post.reportCount" style="color:#dc2626">举报 {{ communityModal.post.reportCount }}</span>
+                </div>
+                <div class="cc-note" v-if="communityModal.post.auditNote">审核备注：{{ communityModal.post.auditNote }}</div>
+                <div class="cc-actions" v-if="canCommunityManage">
+                  <button class="btn-link" @click="doCommunityAudit(communityModal.post, 'approve')">通过</button>
+                  <button class="btn-link" style="color:#dc2626" @click="doCommunityAudit(communityModal.post, 'reject')">驳回</button>
+                  <button class="btn-link" @click="doCommunityAudit(communityModal.post, 'top')">置顶</button>
+                  <button class="btn-link" @click="doCommunityAudit(communityModal.post, 'essence')">加精</button>
+                  <button class="btn-link" style="color:#dc2626" @click="doCommunityAudit(communityModal.post, 'remove')">下架</button>
+                </div>
+                <div class="issue-block" style="margin-top:14px">
+                  <div class="issue-block-label">评论（{{ communityModal.comments.length }}）</div>
+                  <div v-if="communityModal.loading" class="muted">加载中…</div>
+                  <template v-else>
+                    <div class="cm-item" v-for="c in communityModal.comments" :key="c.id">
+                      <div class="cm-head">
+                        <span class="badge" :style="communityAuthorStyle(c.authorType)">{{ communityAuthorLabel(c.authorType) }}</span>
+                        <span>{{ c.authorName }}</span>
+                        <span class="badge" :style="communityStatusStyle(c.status)">{{ COMMUNITY_STATUS_TEXT[c.status] || c.status }}</span>
+                        <span>{{ formatTime(c.createdAt) }}</span>
+                      </div>
+                      <div>{{ c.content }}</div>
+                      <div class="muted" v-if="c.auditNote">备注：{{ c.auditNote }}</div>
+                    </div>
+                    <div class="muted" v-if="!communityModal.comments.length">暂无评论</div>
+                  </template>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-secondary" @click="closeCommunityDetail">关闭</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 版块编辑弹窗：新增与改名共用 code UPSERT -->
+          <div class="modal-mask" v-if="communityCatModal.open" @click.self="closeCommunityCategory">
+            <div class="modal-box">
+              <div class="panel-title">{{ communityCatModal.code ? '编辑版块' : '新增版块' }}</div>
+              <div class="form-grid">
+                <div class="form-item">
+                  <label>编码（小写字母开头, 上线后不要改）</label>
+                  <input v-model.trim="communityCatModal.code" maxlength="30" placeholder="如 experience" />
+                </div>
+                <div class="form-item">
+                  <label>名称</label>
+                  <input v-model.trim="communityCatModal.name" maxlength="20" placeholder="如 经验交流" />
+                </div>
+                <div class="form-item">
+                  <label>排序（小的在前）</label>
+                  <input type="number" v-model.number="communityCatModal.sort" />
+                </div>
+                <div class="form-item">
+                  <label>状态</label>
+                  <select v-model.number="communityCatModal.is_active">
+                    <option :value="1">启用</option>
+                    <option :value="0">停用</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" :disabled="communityCatModal.saving" @click="saveCommunityCategory">
+                  {{ communityCatModal.saving ? '保存中…' : '保存' }}
+                </button>
+                <button class="btn btn-secondary" @click="closeCommunityCategory">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 账户管理 -->
         <div v-show="page==='accounts'">
           <div class="panel">
@@ -2172,7 +2434,7 @@
   <script src="./js/api.js?v=21"></script>
   <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=36"></script>
+  <script src="./js/app.js?v=37"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

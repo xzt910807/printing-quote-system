@@ -674,6 +674,11 @@ Page({
     wx.navigateTo({ url: '/pages/news/news' });
   },
 
+  // D4 社区：我的帖子与我的收藏都在这一页（两 tab 合一, 不再占两个菜单行）
+  goCommunityMine() {
+    wx.navigateTo({ url: '/pages/community-mine/community-mine' });
+  },
+
   // IM 会话未读数（轻量接口，失败静默：不影响询价/订单/站内信主链路）
   async loadChatUnread() {
     try {

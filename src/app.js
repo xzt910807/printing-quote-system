@@ -31,6 +31,8 @@ const issuesRoutes = require('./routes/issues');
 const newsRoutes = require('./routes/news');
 const factoryDashboardRoutes = require('./routes/factoryDashboard');
 const suppliersRoutes = require('./routes/suppliers');
+const communityRoutes = require('./routes/community');
+const communityAdminRoutes = require('./routes/communityAdmin');
 const logisticsCallbackRoutes = require('./routes/logisticsCallback');
 const wxpay = require('./services/wxpay');
 const { requireAdmin, requireAdminOrFactory, requireUser, requireFactory } = require('./middlewares/auth');
@@ -269,6 +271,12 @@ app.use('/api/admin', adminEscrow);
 app.use('/api/factory/dashboard', factoryDashboardRoutes);
 // 031 供应商管理（历史合作聚合）：/api/c/user/suppliers，已在 requireUser 后面挂接
 app.use('/api/c/user', requireUser, suppliersRoutes);
+// Batch D4 UGC 社区：客户与工厂员工共用一套接口，身份由路由内的 resolveIdentity
+// 从请求头推导（工厂头优先），所以入口不能再挂 requireUser（会把工厂令牌拒在外面的读写之外）
+app.use('/api/c/community', communityRoutes);
+// 社区后台审核队列：外层只校“是管理员”，具体能不能审由接口内的
+// community:view / community:manage 决定（藏菜单不藏接口不是权限）
+app.use('/api/admin/community', requireAdmin, communityAdminRoutes);
 
 // ===== 404 兜底：所有未匹配的 /api/* 请求返回 JSON（改动2，关键！）=====
 // 这个中间件必须放在所有路由之后、错误处理之前
