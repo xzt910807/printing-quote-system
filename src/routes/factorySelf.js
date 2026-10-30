@@ -8,6 +8,7 @@ const capabilityService = require('../services/capabilityService');
 const { ok, fail } = require('../utils/helpers');
 const { requireFactory } = require('../middlewares/auth');
 const guard = require('../services/contentGuard');
+const { HARD_METRICS, normalizeMetric, normalizeOuterProcessing, normalizeGeoPair } = require('../utils/factoryProfile');
 const { requirePermission } = require('../config/permissions');
 const sessionService = require('../services/sessionService');
 const opLog = require('../services/opLogService');
@@ -17,7 +18,9 @@ const { hashPassword, verifyPassword } = require('../utils/password');
 // 设备图文上传目录（静态托管 /uploads，与头像/设计图同机制，base64 落盘）
 const MEDIA_DIR = path.join(__dirname, '..', '..', 'uploads', 'factory-media');
 const MAX_MEDIA_BYTES = 2 * 1024 * 1024; // 单图 2MB
-const MEDIA_TYPES = ['equipment', 'workshop', 'product'];
+// 图集类型白名单：certificate=资质证书（Batch D1，与营业执照/印刷许可证类扫描件同一通道，
+// 同样走后台人工审核，只有 approved 才在 C 端展示）；video 走 D3 的 multer 专用通道
+const MEDIA_TYPES = ['equipment', 'workshop', 'product', 'certificate'];
 const MAX_MEDIA_COUNT = 9;              // 每厂图集上限（防滥用膨胀）
 const CAPACITY_STATUS = ['idle', 'normal', 'busy'];
 
@@ -49,7 +52,9 @@ router.get('/me/profile', requireFactory, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT id, code, name, username, contact, phone, address, intro, c_end_enabled, audit_status, created_at,
               rating, rating_count, total_pushes, total_accepts, avg_response_hours, last_login_at,
-              license_verified, capacity_status, capacity_note, capacity_updated_at
+              license_verified, capacity_status, capacity_note, capacity_updated_at,
+              province, city, factory_area, annual_volume, employee_count, equipment_count,
+              assembly_lines, outer_processing, view_count, lat, lng
        FROM factory WHERE id = ?`,
       [req.factory.id]
     );
@@ -63,10 +68,41 @@ router.get('/me/profile', requireFactory, async (req, res) => {
 // PUT /api/factory/me/profile 更新资料（名称需联系平台修改，避免审核信息被篡改）
 router.put('/me/profile', requireFactory, async (req, res) => {
   try {
-    const { contact, phone, address, intro } = req.body || {};
+    const body = req.body || {};
+    const sets = [];
+    const vals = [];
+    // 一律按「本次显式传了这个键才写这一列」处理（Batch D1/D2 把这条规则贯彻到全部字段）：
+    // 资料页现在会分开提交——保存基本资料只发四个文本字段，保存硬指标只发六个数值，
+    // 地图选址只发 lat/lng；旧写法是无条件写 contact/phone/address/intro，
+    // 那样后两种提交会把工厂已有资料清成 NULL。
+    for (const key of ['contact', 'phone', 'address', 'intro']) {
+      if (body[key] === undefined) continue;
+      sets.push(`${key} = ?`);
+      vals.push(body[key] || null);
+    }
+    // Batch D1 硬指标：资料页常常只改电话/地址，
+    // 无条件写 NULL 会把工厂已经填过的面积、设备数清空（空串 / null 才是主动清空）
+    for (const meta of HARD_METRICS) {
+      const v = normalizeMetric(meta, body[meta.field]);
+      if (!v.set) continue;
+      sets.push(`${meta.column} = ?`);
+      vals.push(v.value);
+    }
+    const outer = normalizeOuterProcessing(body.outerProcessing);
+    if (outer !== undefined) {
+      sets.push('outer_processing = ?');
+      vals.push(outer);
+    }
+    // Batch D2 地图坐标：小程序「地图选址」提交，成对写入（距离排序用）
+    const geo = normalizeGeoPair(body.lat, body.lng);
+    if (geo.set) {
+      sets.push('lat = ?', 'lng = ?');
+      vals.push(geo.lat, geo.lng);
+    }
+    if (!sets.length) throw new Error('没有需要更新的字段');
     await pool.query(
-      'UPDATE factory SET contact = ?, phone = ?, address = ?, intro = ? WHERE id = ?',
-      [contact || null, phone || null, address || null, intro || null, req.factory.id]
+      `UPDATE factory SET ${sets.join(', ')} WHERE id = ?`,
+      [...vals, req.factory.id]
     );
     res.json(ok({ updated: true }));
   } catch (err) {
@@ -136,8 +172,10 @@ router.post('/me/media', requireFactory, async (req, res) => {
       { openid: await guard.factoryOpenid(req.factoryUser.id), scene: 'media' }
     );
     const [ret] = await pool.query(
-      'INSERT INTO factory_media (factory_id, media_type, url, caption) VALUES (?,?,?,?)',
-      [req.factory.id, type, url, cleanCap]
+      'INSERT INTO factory_media (factory_id, media_type, url, caption, audit_status) VALUES (?,?,?,?,?)',
+      // 实拍图（设备/车间/样品）沿用「先发后审 + 后台驳回即删」（表默认 approved）；
+      // 资质证书是对外背书材料，改成先审后发，避免伪造证照在人工看到之前就已经摆上 C 端详情页
+      [req.factory.id, type, url, cleanCap, type === 'certificate' ? 'pending' : 'approved']
     );
     opLog.logOp({
       factoryId: req.factory.id, factoryUser: req.factoryUser, action: 'media_add',

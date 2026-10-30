@@ -224,6 +224,8 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 | `node scripts/purge-biz-data.js` | 试运行：列出将被清空的业务流水表与行数 | 只读 |
 | `node scripts/purge-biz-data.js --apply` | 先备份到 `data/purge-backup-<时间>.sql`，再执行 `sql/purge-biz-data.sql` | 破坏性，有备份 |
 | `node scripts/backfill-file-message.js [--apply]` | 把存量 `file_transfer`（仅 inquiry）补成会话消息 | 只插缺的，已有同 `file_id` 消息则跳过，可重复跑 |
+| `node scripts/backfill-region.js [--apply] [--force]` | 从 `factory.address` 提取并回填 `province/city` | 未命中保持 NULL；已填的默认跳过 |
+| `node scripts/backfill-factory-geo.js [--apply] [--force]` | 按 `factory.city` 回填市中心坐标（Batch D2 距离排序） | 只处理命中表内城市；已有坐标默认跳过（工厂选址会覆盖） |
 
 **业务数据清理边界**（`sql/purge-biz-data.sql` 头部有完整清单）：
 - 清空：询价链路（`c_inquiry`/`c_inquiry_quote_view`/`factory_inquiry_push`/`inquiry_message`）、报价与订单（`quote_order`/`order_main`/`order_logistics`）、台账统计（`platform_fee_ledger`/`daily_stats`）、消息会话日志（`c_message`/`user_session`/`factory_operation_log`）、上传类（`factory_media`/`user_address`）。
@@ -312,4 +314,42 @@ npm test                         # 27 个用例全绿即可重启服务
 - `GET /api/factory/dashboard/compare?start=YYYY-MM-DD&end=YYYY-MM-DD`（需 `X-Factory-Id + X-Factory-Token`）：环比上期（长度相同的紧邻前一段）+ 同比去年（前推 365 天）；区间不传则默认本月至今。
 - `GET /api/factory/dashboard/export.csv?start=&end=`：同区间 CSV（含 BOM，Excel 直接中文不乱码），小程序下右上传到邮箱，无前端入口。
 - 无同环比/导出权限的工厂账号（viewer/finance）仍可读 summary，但不会看到派生 KPI。
+
+### 14.6 工厂硬指标/资质证书/浏览量/距离（Batch D1+D2）
+
+新列（全在 `factory` 表末尾，均默认 NULL / 0，存量行无影响）：
+`factory_area` `annual_volume` `employee_count` `equipment_count` `assembly_lines` `outer_processing` `view_count` `lat` `lng`。
+`factory_media.media_type` 注释多一个取值 `certificate`（资质证书）。审核口径与普通实拍图不同：
+设备/车间/样品实拍仍是**先发后审**（表默认 `approved`，后台驳回即删行删文件），
+资质证书改为**先审后发**——`POST /api/factory/me/media` 对 `certificate` 显式写 `pending`，
+因为它是对外背书材料，不能让伪造证照在人工看到之前就先摆上 C 端详情页（工厂端图集会显示「待审」角标）。
+
+上线顺序（每一步都可在开发库先过一遍）：
+
+```powershell
+node scripts/schema-sync.js --apply        # 只补列，不建索引
+# 手工补索引（schema-sync 不比对也不创建索引，漏了不会报错，只是距离/画像查询慢）
+#   ALTER TABLE `factory` ADD INDEX `idx_latlng`(`lat`, `lng`);
+node scripts/backfill-factory-geo.js       # 试运行看命中情况
+node scripts/backfill-factory-geo.js --apply
+```
+
+接口行为变化：
+- `GET /api/factory/list` 新增 `userLat` / `userLng`（传了才下发 `distanceKm`）与 `sort=distance`。
+  距离是 **Node 侧内存排序**（Haversine，不进 SQL），`SORTS` 白名单里故意没有 distance；
+  无坐标的厂恒排末尾，没带用户坐标时回落综合排序。
+- `GET /api/factory/public/:id` 每次访问 `view_count + 1`，同 IP 同厂 60 秒内只计一次；
+  计数在响应发出之后 fire-and-forget，失败静默（浏览量不准可接受，详情页打不开不可接受）。
+- `PUT /api/factory/me/profile` 改为全字段「显式传了才写」（含 contact/phone/address/intro），
+  所以工厂端可以分开提交硬指标与坐标；后台 `PUT /api/factory/:id` 同样不会再把
+  `province/city/c_end_enabled` 清成默认值（旧版「启停工厂」会顺手清空地区，Batch D1 修掉）。
+
+小程序上线前要在微信公众平台把话说全，否则真机直接调用失败（开发者工具里看不出来）：
+- `app.json` 已加 `permission.scope.userLocation` 与 `requiredPrivateInfos: ["getLocation","chooseLocation"]`；
+- 后台「设置 → 服务内容声明 → 用户隐私保护指引」需勾选**位置信息**；
+- 后台「开发管理 → 接口设置」需申请 `wx.getLocation` 与 `wx.chooseLocation`（未获批时找厂页距离胶囊不显示、
+  「距离最近」排序项置灰，属预期降级，不是 bug）。
+
+回填的是**市中心粗坐标**（同城厂之间距离会是 0.0km）；工厂在小程序「我的工厂 → 基本资料 → 地图选址」
+选点后即为精确位置（会覆盖回填值）。
 

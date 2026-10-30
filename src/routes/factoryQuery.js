@@ -5,9 +5,39 @@ const { pool } = require('../config/db');
 const capabilityService = require('../services/capabilityService');
 const catalog = require('../services/catalogService');
 const { ok, fail, maskPhone, capacityOf } = require('../utils/helpers');
+const { FACTORY_C_COLS, FACTORY_ADMIN_COLS, HARD_METRICS, normalizeMetric, normalizeOuterProcessing, normalizeGeoPair } = require('../utils/factoryProfile');
+const { haversineKm, roundKm } = require('../utils/geo');
 const { requireAdmin, optionalUser } = require('../middlewares/auth');
 const { requirePermission } = require('../config/permissions');
 const { hashPassword } = require('../utils/password');
+
+// ===== 浏览量（Batch D1）=====
+// 60 秒内同一来源看同一厂只计一次：小程序详情页返回再进去不该算两遍，
+// 刷页更不该把数字刷上天后。计数走 fire-and-forget，不阻塞响应、
+// 失败也静默——浏览量不准可接受，详情页打不开不可接受（与 contentGuard
+// “降级优先于拦截”同一取向）。
+const VIEW_DEDUPE_MS = 60 * 1000;
+const viewSeen = new Map();   // `${ip}:${factoryId}` → 最近一次计数时间
+
+function bumpViewCount(factoryId, ip) {
+  const key = `${ip}:${factoryId}`;
+  const now = Date.now();
+  const last = viewSeen.get(key);
+  if (last && now - last < VIEW_DEDUPE_MS) return false;
+  viewSeen.set(key, now);
+  pool.query('UPDATE factory SET view_count = view_count + 1 WHERE id = ?', [factoryId])
+    .catch(() => { /* 静默 */ });
+  return true;
+}
+
+// 定时扫掉过期键，否则长期运行下 Map 只增长不回收（unref 不拖住进程退出）
+const viewCleanTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [k, t] of viewSeen) {
+    if (now - t >= VIEW_DEDUPE_MS) viewSeen.delete(k);
+  }
+}, VIEW_DEDUPE_MS);
+if (viewCleanTimer.unref) viewCleanTimer.unref();
 
 /**
  * GET /api/factory/list
@@ -18,12 +48,20 @@ const { hashPassword } = require('../utils/password');
  *   process=HOT_STAMP      只看有烫金的（多个用逗号分隔）
  *   materialCode=B_BC5     只看有这种材料的
  *   keyword=鑫             按工厂名称/地址模糊搜索
- *   sort=rating|accepts|response  排序：评分/接单量/响应速度（缺省综合：接单量+评分）
+ *   sort=rating|accepts|response|capacity|distance
+ *                          排序：评分/接单量/响应速度/产能优先/距离最近（缺省综合：接单量+评分）
+ *   userLat / userLng      用户当前位置（Batch D2）：传了才下发 distanceKm，
+ *                          sort=distance 且未带坐标时回落综合排序
  * 携带 C 端登录头时，列表项额外返回 followed（该用户是否已关注此厂）
  */
 router.get('/list', optionalUser, async (req, res) => {
   try {
     const { productType, printMode, process, materialCode, keyword, sort, province, city } = req.query;
+    // 用户坐标：只在合法区间内才采信（超出范围的 NaN/乱填当没传，不让它排出一个莫名其妙的距离）
+    const userLat = Number(req.query.userLat);
+    const userLng = Number(req.query.userLng);
+    const hasUserGeo = Number.isFinite(userLat) && Number.isFinite(userLng)
+      && Math.abs(userLat) <= 90 && Math.abs(userLng) <= 180;
 
     const filter = {
       productType: productType || null,
@@ -42,6 +80,8 @@ router.get('/list', optionalUser, async (req, res) => {
     const kw = (keyword || '').trim();
     // F-100 排序白名单（防注入：只接受预置键，其余回落综合排序）
     // capacity：闲置产能优先（印查查式“推空闲厂”，基于产能权重二级排）
+    // 这里故意不加 distance：距离要算 Haversine、不能拼进 SQL ORDER BY，
+    // 它走下面与 capacity 同模式的内存排序（拼进白名单反而是个能注进 ORDER BY 的假选项）
     const SORTS = {
       rating: 'rating DESC, rating_count DESC',
       accepts: 'total_accepts DESC',
@@ -55,7 +95,9 @@ router.get('/list', optionalUser, async (req, res) => {
     if (city && String(city).trim()) { regionConds.push('city = ?'); regionParams.push(String(city).trim()); }
     const regionSql = regionConds.length ? ' AND ' + regionConds.join(' AND ') : '';
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, province, city, intro, rating, rating_count, total_accepts, avg_response_hours, license_verified, verification_level, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE status = 1 AND id IN (?)'
+      // lat/lng 只拿进来算距离，不下发给 C 端（下面 map 里剔掉）：
+      // 工厂精确坐标属于经营信息，列表里客户需要的只是“多远”，不是“在哪”
+      `SELECT ${FACTORY_C_COLS}, lat, lng FROM factory WHERE status = 1 AND id IN (?)`
         + (kw ? ' AND (name LIKE ? OR address LIKE ?)' : '')
         + regionSql
         + ' ORDER BY ' + orderBy,
@@ -65,8 +107,9 @@ router.get('/list', optionalUser, async (req, res) => {
     // 附上每家工厂的完整能力 + 产能/验真画像；F-30：找厂列表态工厂联系人脱敏（询价看价流程中才对归属者下发全文）
     let list = rows.map((f) => {
       const cap = capacityOf(f);
+      const { lat, lng, ...rest } = f;
       return {
-        ...f,
+        ...rest,
         phone: maskPhone(f.phone),
         capabilities: capabilityService.getByFactory(f.id),
         capacityStatus: cap.status,
@@ -74,6 +117,8 @@ router.get('/list', optionalUser, async (req, res) => {
         capacityNote: cap.note,
         capacityWeight: cap.weight,
         verified: !!f.license_verified,
+        // 距离（km，1 位小数）：无用户坐标或本厂未选址时为 null，前端就不显示距离/不参与距离排序
+        distanceKm: hasUserGeo ? roundKm(haversineKm(userLat, userLng, lat, lng)) : null,
       };
     });
     // 产能优先排序：空闲 > 正常 > 饱和/未填报，同级再按评分降序、接单量降序
@@ -83,6 +128,18 @@ router.get('/list', optionalUser, async (req, res) => {
         (Number(b.rating) || 0) - (Number(a.rating) || 0) ||
         (Number(b.total_accepts) || 0) - (Number(a.total_accepts) || 0)
       );
+    }
+    // Batch D2 距离最近：候选集已由 matchedIds 限定在几百家内，在内存算球面距离（见 utils/geo 注释）
+    // - 没带用户坐标时不改顺序（回落综合排序，前端同时会把该选项置灰）
+    // - 算不出距离的厂（本厂未选址）恒排末尾，同档之间保持 SQL 综合排序的原有序（V8 sort 稳定）
+    if (sort === 'distance' && hasUserGeo) {
+      const rank = (d) => (d === null || d === undefined ? Number.POSITIVE_INFINITY : d);
+      list.sort((a, b) => {
+        const ra = rank(a.distanceKm);
+        const rb = rank(b.distanceKm);
+        if (ra !== rb) return ra < rb ? -1 : 1;
+        return 0;
+      });
     }
 
     // 关注标记：登录用户已关注的工厂在列表卡上直接显示 ★（撮合排序对这些工厂同样加权优先）
@@ -128,7 +185,7 @@ router.get('/public/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) throw new Error('参数错误');
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, intro, rating, rating_count, total_accepts, avg_response_hours, audit_status, license_verified, verification_level, capacity_status, capacity_note, capacity_updated_at FROM factory WHERE id = ? AND status = 1', [id]
+      `SELECT ${FACTORY_C_COLS} FROM factory WHERE id = ? AND status = 1`, [id]
     );
     if (!rows.length) throw new Error('工厂不存在或已停用');
 
@@ -151,6 +208,8 @@ router.get('/public/:id', async (req, res) => {
       media,
       names: buildNames(),
     }));
+    // 浏览量：响应已经发出去了才计数，不让一次写拖慢详情页
+    bumpViewCount(id, req.ip || 'unknown');
   } catch (err) {
     res.status(400).json(fail(err.message));
   }
@@ -165,7 +224,7 @@ router.get('/detail/:id', requireAdmin, requirePermission('factory:view'), async
     const id = parseInt(req.params.id);
     // 显式列名，避免把 api_token 等敏感字段暴露给公开接口
     const [rows] = await pool.query(
-      'SELECT id, code, name, contact, phone, address, province, city, default_margin, default_tax_rate, default_waste_rate, c_end_enabled, status, license_verified, verification_level, created_at, updated_at FROM factory WHERE id = ? AND status = 1', [id]
+      `SELECT ${FACTORY_ADMIN_COLS} FROM factory WHERE id = ? AND status = 1`, [id]
     );
     if (!rows.length) throw new Error('工厂不存在');
 
@@ -262,19 +321,39 @@ router.put('/:id(\\d+)', requireAdmin, requirePermission('factory:manage'), asyn
     const id = parseInt(req.params.id, 10);
     const { name, contact, phone, address,
       defaultMargin, defaultTaxRate, defaultWasteRate, cEndEnabled, status, licenseVerified,
-      province, city, verificationLevel } = req.body;
+      province, city, verificationLevel, verificationNote, outerProcessing } = req.body;
     if (!name) throw new Error('工厂名称不能为空');
     const [ret] = await pool.query(
       `UPDATE factory SET name=?, contact=?, phone=?, address=?, default_margin=?, default_tax_rate=?,
-              default_waste_rate=?, c_end_enabled=?, status=?, province=?, city=? WHERE id=?`,
+              default_waste_rate=?, c_end_enabled=?, status=? WHERE id=?`,
       [name, contact || null, phone || null, address || null,
         defaultMargin ?? 0.15, defaultTaxRate ?? 0.10, defaultWasteRate ?? 0.04,
         cEndEnabled === undefined ? 1 : (cEndEnabled ? 1 : 0),
-        status === undefined ? 1 : (status ? 1 : 0),
-        province ? String(province).trim() : null,
-        city ? String(city).trim() : null, id]
+        status === undefined ? 1 : (status ? 1 : 0), id]
     );
     if (!ret.affectedRows) throw new Error('工厂不存在');
+    // 以下一律「显式传了该字段才写」：后台「启停工厂」只带 name/status 等必填项，
+    // 而旧代码无条件写 province/city，一点启停就把已核验工厂的地区清成 NULL（Batch D1 修掉）
+    const patch = [];
+    const patchVals = [];
+    const push = (col, val) => { patch.push(`${col} = ?`); patchVals.push(val); };
+    if (province !== undefined) push('province', String(province || '').trim() || null);
+    if (city !== undefined) push('city', String(city || '').trim() || null);
+    // Batch D1 经营硬指标（后台可代工厂纠正，与工厂端走同一套白名单校验）
+    for (const meta of HARD_METRICS) {
+      const v = normalizeMetric(meta, req.body[meta.field]);
+      if (v.set) push(meta.column, v.value);
+    }
+    if (outerProcessing !== undefined) push('outer_processing', normalizeOuterProcessing(outerProcessing));
+    // Batch D2 坐标（后台只纠正，采集入口在小程序「地图选址」）：lat/lng 成对写
+    const geo = normalizeGeoPair(req.body.lat, req.body.lng);
+    if (geo.set) { push('lat', geo.lat); push('lng', geo.lng); }
+    if (verificationNote !== undefined) {
+      push('verification_note', String(verificationNote || '').trim().slice(0, 200) || null);
+    }
+    if (patch.length) {
+      await pool.query(`UPDATE factory SET ${patch.join(', ')} WHERE id = ?`, [...patchVals, id]);
+    }
     // 验真徽章开关（仅当显式传入时更新，不影响未携带该字段的旧编辑请求）
     if (licenseVerified !== undefined) {
       await pool.query('UPDATE factory SET license_verified = ? WHERE id = ?', [licenseVerified ? 1 : 0, id]);

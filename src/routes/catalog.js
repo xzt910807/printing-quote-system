@@ -3,6 +3,7 @@ const router = express.Router();
 const catalog = require('../services/catalogService');
 const { pool } = require('../config/db');
 const { ok, fail, parseJsonField } = require('../utils/helpers');
+const { FACTORY_ADMIN_COLS } = require('../utils/factoryProfile');
 const { requirePermission } = require('../config/permissions');
 
 // Stage10 目录维护白名单：后台「目录数据」页可编辑的目录表
@@ -28,8 +29,8 @@ const CATALOG_TABLES = {
     fields: ['code', 'name', 'price_factor', 'is_active'] },
 };
 
-// 工厂对外可见字段（显式列出，避免 api_token / password_hash 等敏感字段泄漏）
-const FACTORY_PUBLIC_COLS = 'id, code, username, name, contact, phone, address, intro, default_margin, default_tax_rate, default_waste_rate, c_end_enabled, status, audit_status, license_verified, applied_at, created_at, updated_at';
+// 后台工厂列表的下发列（显式列出，避免 api_token / password_hash 等敏感字段泄漏；
+// 与找厂列表/C 端详情共用一份定义，见 src/utils/factoryProfile.js）
 
 /**
  * GET /api/catalog/factories
@@ -39,8 +40,8 @@ const FACTORY_PUBLIC_COLS = 'id, code, username, name, contact, phone, address, 
 router.get('/factories', requirePermission('factory:view'), async (req, res) => {
   try {
     const sql = req.query.all === '1'
-      ? `SELECT ${FACTORY_PUBLIC_COLS} FROM factory ORDER BY id`
-      : `SELECT ${FACTORY_PUBLIC_COLS} FROM factory WHERE status = 1 ORDER BY id`;
+      ? `SELECT ${FACTORY_ADMIN_COLS} FROM factory ORDER BY id`
+      : `SELECT ${FACTORY_ADMIN_COLS} FROM factory WHERE status = 1 ORDER BY id`;
     const [rows] = await pool.query(sql);
     res.json(ok(rows));
   } catch (err) { res.status(500).json(fail(err.message, 500)); }

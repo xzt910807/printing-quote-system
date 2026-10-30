@@ -2090,6 +2090,9 @@ const app = createApp({
     }
 
     // ===== 工厂新增 / 编辑 / 启停 =====
+    // Batch D1 硬指标：库里没填过是 NULL，表单用空串表示“未填”，
+    // 后端把空串归一为 NULL（而不是 0），C 端才不会把“0 台设备”当成真数据展示
+    const numOrEmpty = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
     const factoryEditor = reactive({
       open: false,
       form: {
@@ -2101,6 +2104,12 @@ const app = createApp({
         licenseVerified: 0,
         // 034 验真分级：0=未验 / 1=执照已核 / 2=实地/视频验厂 / 3=深度验厂
         verificationLevel: 0,
+        verificationNote: '',
+        // Batch D1 经营硬指标（工厂自报、后台可纠正）
+        factoryArea: '', annualVolume: '', employeeCount: '',
+        equipmentCount: '', assemblyLines: '', outerProcessing: '',
+        // Batch D2 坐标（主采集入口在小程序「地图选址」，后台只纠正；lat/lng 必须成对）
+        lat: '', lng: '',
         // 登录账号：新增时可设置（开户），编辑时不修改
         username: '', password: '',
         // 隐藏字段：编辑时原样回传，避免被后端默认值覆盖
@@ -2122,6 +2131,16 @@ const app = createApp({
           status: f.status,
           licenseVerified: f.license_verified ? 1 : 0,
           verificationLevel: Number(f.verification_level) || 0,
+          verificationNote: f.verification_note || '',
+          factoryArea: numOrEmpty(f.factory_area),
+          annualVolume: numOrEmpty(f.annual_volume),
+          employeeCount: numOrEmpty(f.employee_count),
+          equipmentCount: numOrEmpty(f.equipment_count),
+          assemblyLines: numOrEmpty(f.assembly_lines),
+          outerProcessing: (f.outer_processing === null || f.outer_processing === undefined)
+            ? '' : Number(f.outer_processing),
+          lat: numOrEmpty(f.lat),
+          lng: numOrEmpty(f.lng),
           username: f.username || '', password: '',
         });
       } else {
@@ -2132,6 +2151,10 @@ const app = createApp({
           defaultTaxRate: 0.10, defaultWasteRate: 0.04, status: 1,
           licenseVerified: 0,
           verificationLevel: 0,
+          verificationNote: '',
+          factoryArea: '', annualVolume: '', employeeCount: '',
+          equipmentCount: '', assemblyLines: '', outerProcessing: '',
+          lat: '', lng: '',
           username: '', password: '',
         });
       }
@@ -2155,6 +2178,17 @@ const app = createApp({
         licenseVerified: f.licenseVerified ? 1 : 0,
         // 034：验真分级
         verificationLevel: Number(f.verificationLevel) || 0,
+        verificationNote: f.verificationNote,
+        // Batch D1：经营硬指标（空串 = 清空该列，后端归一为 NULL，不是写 0）
+        factoryArea: f.factoryArea,
+        annualVolume: f.annualVolume,
+        employeeCount: f.employeeCount,
+        equipmentCount: f.equipmentCount,
+        assemblyLines: f.assemblyLines,
+        outerProcessing: f.outerProcessing,
+        // Batch D2：坐标成对提交（只填一个轴后端会拒，距离计算用不上半个坐标）
+        lat: f.lat,
+        lng: f.lng,
       };
       try {
         if (f.id) {
@@ -2659,8 +2693,24 @@ const app = createApp({
     function closeFactoryOpLogs() { state.opLogModal.open = false; }
 
     // ===== 027 设备图文审核：弹窗展示该厂全部图文（含待审/驳回），支持通过/驳回 =====
-    const MEDIA_TYPE_TEXT = { equipment: '设备', workshop: '车间', product: '样品' };
+    const MEDIA_TYPE_TEXT = { equipment: '设备', workshop: '车间', product: '样品', certificate: '资质证书' };
     const mediaTypeLabel = (t) => MEDIA_TYPE_TEXT[t] || t;
+    // 图集弹窗按类型分组（Batch D1）：资质证书与设备实拍混在一起平铺，审核人分不清哪张是厂验依据
+    const MEDIA_TYPE_ORDER = ['equipment', 'workshop', 'product', 'certificate'];
+    const mediaGroups = computed(() => {
+      const map = new Map();
+      for (const m of state.mediaModal.list) {
+        if (!map.has(m.media_type)) map.set(m.media_type, []);
+        map.get(m.media_type).push(m);
+      }
+      const rank = (t) => {
+        const i = MEDIA_TYPE_ORDER.indexOf(t);
+        return i < 0 ? MEDIA_TYPE_ORDER.length : i;
+      };
+      return [...map.entries()]
+        .sort((a, b) => rank(a[0]) - rank(b[0]) || String(a[0]).localeCompare(String(b[0])))
+        .map(([type, items]) => ({ type, label: mediaTypeLabel(type), items }));
+    });
     function openFactoryMedia(f) {
       state.mediaModal.factoryId = f.id;
       state.mediaModal.factoryName = f.name;
@@ -3002,7 +3052,7 @@ const app = createApp({
       loadFeeLedger, settleLedgerItem,
       OP_LOG_ACTIONS, opLogActionLabel, openFactoryOpLogs, loadFactoryOpLogs, onOpLogSearch, closeFactoryOpLogs,
       // 027 设备图文审核 + 验真徽章
-      mediaTypeLabel, openFactoryMedia, loadFactoryMedia, auditMedia, closeFactoryMedia,
+      mediaTypeLabel, mediaGroups, openFactoryMedia, loadFactoryMedia, auditMedia, closeFactoryMedia,
       // Stage13 物流履约
       EXPRESS_COMPANIES, SHIPPING_MODE_TEXT, openShipModal, submitShip, openLogisticsViewer,
       shippingRuleText, openShippingEditor, saveShipping, toggleShipping, setDefaultShipping,

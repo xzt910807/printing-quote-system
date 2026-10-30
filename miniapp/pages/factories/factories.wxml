@@ -17,9 +17,10 @@
     </view>
   </view>
 
-  <!-- F-100 排序：综合 / 评分高 / 接单多 / 响应快 -->
+  <!-- F-100 排序：综合 / 产能空闲 / 评分高 / 接单多 / 响应快 / 距离最近 -->
+  <!-- 距离项：没拿到定位时置灰（点了会引导开定位，而不是默默换一个序） -->
   <scroll-view scroll-x class="sort-bar" enhanced show-scrollbar="{{false}}">
-    <view class="sort-chip {{sort === item.code ? 'sort-on' : ''}}"
+    <view class="sort-chip {{sort === item.code ? 'sort-on' : ''}} {{item.code === 'distance' && !userGeo ? 'sort-dim' : ''}}"
           wx:for="{{sortOptions}}" wx:key="code"
           data-code="{{item.code}}" bindtap="setSort">{{item.name}}</view>
   </scroll-view>
@@ -77,10 +78,11 @@
           <text class="fi-verified" wx:if="{{item.verified}}">✓ 已核验</text>
           <text class="fi-cap fi-cap-{{item.capacityStatus}}" wx:if="{{item.capacityLabel}}">⚡ {{item.capacityLabel}}</text>
         </view>
-        <!-- F-100：评分 / 接单量徽标（后端排序已按此加权） -->
-        <view class="fi-stats" wx:if="{{item.ratingText || item.acceptsText}}">
+        <!-- F-100：评分 / 接单量徽标（后端排序已按此加权）；距离为 Batch D2，没定位时不显示 -->
+        <view class="fi-stats" wx:if="{{item.ratingText || item.acceptsText || item.distanceText}}">
           <text class="fi-stat fi-star" wx:if="{{item.ratingText}}">★ {{item.ratingText}}</text>
           <text class="fi-stat" wx:if="{{item.acceptsText}}">已接 {{item.acceptsText}}</text>
+          <text class="fi-stat fi-dist" wx:if="{{item.distanceText}}">📍 {{item.distanceText}}</text>
         </view>
       </view>
       <!-- 关注：列表内直接收藏（catchtap 防冒泡进详情页）, 关注后撮合优先派单 -->

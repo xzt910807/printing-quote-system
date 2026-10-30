@@ -89,6 +89,58 @@
 .fd-cap-busy { color: #dc2626; background: #fef2f2; }
 .fd-cap-note { margin-top: 12rpx; font-size: 24rpx; color: #64748b; text-align: center; }
 
+/* 信任数据位：评分 + 浏览量 */
+.fd-stats { display: flex; gap: 20rpx; margin-top: 14rpx; justify-content: center; }
+.fd-stat { font-size: 24rpx; color: #b45309; background: #fff7ed; border-radius: 999rpx; padding: 6rpx 20rpx; }
+
+/* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶） */
+.fd-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
+}
+.fd-tab {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: #64748b;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+}
+.fd-tab:active { background: #f1f5f9; }
+.fd-tab-on { background: #eff6ff; color: #2563eb; font-weight: 500; }
+
+/* 经营硬指标（Batch D1）：三列两行，未填报的格显示“—”而不是 0 */
+.fd-metrics { display: flex; flex-wrap: wrap; }
+.fd-metric {
+  width: calc(100% / 3);
+  box-sizing: border-box;
+  padding: 16rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fd-metric-val { font-size: 30rpx; font-weight: 600; color: #0f172a; line-height: 1.3; }
+.fd-metric-lbl { font-size: 22rpx; color: #94a3b8; margin-top: 6rpx; }
+.fd-region { font-size: 24rpx; color: #475569; margin-top: 8rpx; }
+.fd-metric-tip { font-size: 20rpx; color: #cbd5e1; margin-top: 12rpx; }
+
+/* 图集分组标题（设备/车间/样品/资质证书） */
+.fd-group { margin-bottom: 24rpx; }
+.fd-group:last-child { margin-bottom: 0; }
+.fd-group-title { font-size: 24rpx; color: #94a3b8; margin-bottom: 12rpx; }
+
+/* 视频段（Batch D3 上传通道上线后才有内容） */
+.fd-video-item { margin-bottom: 24rpx; }
+.fd-video-item:last-child { margin-bottom: 0; }
+.fd-video { width: 100%; height: 400rpx; border-radius: 12rpx; background: #0f172a; display: block; }
+
 /* 设备/车间图文图集 */
 .fd-media-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .fd-media-item { width: calc((100% - 32rpx) / 3); }

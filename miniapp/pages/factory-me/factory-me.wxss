@@ -76,6 +76,10 @@
   box-shadow: 0 4rpx 12rpx rgba(220, 38, 38, 0.25);
 }
 
+/* Batch D2 地图选址回显：选址后给坐标本身（青绿）, 未选址时灰着提示还差这一步 */
+.geo-text { flex: 1; min-width: 0; font-size: 24rpx; color: #0f766e; }
+.geo-none { color: #94a3b8; }
+
 .ov-item {
   display: flex;
   align-items: center;

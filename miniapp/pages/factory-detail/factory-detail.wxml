@@ -28,69 +28,116 @@
         <text class="fd-cap fd-cap-{{capacity.status}}" wx:if="{{capacity}}">⚡ {{capacity.label}}</text>
       </view>
       <view class="fd-cap-note" wx:if="{{capacity && capacity.note}}">{{capacity.note}}</view>
+      <!-- 信任数据位：评分 + 浏览量（Batch D1 view_count） -->
+      <view class="fd-stats" wx:if="{{ratingText || viewText}}">
+        <text class="fd-stat" wx:if="{{ratingText}}">★ {{ratingText}}</text>
+        <text class="fd-stat" wx:if="{{viewText}}">浏览 {{viewText}}</text>
+      </view>
       <view class="fd-addr" bindtap="copyAddress" wx:if="{{info.address}}">
         <view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{info.address}} <text class="fd-copy">复制</text>
       </view>
     </view>
 
-    <!-- 设备/车间图文（印查查式硬实力展示） -->
-    <view class="card" wx:if="{{media.length}}">
-      <view class="card-title">设备与车间实拍</view>
-      <view class="fd-media-grid">
-        <view class="fd-media-item" wx:for="{{media}}" wx:key="url" data-index="{{index}}" bindtap="previewMedia">
-          <image class="fd-media-img" src="{{apiBase}}{{item.url}}" mode="aspectFill" lazy-load="{{true}}"></image>
+    <!-- 四段吸顶 tab（Batch D1，印查查式工厂页）：概况 / 能力 / 图集 / 视频 -->
+    <view class="fd-tabs" id="fd-tabs">
+      <view class="fd-tab {{activeTab === item.key ? 'fd-tab-on' : ''}}"
+            wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="onTabTap">{{item.label}}</view>
+    </view>
+
+    <!-- 概况：经营硬指标表 + 所在地区 + 简介 + 联系方式 -->
+    <view id="seg-overview">
+      <view class="card">
+        <view class="card-title">经营硬指标</view>
+        <view class="fd-metrics">
+          <view class="fd-metric" wx:for="{{metricRows}}" wx:key="label">
+            <text class="fd-metric-val">{{item.value}}</text>
+            <text class="fd-metric-lbl">{{item.label}}</text>
+          </view>
+        </view>
+        <view class="fd-region" wx:if="{{info.province || info.city}}">所在地区：{{info.province}}{{info.city}}</view>
+        <view class="fd-metric-tip">数据由工厂自报，未填报的显示“—”</view>
+      </view>
+
+      <!-- 工厂简介 -->
+      <view class="card" wx:if="{{info.intro}}">
+        <view class="card-title"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>工厂简介</view>
+        <view class="fd-intro">{{info.intro}}</view>
+      </view>
+
+      <!-- 联系方式 -->
+      <view class="card">
+        <view class="card-title"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>联系方式</view>
+        <view class="fd-row">
+          <text class="fd-label">联系人</text>
+          <text class="fd-value">{{info.contact || '—'}}</text>
+        </view>
+        <view class="fd-row">
+          <text class="fd-label">电话</text>
+          <text class="fd-value">{{info.phone || '—'}}</text>
+          <view class="fd-call" wx:if="{{info.phone}}" bindtap="callFactory">拨打</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 能力：品类 / 印刷方式 / 后道工艺 -->
+    <view id="seg-ability">
+      <view class="card">
+        <view class="card-title">生产能力</view>
+
+        <view class="fd-cap-block" wx:if="{{capTags.length}}">
+          <view class="fd-cap-label">主营产品</view>
+          <view class="fd-tags">
+            <text class="fd-tag fd-tag-blue" wx:for="{{capTags}}" wx:key="*this">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="fd-cap-block" wx:if="{{modeTags.length}}">
+          <view class="fd-cap-label">印刷方式</view>
+          <view class="fd-tags">
+            <text class="fd-tag fd-tag-green" wx:for="{{modeTags}}" wx:key="*this">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="fd-cap-block" wx:if="{{processTags.length}}">
+          <view class="fd-cap-label">后道工艺</view>
+          <view class="fd-tags">
+            <text class="fd-tag" wx:for="{{processTags}}" wx:key="*this">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="fd-empty-cap" wx:if="{{!capTags.length && !modeTags.length && !processTags.length}}">
+          暂无能力信息
+        </view>
+      </view>
+    </view>
+
+    <!-- 图集：设备 / 车间 / 样品 / 资质证书（仅审核通过的对外） -->
+    <view id="seg-media">
+      <view class="card">
+        <view class="card-title">工厂图集</view>
+        <view class="fd-empty-cap" wx:if="{{!mediaGroups.length}}">该厂暂未上传图集</view>
+        <view class="fd-group" wx:for="{{mediaGroups}}" wx:key="type">
+          <view class="fd-group-title">{{item.label}} · {{item.items.length}} 张</view>
+          <view class="fd-media-grid">
+            <view class="fd-media-item" wx:for="{{item.items}}" wx:for-item="pic" wx:key="url"
+                  data-url="{{pic.url}}" bindtap="previewMedia">
+              <image class="fd-media-img" src="{{apiBase}}{{pic.url}}" mode="aspectFill" lazy-load="{{true}}"></image>
+              <view class="fd-media-cap" wx:if="{{pic.caption}}">{{pic.caption}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 视频（Batch D3 上传通道上线后才有内容） -->
+    <view id="seg-video">
+      <view class="card">
+        <view class="card-title">工厂视频</view>
+        <view class="fd-empty-cap" wx:if="{{!videos.length}}">该厂暂未上传视频</view>
+        <view class="fd-video-item" wx:for="{{videos}}" wx:key="url">
+          <video class="fd-video" src="{{apiBase}}{{item.url}}" object-fit="contain" show-mute-btn></video>
           <view class="fd-media-cap" wx:if="{{item.caption}}">{{item.caption}}</view>
         </view>
-      </view>
-    </view>
-
-    <!-- 工厂简介 -->
-    <view class="card" wx:if="{{info.intro}}">
-      <view class="card-title"><view class="ic-inline"><view class="ic ic-factory"><view class="ic-a"></view></view></view>工厂简介</view>
-      <view class="fd-intro">{{info.intro}}</view>
-    </view>
-
-    <!-- 联系方式 -->
-    <view class="card">
-      <view class="card-title"><view class="ic-inline"><view class="ic ic-phone"><view class="ic-a"></view></view></view>联系方式</view>
-      <view class="fd-row">
-        <text class="fd-label">联系人</text>
-        <text class="fd-value">{{info.contact || '—'}}</text>
-      </view>
-      <view class="fd-row">
-        <text class="fd-label">电话</text>
-        <text class="fd-value">{{info.phone || '—'}}</text>
-        <view class="fd-call" wx:if="{{info.phone}}" bindtap="callFactory">拨打</view>
-      </view>
-    </view>
-
-    <!-- 生产能力 -->
-    <view class="card">
-      <view class="card-title">生产能力</view>
-
-      <view class="fd-cap-block" wx:if="{{capTags.length}}">
-        <view class="fd-cap-label">主营产品</view>
-        <view class="fd-tags">
-          <text class="fd-tag fd-tag-blue" wx:for="{{capTags}}" wx:key="*this">{{item}}</text>
-        </view>
-      </view>
-
-      <view class="fd-cap-block" wx:if="{{modeTags.length}}">
-        <view class="fd-cap-label">印刷方式</view>
-        <view class="fd-tags">
-          <text class="fd-tag fd-tag-green" wx:for="{{modeTags}}" wx:key="*this">{{item}}</text>
-        </view>
-      </view>
-
-      <view class="fd-cap-block" wx:if="{{processTags.length}}">
-        <view class="fd-cap-label">后道工艺</view>
-        <view class="fd-tags">
-          <text class="fd-tag" wx:for="{{processTags}}" wx:key="*this">{{item}}</text>
-        </view>
-      </view>
-
-      <view class="fd-empty-cap" wx:if="{{!capTags.length && !modeTags.length && !processTags.length}}">
-        暂无能力信息
       </view>
     </view>
   </block>

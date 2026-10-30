@@ -38,7 +38,7 @@ Page({
     ],
     // 名称/地址关键词搜索（与能力筛选叠加生效）
     keyword: '',
-    // F-100 排序：综合（缺省）/ 评分 / 接单量 / 响应速度 / 产能优先
+    // F-100 排序：综合（缺省）/ 评分 / 接单量 / 响应速度 / 产能优先 / 距离最近
     sort: '',
     sortOptions: [
       { code: '', name: '综合' },
@@ -46,7 +46,10 @@ Page({
       { code: 'rating', name: '评分高' },
       { code: 'accepts', name: '接单多' },
       { code: 'response', name: '响应快' },
+      { code: 'distance', name: '距离最近' },
     ],
+    // Batch D2 用户定位（{ lat, lng } 或 null）：拿不到就隐藏距离且不参与距离排序，不弹错误
+    userGeo: null,
     factoriesLoading: false,
     // 全量工艺池；processOptions 为当前品类过滤后的展示项
     allProcessOptions: [
@@ -161,6 +164,7 @@ Page({
     }
     // Stage12 拉取品类联动配置（工艺白名单），到达后按当前品类（默认纸箱）收窄工艺展示
     this.initRegion();
+    this.requestUserGeo();
     api.request('/api/c/config').then((res) => {
       this.setData({ linkConfig: (res && res.data && res.data.productConfig) || {} });
       this.applyLinkage(this.data.filter.productType);
@@ -170,6 +174,19 @@ Page({
   onShow() {
     this.loadFactories();
     this.syncTabBar();
+  },
+
+  // Batch D2 取用户坐标：静默请求，不授权/失败都不提示（找厂页不该被定位卡住），
+  // 取到后重拉一次列表，卡片才能带上 distanceKm
+  requestUserGeo() {
+    wx.getLocation({
+      type: 'gcj02',
+      success: (r) => {
+        this.setData({ userGeo: { lat: r.latitude, lng: r.longitude } });
+        this.loadFactories();
+      },
+      fail: () => { /* 降级：不显示距离，距离排序项置灰 */ },
+    });
   },
 
   // 自定义 tabBar：同步当前选中项
@@ -231,7 +248,19 @@ Page({
 
   // F-100：切换排序（综合/评分/接单量/响应速度）
   setSort(e) {
-    this.setData({ sort: e.currentTarget.dataset.code });
+    const code = e.currentTarget.dataset.code;
+    // Batch D2：距离排序必须有用户坐标，否则后端会回落综合排序——看上去点了没反应最坑人，
+    // 所以这里直接引导去开定位，而不是默默给一个不相关的序
+    if (code === 'distance' && !this.data.userGeo) {
+      wx.showModal({
+        title: '需要位置权限',
+        content: '按距离排序需要获取你的位置，请在弹窗里允许定位（或到右上角“…”→ 设置里开启）',
+        confirmText: '重试',
+        success: (r) => { if (r.confirm) this.requestUserGeo(); },
+      });
+      return;
+    }
+    this.setData({ sort: code });
     this.loadFactories();
   },
 
@@ -251,6 +280,11 @@ Page({
       params.push('keyword=' + encodeURIComponent(this.data.keyword.trim()));
     }
     if (this.data.sort) params.push('sort=' + this.data.sort);
+    // Batch D2 用户坐标：传了后端才下发 distanceKm
+    if (this.data.userGeo) {
+      params.push('userLat=' + this.data.userGeo.lat);
+      params.push('userLng=' + this.data.userGeo.lng);
+    }
     // 030 地区筛选
     if (f.province) params.push('province=' + encodeURIComponent(f.province));
     if (f.city)     params.push('city=' + encodeURIComponent(f.city));
@@ -269,6 +303,8 @@ Page({
           // F-100：评分/接单量/响应时长格式化（列表徽标展示）
           ratingText: x.rating ? Number(x.rating).toFixed(1) : '',
           acceptsText: x.total_accepts ? x.total_accepts + ' 单' : '',
+          // Batch D2 距离（后端保留 1 位小数）：无坐标时为 null，卡片就不展这一胶囊
+          distanceText: x.distanceKm === null || x.distanceKm === undefined ? '' : x.distanceKm + 'km',
           // 印查查式：已核验 + 产能状态（后端 capacityStatus 为 idle/normal/busy 才展示）
           verified: !!x.verified,
           // 关注态由后端按登录用户下发（匿名访问恒 false）

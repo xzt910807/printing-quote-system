@@ -26,6 +26,15 @@
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f5f5"
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于按距离为您推荐附近的印刷厂"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
   "tabBar": {
     "custom": true,
     "color": "#999",

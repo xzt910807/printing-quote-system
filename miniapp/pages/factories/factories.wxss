@@ -145,12 +145,18 @@
 
 .sort-on { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
 
+/* Batch D2：未拿到定位时的「距离最近」（仍可点, 点了引导开定位, 所以只是视觉上淡下去） */
+.sort-dim { opacity: 0.45; }
+
 /* F-100：评分/接单量徽标 */
 .fi-stats { display: flex; gap: 14rpx; margin-top: 10rpx; }
 
 .fi-stat { font-size: 22rpx; color: #64748b; background: #f1f5f9; border-radius: 999rpx; padding: 4rpx 18rpx; }
 
 .fi-star { color: #d97706; background: #fffbeb; }
+
+/* Batch D2：距离胶囊（与评分/接单量同一行, 用青绿与信任徽章区分） */
+.fi-dist { color: #0f766e; background: #ecfdf5; }
 
 /* 印查查式：已核验 + 产能徽章 */
 .fi-trust { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 10rpx; }

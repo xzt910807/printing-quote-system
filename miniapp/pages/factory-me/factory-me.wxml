@@ -116,11 +116,55 @@
         <text class="label">工厂地址</text>
         <input class="input" data-field="address" value="{{profile.address}}" bindinput="onProfileInput" placeholder="选填" />
       </view>
+      <!-- Batch D2 地图选址：找厂页「距离最近」与距离展示都靠这个坐标 -->
+      <view class="field">
+        <text class="label">厂址坐标（用于按距离推厂）</text>
+        <view class="ov-form">
+          <text class="geo-text {{hasGeo ? '' : 'geo-none'}}">{{geoText}}</text>
+          <view class="mini-btn" bindtap="pickLocation">{{hasGeo ? '重新选址' : '地图选址'}}</view>
+          <view class="mini-btn danger" wx:if="{{hasGeo}}" bindtap="clearGeo">清除</view>
+        </view>
+      </view>
       <view class="field">
         <text class="label">工厂简介（将展示给找厂客户）</text>
         <textarea class="textarea" data-field="intro" value="{{profile.intro}}" bindinput="onProfileInput" maxlength="500" placeholder="主营产品、设备情况等" />
       </view>
       <button class="btn-primary card-btn" bindtap="saveProfile">保存资料</button>
+    </view>
+
+    <!-- 经营硬指标（Batch D1）：印查查式工厂画像，展示在工厂详情页「概况」段 -->
+    <view class="card">
+      <view class="card-title">经营硬指标</view>
+      <view class="trust-tip">如实填报，客户在工厂详情页直接看这些数据；没填的项展示为「—」（与填 0 不同）。当前详情页浏览量：{{viewCount}}</view>
+      <view class="field" style="margin-top:16rpx">
+        <text class="label">厂房面积（㎡）</text>
+        <input class="input" type="digit" data-field="factoryArea" value="{{metrics.factoryArea}}" bindinput="onMetricInput" placeholder="选填，如 3000" />
+      </view>
+      <view class="field">
+        <text class="label">年交易额（万元）</text>
+        <input class="input" type="digit" data-field="annualVolume" value="{{metrics.annualVolume}}" bindinput="onMetricInput" placeholder="选填，如 3000" />
+      </view>
+      <view class="field">
+        <text class="label">员工总数（人）</text>
+        <input class="input" type="digit" data-field="employeeCount" value="{{metrics.employeeCount}}" bindinput="onMetricInput" placeholder="选填，如 80" />
+      </view>
+      <view class="field">
+        <text class="label">主要设备（台）</text>
+        <input class="input" type="digit" data-field="equipmentCount" value="{{metrics.equipmentCount}}" bindinput="onMetricInput" placeholder="选填，如 12" />
+      </view>
+      <view class="field">
+        <text class="label">流水线条数（条）</text>
+        <input class="input" type="digit" data-field="assemblyLines" value="{{metrics.assemblyLines}}" bindinput="onMetricInput" placeholder="选填，如 3" />
+      </view>
+      <view class="field" style="margin-top:4rpx">
+        <text class="label">是否对外加工</text>
+        <view class="cap-list" style="margin-top:12rpx">
+          <view class="cap-item {{metrics.outerProcessing === o.code ? 'on' : ''}}"
+                wx:for="{{outerOptions}}" wx:for-item="o" wx:key="code"
+                data-code="{{o.code}}" bindtap="pickOuter">{{o.name}}</view>
+        </view>
+      </view>
+      <button class="btn-primary card-btn" bindtap="saveMetrics">保存硬指标</button>
     </view>
 
     <!-- F-102 我的专属二维码：客户扫码直达我厂询价页，不走平台撮合 -->
@@ -228,10 +272,10 @@
       <button class="btn-primary card-btn" bindtap="saveCapacity">保存产能状态</button>
     </view>
 
-    <!-- 设备图文：客户工厂详情页图集（最多 9 张，上传即展示） -->
+    <!-- 设备图文：客户工厂详情页图集（最多 9 张，实拍上传即展示、资质证书审核后展示） -->
     <view class="card">
       <view class="card-title">设备图文（{{media.length}}/{{mediaMax}}）</view>
-      <view class="trust-tip">上传设备、车间、样品实拍，展示在工厂详情页图集，提升客户信任与成单率。</view>
+      <view class="trust-tip">上传设备、车间、样品实拍与资质证书，展示在工厂详情页图集，提升客户信任与成单率（实拍先上传先展示，资质证书需平台审核通过后才对外）。</view>
       <view class="media-grid" style="margin-top:16rpx">
         <view class="media-item" wx:for="{{media}}" wx:key="id">
           <image class="media-img" src="{{apiBase + item.url}}" mode="aspectFill" data-url="{{item.url}}" bindtap="previewMedia" />

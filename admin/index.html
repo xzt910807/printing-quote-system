@@ -957,6 +957,64 @@
                   <option :value="3">深度验厂</option>
                 </select>
               </div>
+              <div class="form-item full">
+                <label>验真备注（平台内部留痕，不对外下发）</label>
+                <input v-model.trim="factoryEditor.form.verificationNote" maxlength="200"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如：营业执照联网核验一致" />
+              </div>
+              <!-- Batch D1 经营硬指标：工厂在小程序「工厂资料」自报，后台可代填/纠正；
+                   留空表示未填报（存 NULL），C 端详情页该格显示“-”而不是 0 -->
+              <div class="form-item full">
+                <label>经营硬指标（留空 = 未填报，小程序工厂页概览区展示）</label>
+              </div>
+              <div class="form-item">
+                <label>厂房面积（㎡）</label>
+                <input type="number" min="0" v-model="factoryEditor.form.factoryArea"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 5000" />
+              </div>
+              <div class="form-item">
+                <label>年交易额（万元）</label>
+                <input type="number" min="0" step="0.01" v-model="factoryEditor.form.annualVolume"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 3000" />
+              </div>
+              <div class="form-item">
+                <label>员工总数</label>
+                <input type="number" min="0" v-model="factoryEditor.form.employeeCount"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 120" />
+              </div>
+              <div class="form-item">
+                <label>主要设备台数</label>
+                <input type="number" min="0" v-model="factoryEditor.form.equipmentCount"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 30" />
+              </div>
+              <div class="form-item">
+                <label>流水线条数</label>
+                <input type="number" min="0" v-model="factoryEditor.form.assemblyLines"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 6" />
+              </div>
+              <div class="form-item">
+                <label>是否对外加工</label>
+                <select v-model="factoryEditor.form.outerProcessing" :disabled="!hasPerm('factory:manage')">
+                  <option value="">未表态</option>
+                  <option :value="1">是</option>
+                  <option :value="0">否</option>
+                </select>
+              </div>
+              <!-- Batch D2 坐标：主采集入口在小程序工厂端「地图选址」，这里只用于纠正；
+                   两个框必须同时填或同时留空（半个坐标算不出距离，后端会拒） -->
+              <div class="form-item full">
+                <label>厂址坐标（留空 = 未选址，两个框必须成对填写或成对清空）</label>
+              </div>
+              <div class="form-item">
+                <label title="纬度 -90 ~ 90">纬度 lat</label>
+                <input type="number" step="0.000001" v-model="factoryEditor.form.lat"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 27.993846" />
+              </div>
+              <div class="form-item">
+                <label title="经度 -180 ~ 180">经度 lng</label>
+                <input type="number" step="0.000001" v-model="factoryEditor.form.lng"
+                       :disabled="!hasPerm('factory:manage')" placeholder="如 120.699362" />
+              </div>
             </div>
             <div class="form-actions">
               <button class="btn btn-primary" @click="saveFactory">保存</button>
@@ -1027,26 +1085,31 @@
           <div class="modal-mask" v-if="mediaModal.open" @click.self="closeFactoryMedia">
             <div class="modal-box" style="max-width:840px">
               <div class="panel-title">{{ mediaModal.factoryName }} · 设备图文</div>
-              <div class="panel-sub" style="margin:-8px 0 12px">工厂自助上传的设备/车间/样品实拍。上传即展示（approved），此处可驳回违规图（驳回连带删除文件）。</div>
+              <div class="panel-sub" style="margin:-8px 0 12px">工厂自助上传的设备/车间/样品实拍与资质证书。上传即展示（approved），此处可驳回违规图（驳回连带删除文件）。资质证书属平台核验依据，驳回前请先与工厂确认。</div>
               <div v-if="mediaModal.loading" class="empty">加载中…</div>
               <div v-else-if="!mediaModal.list.length" class="empty">该厂暂无图文</div>
-              <div class="media-grid" v-else>
-                <div class="media-cell" v-for="m in mediaModal.list" :key="m.id">
-                  <img :src="m.url" class="design-thumb" title="点击放大原图" @click="openDesignImg(m.url)" />
-                  <div class="media-meta">
-                    <span class="badge" style="background:#e0f2fe;color:#0369a1">{{ mediaTypeLabel(m.media_type) }}</span>
-                    <span class="badge"
-                          :style="m.audit_status==='approved' ? 'background:#dcfce7;color:#15803d' : (m.audit_status==='rejected' ? 'background:#fee2e2;color:#dc2626' : 'background:#fef3c7;color:#b45309')">
-                      {{ m.audit_status==='approved' ? '已通过' : (m.audit_status==='rejected' ? '已驳回' : '待审核') }}
-                    </span>
-                  </div>
-                  <div class="media-cap" v-if="m.caption">{{ m.caption }}</div>
-                  <div class="media-acts">
-                    <button class="btn btn-sm btn-primary" v-if="m.audit_status!=='approved'" @click="auditMedia(m, 'approve')">通过</button>
-                    <button class="btn btn-sm btn-danger" @click="auditMedia(m, 'reject')">驳回</button>
+              <!-- Batch D1：按类型分组，资质证书与车间实拍不再混在一张平铺图上 -->
+              <template v-else>
+                <div v-for="g in mediaGroups" :key="g.type">
+                  <div class="panel-title" style="font-size:14px;margin:14px 0 8px">{{ g.label }} · {{ g.items.length }} 张</div>
+                  <div class="media-grid">
+                    <div class="media-cell" v-for="m in g.items" :key="m.id">
+                      <img :src="m.url" class="design-thumb" title="点击放大原图" @click="openDesignImg(m.url)" />
+                      <div class="media-meta">
+                        <span class="badge"
+                              :style="m.audit_status==='approved' ? 'background:#dcfce7;color:#15803d' : (m.audit_status==='rejected' ? 'background:#fee2e2;color:#dc2626' : 'background:#fef3c7;color:#b45309')">
+                          {{ m.audit_status==='approved' ? '已通过' : (m.audit_status==='rejected' ? '已驳回' : '待审核') }}
+                        </span>
+                      </div>
+                      <div class="media-cap" v-if="m.caption">{{ m.caption }}</div>
+                      <div class="media-acts">
+                        <button class="btn btn-sm btn-primary" v-if="m.audit_status!=='approved'" @click="auditMedia(m, 'approve')">通过</button>
+                        <button class="btn btn-sm btn-danger" @click="auditMedia(m, 'reject')">驳回</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </template>
               <div class="form-actions">
                 <button class="btn btn-secondary" @click="closeFactoryMedia">关闭</button>
               </div>
@@ -2106,7 +2169,7 @@
   <script src="./js/api.js?v=21"></script>
   <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=34"></script>
+  <script src="./js/app.js?v=35"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

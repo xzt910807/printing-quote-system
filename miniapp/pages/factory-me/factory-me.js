@@ -117,12 +117,29 @@ const CAPACITY_OPTIONS = [
   { code: 'busy', name: '排单饱和', tip: '暂少接新单' },
 ];
 // 027 设备图文类型（与后端 MEDIA_TYPES 一致，上限 9 张）
+// certificate=资质证书（Batch D1）：营业执照/印刷许可证扫描件走同一通道，展示在工厂详情页图集里
 const MEDIA_TYPE_OPTIONS = [
   { code: 'equipment', name: '设备' },
   { code: 'workshop', name: '车间' },
   { code: 'product', name: '样品' },
+  { code: 'certificate', name: '资质证书' },
 ];
 const MAX_MEDIA_COUNT = 9;
+
+// Batch D1 经营硬指标（与后端 HARD_METRICS 白名单一一对应，字段名用驼峰提交）
+// 单独成一个对象而不是并入 profile：保存基本资料时只发 contact/phone/... 不带这些键，
+// 后端按「没传就不动这一列」处理，避免改个电话把后台核验过的面积/设备数清成空
+const OUTER_OPTIONS = [
+  { code: '1', name: '接受对外加工' },
+  { code: '0', name: '只接自有订单' },
+];
+
+// DECIMAL 列下来是 '3000.00' 这种串，回填输入框前去掉多余的零（填过的数字要能原样保存回去）
+function fmtMetric(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : '';
+}
 
 function buildCapView(caps) {
   const view = {};
@@ -226,6 +243,14 @@ Page({
     mediaTypeIndex: 0,
     media: [],
     mediaMax: MAX_MEDIA_COUNT,
+    // Batch D1 经营硬指标（空串=未填报，落库 NULL；与 0 是两回事）
+    metrics: { factoryArea: '', annualVolume: '', employeeCount: '', equipmentCount: '', assemblyLines: '', outerProcessing: '' },
+    outerOptions: OUTER_OPTIONS,
+    viewCount: '',
+    // Batch D2 地图选址：后端存 lat/lng，距离排序靠它；本厂地址在后台/工厂自己手里，选址不会抢地址字段
+    geo: { lat: '', lng: '' },
+    geoText: '未选址',
+    hasGeo: false,
   },
 
   onLoad(options) {
@@ -423,6 +448,22 @@ Page({
           note: p.capacity_note || '',
         },
         capacityUpdatedAt: p.capacity_updated_at ? this.fmtDate(p.capacity_updated_at) : '',
+        // Batch D1 经营硬指标回填（NULL → 空串，输入框里空代「未填报」而不是 0）
+        metrics: {
+          factoryArea: fmtMetric(p.factory_area),
+          annualVolume: fmtMetric(p.annual_volume),
+          employeeCount: fmtMetric(p.employee_count),
+          equipmentCount: fmtMetric(p.equipment_count),
+          assemblyLines: fmtMetric(p.assembly_lines),
+          outerProcessing: (p.outer_processing === null || p.outer_processing === undefined)
+            ? '' : String(Number(p.outer_processing)),
+        },
+        viewCount: fmtMetric(p.view_count) || '0',
+        geo: { lat: fmtMetric(p.lat), lng: fmtMetric(p.lng) },
+        geoText: (p.lat && p.lng)
+          ? fmtMetric(p.lat) + ', ' + fmtMetric(p.lng)
+          : '未选址',
+        hasGeo: !!(p.lat && p.lng),
         media: (mediaRes.data && mediaRes.data.list) || [],
       });
     } catch (err) {
@@ -447,6 +488,92 @@ Page({
         headers: this.authHeaders(),
       });
       wx.showToast({ title: '资料已保存', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message, icon: 'none' });
+    }
+  },
+
+  // ===== Batch D1 经营硬指标（工厂自报，展示在工厂详情页概况段） =====
+  onMetricInput(e) {
+    this.setData({ ['metrics.' + e.currentTarget.dataset.field]: e.detail.value });
+  },
+
+  // 对外加工是 0/1 三态（未表态=NULL），再点一次已选项即撤回
+  pickOuter(e) {
+    const code = e.currentTarget.dataset.code;
+    this.setData({ 'metrics.outerProcessing': this.data.metrics.outerProcessing === code ? '' : code });
+  },
+
+  async saveMetrics() {
+    try {
+      await api.request('/api/factory/me/profile', {
+        method: 'PUT',
+        data: this.data.metrics,
+        headers: this.authHeaders(),
+      });
+      wx.showToast({ title: '硬指标已保存', icon: 'success' });
+      this.loadAll();
+    } catch (err) {
+      wx.showToast({ title: err.message, icon: 'none' });
+    }
+  },
+
+  // ===== Batch D2 地图选址（找厂页「距离最近」的数据来源） =====
+  // 后端 PUT /me/profile 对 lat/lng 是成对处理，所以选址结果一个请求提交，不拆两步
+  pickLocation() {
+    wx.chooseLocation({
+      success: (r) => {
+        const patch = {
+          lat: r.latitude,
+          lng: r.longitude,
+          // 工厂地址为空时顺手填上选点地址；已有地址就不动它，后台/工厂自己写的地址比自动选址更可靠
+          ...(this.data.profile.address ? {} : { address: r.address || r.name || '' }),
+        };
+        this.setData({
+          'geo.lat': patch.lat,
+          'geo.lng': patch.lng,
+          geoText: patch.lat.toFixed(6) + ', ' + patch.lng.toFixed(6),
+          hasGeo: true,
+          ...(patch.address ? { 'profile.address': patch.address } : {}),
+        });
+        this.saveGeo(patch, r.name || '');
+      },
+      // 用户主动取消不提醒；其余失败（未授权/后台定位关）给出可操作的下一步
+      fail: (e) => {
+        if (e && String(e.errMsg || '').indexOf('cancel') >= 0) return;
+        wx.showModal({
+          title: '选址失败',
+          content: '需要在右上角“…”→ 设置里允许使用位置权限，再重新选址',
+          showCancel: false,
+        });
+      },
+    });
+  },
+
+  async saveGeo(patch, placeName) {
+    try {
+      await api.request('/api/factory/me/profile', {
+        method: 'PUT',
+        data: patch,
+        headers: this.authHeaders(),
+      });
+      wx.showToast({ title: placeName ? '已选址：' + placeName : '坐标已保存', icon: 'none' });
+    } catch (err) {
+      wx.showToast({ title: err.message, icon: 'none' });
+      this.loadAll();
+    }
+  },
+
+  // 撤回选址（搬厂/选错了）：两个都传空 → 后端归一为 NULL
+  async clearGeo() {
+    try {
+      await api.request('/api/factory/me/profile', {
+        method: 'PUT',
+        data: { lat: '', lng: '' },
+        headers: this.authHeaders(),
+      });
+      this.setData({ 'geo.lat': '', 'geo.lng': '', geoText: '未选址', hasGeo: false });
+      wx.showToast({ title: '已清除选址', icon: 'none' });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
     }
