@@ -353,3 +353,24 @@ node scripts/backfill-factory-geo.js --apply
 回填的是**市中心粗坐标**（同城厂之间距离会是 0.0km）；工厂在小程序「我的工厂 → 基本资料 → 地图选址」
 选点后即为精确位置（会覆盖回填值）。
 
+### 14.7 图集视频通道（Batch D3）
+
+新列（`factory_media` 表末尾，均默认 NULL，存量行无影响）：`cover_url` `duration` `file_size`。
+无新索引（图集一直走既有的 `idx_factory_audit(factory_id, audit_status)`），`node scripts/schema-sync.js --apply` 补齐即可。
+
+上传通道与图片不同，走 multer 落盘而不是 base64：
+- `src/middlewares/upload.js` 提供 `videoUpload`（20MB，mp4/mov）/ `coverUpload`（5MB 图）/ `imageUpload`（社区图片，Batch D4 用），
+  文件直接落 `uploads/factory-media/`、`uploads/community/`，只把相对路径写进库；
+  必须单独开这一路是因为 `app.js` 里 `express.json({limit:'2mb'})` 钉死了请求体，视频根本进不来（base64 还比原文件大 1/3）。
+- 扩展名与 MIME **双白名单**，两者都要过：只校扩展名会把 .exe 改名成 .mp4 塞进来；服务端生成落盘文件名，不用客户端给的原始名。
+- `POST /api/factory/me/media-video`（multipart：file + caption + duration）写入 `media_type='video'`、`audit_status='pending'` ——
+  视频与资质证书同为**先审后发**，后台「设备图文」弹窗里点「通过」才对 C 端可见；实拍图仍先发后审，别把这条改回去。
+- `POST /api/factory/me/media-video-cover`（multipart：file + mediaId）给本厂一条视频换首帧封面，不传也能用（端上给占位）。
+- 删除图集条目会连 `cover_url` 指向的封面文件一起删；审核驳回同样连带清掉视频与封面文件。
+
+可调环境变量：`MEDIA_VIDEO_MAX_MB`（默认 20，改了要重启）。小程序端 `pages/factory-me/factory-me.js` 的
+`MAX_VIDEO_MB` 是同一值的副本，只改服务端不改端上会出现「端上放行、服务端拒收」，用户白等一场上传。
+
+播放不需要额外配置：`app.js` 用 `express.static` 托管 `/uploads`，支持 Range 请求，mp4 可直接流播、可拖进度条。
+上线后盯 `uploads/` 所在磁盘余量：历史文件只随条目删除而删除，**没有自动过期清理**，待审后被驳回/长期无人管的条目会一直占空间。
+

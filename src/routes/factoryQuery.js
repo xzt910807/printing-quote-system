@@ -189,9 +189,10 @@ router.get('/public/:id', async (req, res) => {
     );
     if (!rows.length) throw new Error('工厂不存在或已停用');
 
-    // 设备图文：仅下发审核通过的图（驳回/待审不对外）
+    // 设备图文：仅下发审核通过的条目（驳回/待审不对外，视频与图走同一个 audit_status 口径）
+    // cover_url/duration/file_size 只有 video 条目会非空，给小程序视频段做封面与时长角标
     const [media] = await pool.query(
-      "SELECT media_type, url, caption FROM factory_media WHERE factory_id = ? AND audit_status = 'approved' ORDER BY sort ASC, id ASC LIMIT 18",
+      "SELECT media_type, url, caption, cover_url, duration, file_size FROM factory_media WHERE factory_id = ? AND audit_status = 'approved' ORDER BY sort ASC, id ASC LIMIT 18",
       [id]
     );
 
@@ -430,7 +431,7 @@ router.get('/:id(\\d+)/media', requireAdmin, requirePermission('factory:view'), 
   try {
     const id = parseInt(req.params.id, 10);
     const [rows] = await pool.query(
-      'SELECT id, media_type, url, caption, sort, audit_status, created_at FROM factory_media WHERE factory_id = ? ORDER BY sort ASC, id ASC',
+      'SELECT id, media_type, url, caption, sort, audit_status, cover_url, duration, file_size, created_at FROM factory_media WHERE factory_id = ? ORDER BY sort ASC, id ASC',
       [id]
     );
     res.json(ok({ total: rows.length, list: rows }));
@@ -446,15 +447,17 @@ router.post('/media/:mediaId/audit', requireAdmin, requirePermission('factory:ma
     const mediaId = parseInt(req.params.mediaId, 10);
     const action = (req.body || {}).action;
     if (!['approve', 'reject'].includes(action)) throw new Error('action 必须为 approve 或 reject');
-    const [[row]] = await pool.query('SELECT id, url, factory_id FROM factory_media WHERE id = ?', [mediaId]);
+    const [[row]] = await pool.query('SELECT id, url, cover_url, factory_id FROM factory_media WHERE id = ?', [mediaId]);
     if (!row) throw new Error('图片不存在');
     if (action === 'approve') {
       await pool.query("UPDATE factory_media SET audit_status = 'approved' WHERE id = ?", [mediaId]);
     } else {
       await pool.query('DELETE FROM factory_media WHERE id = ?', [mediaId]);
-      // 驳回即清理文件（限定本服务上传目录内）
-      if (row.url && row.url.startsWith('/uploads/factory-media/')) {
-        try { require('fs').unlinkSync(require('path').join(__dirname, '..', '..', 'uploads', 'factory-media', require('path').basename(row.url))); } catch (e) { /* 忽略 */ }
+      // 驳回即清理文件（限定本服务上传目录内）；视频连首帧封面一起清
+      for (const u of [row.url, row.cover_url]) {
+        if (u && u.startsWith('/uploads/factory-media/')) {
+          try { require('fs').unlinkSync(require('path').join(__dirname, '..', '..', 'uploads', 'factory-media', require('path').basename(u))); } catch (e) { /* 忽略 */ }
+        }
       }
     }
     res.json(ok({ id: mediaId, action }));

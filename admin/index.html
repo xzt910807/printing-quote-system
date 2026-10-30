@@ -7,7 +7,7 @@
   <!-- 关键防闪现规则内联：不依赖外部 CSS 是否命中缓存，Vue 挂载前 #app 必然隐藏
        （仅加 v-cloak 属性 + 外部样式曾被旧缓存绕过，导致首屏闪现未编译模板/弹窗） -->
   <style>[v-cloak] { display: none !important; }</style>
-  <link rel="stylesheet" href="./css/style.css?v=32">
+  <link rel="stylesheet" href="./css/style.css?v=33">
 </head>
 <body>
   <div id="app" v-cloak>
@@ -1081,25 +1081,28 @@
             </div>
           </div>
 
-          <!-- 027 设备图文审核弹窗：该厂全部图文（含待审/驳回），逐张通过/驳回 -->
+          <!-- 027 设备图文审核弹窗：该厂全部图文与视频（含待审/驳回），逐条通过/驳回 -->
           <div class="modal-mask" v-if="mediaModal.open" @click.self="closeFactoryMedia">
             <div class="modal-box" style="max-width:840px">
               <div class="panel-title">{{ mediaModal.factoryName }} · 设备图文</div>
-              <div class="panel-sub" style="margin:-8px 0 12px">工厂自助上传的设备/车间/样品实拍与资质证书。上传即展示（approved），此处可驳回违规图（驳回连带删除文件）。资质证书属平台核验依据，驳回前请先与工厂确认。</div>
+              <div class="panel-sub" style="margin:-8px 0 12px">工厂自助上传的设备/车间/样品实拍、资质证书与验厂视频。实拍上传即展示（approved）；资质证书与视频先审后发，此处点「通过」才对客户可见。驳回会连带删除文件。资质证书属平台核验依据，驳回前请先与工厂确认。</div>
               <div v-if="mediaModal.loading" class="empty">加载中…</div>
               <div v-else-if="!mediaModal.list.length" class="empty">该厂暂无图文</div>
-              <!-- Batch D1：按类型分组，资质证书与车间实拍不再混在一张平铺图上 -->
+              <!-- Batch D1：按类型分组，资质证书与车间实拍不再混在一张平铺图上；Batch D3：视频就地可播 -->
               <template v-else>
                 <div v-for="g in mediaGroups" :key="g.type">
-                  <div class="panel-title" style="font-size:14px;margin:14px 0 8px">{{ g.label }} · {{ g.items.length }} 张</div>
+                  <div class="panel-title" style="font-size:14px;margin:14px 0 8px">{{ g.label }} · {{ g.items.length }} {{ g.type === 'video' ? '条' : '张' }}</div>
                   <div class="media-grid">
                     <div class="media-cell" v-for="m in g.items" :key="m.id">
-                      <img :src="m.url" class="design-thumb" title="点击放大原图" @click="openDesignImg(m.url)" />
+                      <!-- 审核要能真播一段再决定放不放对外（express.static 支持 Range, 拖进度条也快） -->
+                      <video v-if="m.media_type==='video'" :src="m.url" class="media-video" controls preload="metadata" :poster="m.cover_url || ''"></video>
+                      <img v-else :src="m.url" class="design-thumb" title="点击放大原图" @click="openDesignImg(m.url)" />
                       <div class="media-meta">
                         <span class="badge"
                               :style="m.audit_status==='approved' ? 'background:#dcfce7;color:#15803d' : (m.audit_status==='rejected' ? 'background:#fee2e2;color:#dc2626' : 'background:#fef3c7;color:#b45309')">
                           {{ m.audit_status==='approved' ? '已通过' : (m.audit_status==='rejected' ? '已驳回' : '待审核') }}
                         </span>
+                        <span class="badge" v-if="mediaMetaText(m)" style="background:#e0f2fe;color:#0369a1">{{ mediaMetaText(m) }}</span>
                       </div>
                       <div class="media-cap" v-if="m.caption">{{ m.caption }}</div>
                       <div class="media-acts">
@@ -2169,7 +2172,7 @@
   <script src="./js/api.js?v=21"></script>
   <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=35"></script>
+  <script src="./js/app.js?v=36"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>

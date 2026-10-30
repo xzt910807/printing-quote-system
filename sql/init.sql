@@ -993,15 +993,18 @@ DROP TABLE IF EXISTS `factory_media`;
 CREATE TABLE `factory_media`  (
   `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
   `factory_id` int(0) NOT NULL COMMENT '工厂ID，关联 factory.id',
-  `media_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'equipment' COMMENT '图片类型：equipment=设备 workshop=车间 product=样品 certificate=资质证书',
-  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '图片相对路径（/uploads/factory-media/...）',
+  `media_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'equipment' COMMENT '内容类型：equipment=设备 workshop=车间 product=样品 certificate=资质证书 video=视频',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '相对路径（图片 /uploads/factory-media/...，视频同目录）',
   `caption` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '图注（如\"海德堡对开机×2\"）',
   `sort` int(0) NOT NULL DEFAULT 0 COMMENT '排序（小在前）',
   `audit_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'approved' COMMENT '审核状态：pending=待审 approved=已过 rejected=驳回',
   `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `cover_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '视频首帧封面图（仅 video 用，列表/详情没封面时给占位图）',
+  `duration` int(0) NULL DEFAULT NULL COMMENT '视频时长(秒)，由上传端传上来（服务端不解容器元数据）',
+  `file_size` int(0) NULL DEFAULT NULL COMMENT '文件字节数（video 上传时 multer 回的 size）',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_factory_audit`(`factory_id`, `audit_status`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '工厂设备/车间图文（C端详情图集）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '工厂设备/车间图文与视频（C端详情图集）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of factory_media

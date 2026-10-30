@@ -272,6 +272,8 @@ body {
   border-radius: 8px;
 }
 .media-cell .design-thumb { height: 120px; width: 100%; object-fit: cover; margin-right: 0; }
+/* Batch D3 图集视频：审核弹窗里直接播（contain 不裁画面，黑底避开卡片底色） */
+.media-cell .media-video { height: 120px; width: 100%; background: #0f172a; border-radius: 6px; object-fit: contain; }
 .media-meta { display: flex; gap: 6px; margin-top: 8px; }
 .media-cap {
   margin-top: 6px;

@@ -125,6 +125,21 @@ const MEDIA_TYPE_OPTIONS = [
   { code: 'certificate', name: '资质证书' },
 ];
 const MAX_MEDIA_COUNT = 9;
+// Batch D3 图集视频上限（与后端 middlewares/upload.js 的 MEDIA_VIDEO_MAX_MB 一致）：
+// 超了后端会直接拒，先在端上拦一次免得用户白等一场上传
+const MAX_VIDEO_MB = 20;
+// 审核状态中文（视频与资质证书先审后发，待审期间 C 端看不到，得让工厂知道原因）
+const VIDEO_STATUS_TEXT = { pending: '平台审核中，通过后对外展示', approved: '已通过审核', rejected: '已被驳回，请删除后重新上传' };
+
+// 图条目的展示派生字段（视频要区分渲染方式 + 时长/体积角标）
+function decorateMedia(list) {
+  return (list || []).map((m) => ({
+    ...m,
+    isVideo: m.media_type === 'video',
+    durationText: m.duration ? Math.floor(m.duration / 60) + ':' + String(m.duration % 60).padStart(2, '0') : '',
+    sizeText: m.file_size ? Math.round(m.file_size / 1024 / 1024 * 10) / 10 + 'MB' : '',
+  }));
+}
 
 // Batch D1 经营硬指标（与后端 HARD_METRICS 白名单一一对应，字段名用驼峰提交）
 // 单独成一个对象而不是并入 profile：保存基本资料时只发 contact/phone/... 不带这些键，
@@ -237,12 +252,18 @@ Page({
     capacityOptions: CAPACITY_OPTIONS,
     capacity: { status: '', note: '' },
     capacityUpdatedAt: '',
-    // 027 设备图文画像（本厂图集，上传/删除；默认审核通过直接展示）
+    // 027 设备图文画像（本厂图集，上传/删除；实拍先发后审，资质证书与视频先审后发）
     apiBase: api.BASE_URL,
     mediaTypeOptions: MEDIA_TYPE_OPTIONS,
     mediaTypeIndex: 0,
     media: [],
     mediaMax: MAX_MEDIA_COUNT,
+    maxVideoMb: MAX_VIDEO_MB,
+    // Batch D3 视频播放弹层（在本页内播，不跳页；关闭即销毁，免得原生播放器在后台继续出声）
+    videoVisible: false,
+    videoUrl: '',
+    videoTitle: '',
+    videoStatusText: '',
     // Batch D1 经营硬指标（空串=未填报，落库 NULL；与 0 是两回事）
     metrics: { factoryArea: '', annualVolume: '', employeeCount: '', equipmentCount: '', assemblyLines: '', outerProcessing: '' },
     outerOptions: OUTER_OPTIONS,
@@ -464,7 +485,7 @@ Page({
           ? fmtMetric(p.lat) + ', ' + fmtMetric(p.lng)
           : '未选址',
         hasGeo: !!(p.lat && p.lng),
-        media: (mediaRes.data && mediaRes.data.list) || [],
+        media: decorateMedia(mediaRes.data && mediaRes.data.list),
       });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
@@ -733,7 +754,7 @@ Page({
     }
   },
 
-  // ===== 027 设备图文画像（base64 上传与头像同机制；上传即展示，违规图平台可驳回下架） =====
+  // ===== 027 设备图文画像（base64 上传与头像同机制；实拍先上传先展示，资质证书与视频需平台审核） =====
   onMediaTypeChange(e) {
     this.setData({ mediaTypeIndex: Number(e.detail.value) });
   },
@@ -808,6 +829,95 @@ Page({
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
     }
+  },
+
+  // Batch D3 图集视频：必须走 multipart 而不是既有的 base64 通道——
+  // 全局 express.json 限额 2MB，且 base64 比原文件还大约 1/3，视频传不上来（见 middlewares/upload.js）
+  addVideo() {
+    const d = this.data;
+    if (d.media.length >= MAX_MEDIA_COUNT) {
+      return wx.showToast({ title: '最多 ' + MAX_MEDIA_COUNT + ' 项，请先删除旧内容', icon: 'none' });
+    }
+    wx.chooseVideo({
+      sourceType: ['album', 'camera'],
+      maxDuration: 60,
+      compressed: true,
+      camera: 'back',
+      success: async (res) => {
+        const sizeMb = Math.round((Number(res.size) || 0) / 1024 / 1024 * 10) / 10;
+        if (sizeMb > MAX_VIDEO_MB) {
+          return wx.showToast({ title: '视频 ' + sizeMb + 'MB 超过 ' + MAX_VIDEO_MB + 'MB 上限', icon: 'none' });
+        }
+        const modal = await new Promise((resolve) => wx.showModal({
+          title: '视频说明（选填）',
+          editable: true,
+          placeholderText: '如：车间实拍 · 海德堡开机中',
+          success: resolve,
+          fail: () => resolve({ confirm: false }),
+        }));
+        if (!modal || !modal.confirm) return;
+        const caption = (modal.content || '').trim().slice(0, 100);
+        wx.showLoading({ title: '上传中', mask: true });
+        try {
+          await api.upload('/api/factory/me/media-video', res.tempFilePath, {
+            caption,
+            // 时长由端上给（wx.chooseVideo 返回秒数），服务端不解析容器元数据
+            duration: Math.round(Number(res.duration) || 0),
+          }, { headers: this.authHeaders() });
+          wx.hideLoading();
+          wx.showToast({ title: '已上传，待平台审核', icon: 'none' });
+          this.loadAll();
+        } catch (err) {
+          wx.hideLoading();
+          wx.showToast({ title: err.message || '上传失败', icon: 'none' });
+        }
+      },
+      fail: () => { /* 用户取消选择，不打扰 */ },
+    });
+  },
+
+  playVideo(e) {
+    const { url, id } = e.currentTarget.dataset;
+    if (!url) return;
+    const item = (this.data.media || []).find((m) => String(m.id) === String(id)) || {};
+    this.setData({
+      videoVisible: true,
+      videoUrl: this.data.apiBase + url,
+      videoTitle: item.caption || '工厂视频',
+      videoStatusText: VIDEO_STATUS_TEXT[item.audit_status] || '',
+    });
+  },
+
+  closeVideo() {
+    // src 一并清空：video 是原生组件，只把浮层 v:if 关掉会留下一个还在出声的播放器
+    this.setData({ videoVisible: false, videoUrl: '', videoTitle: '', videoStatusText: '' });
+  },
+
+  // 视频首帧封面：不传也能用（C 端视频区按类型给占位块），这里只是让工厂能把视频做得好看
+  setVideoCover(e) {
+    const mediaId = e.currentTarget.dataset.id;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = res.tempFiles && res.tempFiles[0];
+        if (!file) return;
+        wx.showLoading({ title: '上传中', mask: true });
+        try {
+          await api.upload('/api/factory/me/media-video-cover', file.tempFilePath,
+            { mediaId }, { headers: this.authHeaders() });
+          wx.hideLoading();
+          wx.showToast({ title: '封面已更新', icon: 'success' });
+          this.loadAll();
+        } catch (err) {
+          wx.hideLoading();
+          wx.showToast({ title: err.message || '封面上传失败', icon: 'none' });
+        }
+      },
+      fail: () => { /* 用户取消选择 */ },
+    });
   },
 
   // ===== 员工管理（简版：列表 + 新增 + 启停） =====

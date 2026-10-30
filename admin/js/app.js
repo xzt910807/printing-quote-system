@@ -2692,11 +2692,30 @@ const app = createApp({
     function onOpLogSearch() { debounceSearch('oplog', loadFactoryOpLogs); }
     function closeFactoryOpLogs() { state.opLogModal.open = false; }
 
-    // ===== 027 设备图文审核：弹窗展示该厂全部图文（含待审/驳回），支持通过/驳回 =====
-    const MEDIA_TYPE_TEXT = { equipment: '设备', workshop: '车间', product: '样品', certificate: '资质证书' };
+    // ===== 027 设备图文审核：弹窗展示该厂全部图文与视频（含待审/驳回），支持通过/驳回 =====
+    const MEDIA_TYPE_TEXT = { equipment: '设备', workshop: '车间', product: '样品', certificate: '资质证书', video: '视频' };
     const mediaTypeLabel = (t) => MEDIA_TYPE_TEXT[t] || t;
-    // 图集弹窗按类型分组（Batch D1）：资质证书与设备实拍混在一起平铺，审核人分不清哪张是厂验依据
-    const MEDIA_TYPE_ORDER = ['equipment', 'workshop', 'product', 'certificate'];
+    // 视频时长 m:ss / 体积 MB（库里只存秒数与字节数，格式统一在前端转）
+    const fmtMediaDuration = (sec) => {
+      const n = Math.floor(Number(sec) || 0);
+      return n ? Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0') : '';
+    };
+    const fmtMediaSize = (bytes) => {
+      const n = Number(bytes) || 0;
+      return n ? Math.round(n / 1024 / 1024 * 10) / 10 + 'MB' : '';
+    };
+    // 审核人需要一眼看到时长/体积（是不是塞了个超长片、超大文件）
+    const mediaMetaText = (m) => {
+      const parts = [];
+      const d = fmtMediaDuration(m.duration);
+      if (d) parts.push('时长 ' + d);
+      const s = fmtMediaSize(m.file_size);
+      if (s) parts.push('体积 ' + s);
+      return parts.join(' · ');
+    };
+    // 图集弹窗按类型分组（Batch D1）：资质证书与设备实拍混在一张平铺图上，审核人分不清哪张是厂验依据
+    // Batch D3 把 video 排进末尾：视频条目在审核弹窗里要能真播，不能只给一张打不开的缩略图
+    const MEDIA_TYPE_ORDER = ['equipment', 'workshop', 'product', 'certificate', 'video'];
     const mediaGroups = computed(() => {
       const map = new Map();
       for (const m of state.mediaModal.list) {
@@ -2731,8 +2750,10 @@ const app = createApp({
     }
     async function auditMedia(m, action) {
       const label = action === 'approve' ? '通过' : '驳回';
-      const tip = action === 'reject' ? '\n驳回将删除该图片文件，不可恢复。' : '';
-      if (!(await ui.confirm(`确认${label}这张${mediaTypeLabel(m.media_type)}图片？${tip}`))) return;
+      // 确认文案里的物体名按类型区分：驳回一条视频却写「删除这张图片」会把人绕晕
+      const subject = m.media_type === 'video' ? '视频' : mediaTypeLabel(m.media_type) + '图片';
+      const tip = action === 'reject' ? `\n驳回将删除该${subject}文件，不可恢复。` : '';
+      if (!(await ui.confirm(`确认${label}这条${subject}？${tip}`))) return;
       try {
         await api.factoryMediaAudit(m.id, action);
         await loadFactoryMedia();
@@ -3052,7 +3073,7 @@ const app = createApp({
       loadFeeLedger, settleLedgerItem,
       OP_LOG_ACTIONS, opLogActionLabel, openFactoryOpLogs, loadFactoryOpLogs, onOpLogSearch, closeFactoryOpLogs,
       // 027 设备图文审核 + 验真徽章
-      mediaTypeLabel, mediaGroups, openFactoryMedia, loadFactoryMedia, auditMedia, closeFactoryMedia,
+      mediaTypeLabel, mediaGroups, mediaMetaText, openFactoryMedia, loadFactoryMedia, auditMedia, closeFactoryMedia,
       // Stage13 物流履约
       EXPRESS_COMPANIES, SHIPPING_MODE_TEXT, openShipModal, submitShip, openLogisticsViewer,
       shippingRuleText, openShippingEditor, saveShipping, toggleShipping, setDefaultShipping,

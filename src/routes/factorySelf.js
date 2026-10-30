@@ -9,6 +9,7 @@ const { ok, fail } = require('../utils/helpers');
 const { requireFactory } = require('../middlewares/auth');
 const guard = require('../services/contentGuard');
 const { HARD_METRICS, normalizeMetric, normalizeOuterProcessing, normalizeGeoPair } = require('../utils/factoryProfile');
+const { videoUpload, coverUpload } = require('../middlewares/upload');
 const { requirePermission } = require('../config/permissions');
 const sessionService = require('../services/sessionService');
 const opLog = require('../services/opLogService');
@@ -138,7 +139,7 @@ router.put('/me/capacity', requireFactory, async (req, res) => {
 router.get('/me/media', requireFactory, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, media_type, url, caption, sort, audit_status, created_at FROM factory_media WHERE factory_id = ? ORDER BY sort ASC, id ASC',
+      'SELECT id, media_type, url, caption, sort, audit_status, cover_url, duration, file_size, created_at FROM factory_media WHERE factory_id = ? ORDER BY sort ASC, id ASC',
       [req.factory.id]
     );
     res.json(ok({ total: rows.length, list: rows }));
@@ -187,15 +188,80 @@ router.post('/me/media', requireFactory, async (req, res) => {
   }
 });
 
+// POST /api/factory/me/media-video 上传一条图集视频（multipart：file + 可选 caption / duration）
+// 走 multer 而不是 base64：全局 express.json 的 2MB 限额决定了视频不可能从图集接口进来（见 middlewares/upload.js）
+router.post('/me/media-video', requireFactory, videoUpload, async (req, res) => {
+  try {
+    if (!req.file) throw new Error('未选择视频文件');
+    const [[cnt]] = await pool.query('SELECT COUNT(*) AS c FROM factory_media WHERE factory_id = ?', [req.factory.id]);
+    if (cnt.c >= MAX_MEDIA_COUNT) throw new Error('图集最多 ' + MAX_MEDIA_COUNT + ' 项，请先删除旧内容');
+    const cleanCap = String(req.body.caption || '').trim().slice(0, 100) || null;
+    await guard.assertTextAllowed(
+      [{ label: '视频说明', value: cleanCap }],
+      { openid: await guard.factoryOpenid(req.factoryUser.id), scene: 'media' }
+    );
+    // 时长由端上传（wx.chooseVideo 直接给秒数），服务端不解析容器元数据；非正数/越界一律当没填
+    const dur = Math.floor(Number(req.body.duration));
+    const duration = Number.isFinite(dur) && dur > 0 && dur <= 86400 ? dur : null;
+    const url = '/uploads/factory-media/' + req.file.filename;
+    const [ret] = await pool.query(
+      `INSERT INTO factory_media (factory_id, media_type, url, caption, audit_status, duration, file_size)
+       VALUES (?, 'video', ?, ?, 'pending', ?, ?)`,
+      [req.factory.id, url, cleanCap, duration, req.file.size]
+    );
+    opLog.logOp({
+      factoryId: req.factory.id, factoryUser: req.factoryUser, action: 'media_add',
+      detail: '新增图集视频 #' + ret.insertId + '（' + Math.round(req.file.size / 1024 / 1024 * 10) / 10 + 'MB）', req,
+    });
+    // needAudit 明说：视频比图片风险高（声音/场景不可控），一律先审后发，只有后台 approve 才在 C 端出现
+    res.json(ok({
+      id: ret.insertId, url, mediaType: 'video', caption: cleanCap,
+      duration, fileSize: req.file.size, needAudit: true,
+    }));
+  } catch (err) {
+    // 入库前失败（图注命中机审/超图集上限）要把已落盘的文件带走，不留孤儿文件
+    if (req.file) { try { fs.unlinkSync(req.file.path); } catch (e) { /* 忽略 */ } }
+    res.status(400).json(fail(err.message));
+  }
+});
+
+// POST /api/factory/me/media-video-cover 给本厂一条视频传首帧封面（multipart：file + mediaId）
+// 不传封面也能用（小程序端按类型给占位图），这个接口只是让工厂能把视频列表做得好看
+router.post('/me/media-video-cover', requireFactory, coverUpload, async (req, res) => {
+  try {
+    if (!req.file) throw new Error('未选择封面图片');
+    const mediaId = parseInt(req.body.mediaId, 10);
+    if (!mediaId) throw new Error('缺少 mediaId');
+    const [[row]] = await pool.query(
+      "SELECT id, cover_url FROM factory_media WHERE id = ? AND factory_id = ? AND media_type = 'video'",
+      [mediaId, req.factory.id]
+    );
+    if (!row) throw new Error('视频不存在或不属于本厂');
+    const url = '/uploads/factory-media/' + req.file.filename;
+    await pool.query('UPDATE factory_media SET cover_url = ? WHERE id = ?', [url, mediaId]);
+    // 换封面就删旧文件（仅限本服务上传目录内，路径前缀不合规不动）
+    if (row.cover_url && row.cover_url !== url && row.cover_url.startsWith('/uploads/factory-media/')) {
+      try { fs.unlinkSync(path.join(MEDIA_DIR, path.basename(row.cover_url))); } catch (e) { /* 忽略 */ }
+    }
+    res.json(ok({ id: mediaId, coverUrl: url }));
+  } catch (err) {
+    if (req.file) { try { fs.unlinkSync(req.file.path); } catch (e) { /* 忽略 */ } }
+    res.status(400).json(fail(err.message));
+  }
+});
+
 // DELETE /api/factory/me/media/:id 删除本厂一张图（连带清理磁盘文件）
 router.delete('/me/media/:id', requireFactory, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const [[row]] = await pool.query('SELECT id, url FROM factory_media WHERE id = ? AND factory_id = ?', [id, req.factory.id]);
+    const [[row]] = await pool.query('SELECT id, url, cover_url FROM factory_media WHERE id = ? AND factory_id = ?', [id, req.factory.id]);
     if (!row) throw new Error('图片不存在');
     await pool.query('DELETE FROM factory_media WHERE id = ?', [id]);
-    if (row.url && row.url.startsWith('/uploads/factory-media/')) {
-      try { fs.unlinkSync(path.join(MEDIA_DIR, path.basename(row.url))); } catch (e) { /* 文件不存在忽略 */ }
+    // 视频条目连同首帧封面一起删，不然删一次视频留一个孤儿封面文件
+    for (const u of [row.url, row.cover_url]) {
+      if (u && u.startsWith('/uploads/factory-media/')) {
+        try { fs.unlinkSync(path.join(MEDIA_DIR, path.basename(u))); } catch (e) { /* 文件不存在忽略 */ }
+      }
     }
     opLog.logOp({
       factoryId: req.factory.id, factoryUser: req.factoryUser, action: 'media_delete',

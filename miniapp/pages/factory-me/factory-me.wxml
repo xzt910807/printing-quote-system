@@ -272,19 +272,30 @@
       <button class="btn-primary card-btn" bindtap="saveCapacity">保存产能状态</button>
     </view>
 
-    <!-- 设备图文：客户工厂详情页图集（最多 9 张，实拍上传即展示、资质证书审核后展示） -->
+    <!-- 设备图文：客户工厂详情页图集（最多 9 项，实拍上传即展示、资质证书与视频审核后展示） -->
     <view class="card">
       <view class="card-title">设备图文（{{media.length}}/{{mediaMax}}）</view>
-      <view class="trust-tip">上传设备、车间、样品实拍与资质证书，展示在工厂详情页图集，提升客户信任与成单率（实拍先上传先展示，资质证书需平台审核通过后才对外）。</view>
+      <view class="trust-tip">上传设备、车间、样品实拍与资质证书，并可选一段验厂视频，展示在工厂详情页图集，提升客户信任与成单率（实拍先上传先展示，资质证书与视频需平台审核通过后才对外）。</view>
       <view class="media-grid" style="margin-top:16rpx">
         <view class="media-item" wx:for="{{media}}" wx:key="id">
-          <image class="media-img" src="{{apiBase + item.url}}" mode="aspectFill" data-url="{{item.url}}" bindtap="previewMedia" />
+          <!-- 视频条目：有封面铺封面、没封面给占位块，右下角时长角标，点开在本页弹层播放 -->
+          <view wx:if="{{item.isVideo}}" class="media-img media-video" data-id="{{item.id}}" data-url="{{item.url}}" bindtap="playVideo">
+            <image wx:if="{{item.cover_url}}" class="media-cover-img" src="{{apiBase + item.cover_url}}" mode="aspectFill" />
+            <text wx:else class="media-video-ic">▶</text>
+            <text class="media-video-tag">视频</text>
+            <text class="media-dur" wx:if="{{item.durationText}}">{{item.durationText}}</text>
+          </view>
+          <image wx:else class="media-img" src="{{apiBase + item.url}}" mode="aspectFill" data-url="{{item.url}}" bindtap="previewMedia" />
           <view class="media-cap" wx:if="{{item.caption}}">{{item.caption}}</view>
           <view class="media-del" data-id="{{item.id}}" catchtap="removeMedia">×</view>
           <view class="media-audit media-audit-{{item.audit_status}}" wx:if="{{item.audit_status !== 'approved'}}">{{item.audit_status === 'pending' ? '待审' : '已驳回'}}</view>
+          <view wx:if="{{item.isVideo}}" class="media-cover-btn" data-id="{{item.id}}" catchtap="setVideoCover">{{item.cover_url ? '换封面' : '设封面'}}</view>
         </view>
         <view class="media-add" wx:if="{{media.length < mediaMax}}" bindtap="addMedia">＋
           <text class="media-add-txt">添加图片</text>
+        </view>
+        <view class="media-add" wx:if="{{media.length < mediaMax}}" bindtap="addVideo">▶
+          <text class="media-add-txt">添加视频</text>
         </view>
       </view>
       <view class="field" style="margin-top:20rpx">
@@ -293,7 +304,7 @@
           <view class="picker-box">{{mediaTypeOptions[mediaTypeIndex].name}}</view>
         </picker>
       </view>
-      <view class="trust-sub">图注在点「添加图片」选图后填写；违规图会被平台驳回下架。</view>
+      <view class="trust-sub">图注在点「添加图片 / 添加视频」后填写；视频不超过 {{maxVideoMb}}MB、建议 60 秒内；违规内容与图片会被平台驳回下架。</view>
     </view>
   </block>
 
@@ -399,6 +410,16 @@
       <view class="qr-tip">{{qrcodeTip || '客户扫码后直接向你厂询价'}}</view>
       <button class="btn-primary qr-save" bindtap="saveQrcode" wx:if="{{qrcodeUrl}}">保存图片到相册</button>
       <view class="qr-close" bindtap="closeQrcode">关闭</view>
+    </view>
+  </view>
+
+  <!-- Batch D3 视频播放弹层：图集视频在本页内播不跳页（video 是原生组件，浮层能正常盖住页面内容） -->
+  <view class="qr-mask" wx:if="{{videoVisible}}" bindtap="closeVideo">
+    <view class="qr-panel video-panel" catchtap="">
+      <view class="qr-panel-title">{{videoTitle}}</view>
+      <video class="video-player" src="{{videoUrl}}" controls autoplay object-fit="contain" show-mute-btn />
+      <view class="qr-tip" wx:if="{{videoStatusText}}">{{videoStatusText}}</view>
+      <view class="qr-close" bindtap="closeVideo">关闭</view>
     </view>
   </view>
 

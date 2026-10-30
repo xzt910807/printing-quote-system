@@ -28,6 +28,13 @@ function fmtNum(v) {
   return String(Math.round(n * 100) / 100);
 }
 
+// 视频秒数 → m:ss（后端只存整数秒、不解析容器元数据，时长格式化统一放端上）
+function fmtDuration(sec) {
+  const n = Math.floor(Number(sec) || 0);
+  if (!n) return '';
+  return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+}
+
 Page({
   data: {
     statusBarHeight: 20,
@@ -44,7 +51,7 @@ Page({
     capacity: null,      // 闲置产能 { status, label, note }
     media: [],           // 设备/车间图文图集（大图预览需要完整序列）
     mediaGroups: [],     // 图集段：按类型分组展示
-    videos: [],          // 视频段（Batch D3 上传通道上线后才有内容）
+    videos: [],          // 视频段（Batch D3 上传通道，仅审核通过的对外）
     metricRows: [],      // 概况段：经营硬指标（Batch D1）
     ratingText: '',      // 评分文案（无评分人数时不展）
     viewText: '',        // 浏览量文案
@@ -115,7 +122,8 @@ Page({
           : null,
         media: d.media || [],
         mediaGroups: this.buildMediaGroups(d.media || []),
-        videos: (d.media || []).filter((m) => m.media_type === 'video'),
+        videos: (d.media || []).filter((m) => m.media_type === 'video')
+          .map((m) => ({ ...m, durationText: fmtDuration(m.duration) })),
         metricRows: this.buildMetrics(d),
         ratingText: Number(d.rating) && Number(d.rating_count)
           ? Number(d.rating).toFixed(1) + ' 分（' + d.rating_count + '人）'

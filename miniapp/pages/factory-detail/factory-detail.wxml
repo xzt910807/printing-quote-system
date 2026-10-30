@@ -129,14 +129,18 @@
       </view>
     </view>
 
-    <!-- 视频（Batch D3 上传通道上线后才有内容） -->
+    <!-- 视频（Batch D3）：仅审核通过的视频会出现在这里，没传封面就是黑底 + 播放器自带首帧 -->
     <view id="seg-video">
       <view class="card">
         <view class="card-title">工厂视频</view>
         <view class="fd-empty-cap" wx:if="{{!videos.length}}">该厂暂未上传视频</view>
         <view class="fd-video-item" wx:for="{{videos}}" wx:key="url">
-          <video class="fd-video" src="{{apiBase}}{{item.url}}" object-fit="contain" show-mute-btn></video>
-          <view class="fd-media-cap" wx:if="{{item.caption}}">{{item.caption}}</view>
+          <video class="fd-video" src="{{apiBase}}{{item.url}}" object-fit="contain" show-mute-btn
+                 poster="{{item.cover_url ? apiBase + item.cover_url : ''}}"></video>
+          <view class="fd-video-meta">
+            <text class="fd-video-dur" wx:if="{{item.durationText}}">时长 {{item.durationText}}</text>
+            <text class="fd-video-cap" wx:if="{{item.caption}}">{{item.caption}}</text>
+          </view>
         </view>
       </view>
     </view>
