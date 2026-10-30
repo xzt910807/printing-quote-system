@@ -18,8 +18,9 @@
     </view>
     <view class="price-total">总价 ¥{{result.systemQuote.totalPrice}} · 含税 ¥{{result.systemQuote.finalPrice}}</view>
     <view class="price-notice" wx:if="{{result.systemQuote.notice}}">ℹ️ {{result.systemQuote.notice}}</view>
-    <!-- 校准信度：用真实成交价对账后的偏差，样本不足时只显示「积累中」，不拿几笔单充统计 -->
+    <!-- 校准信度：用真实成交价对账后的偏差；样本不足时只显示「积累中」或成交区间，不拿几笔单充统计 -->
     <view class="price-conf" wx:if="{{result.quoteConfidence}}">校准信度：{{result.quoteConfidence.text}}</view>
+    <view class="price-disc" wx:if="{{result.quoteConfidence.note}}">{{result.quoteConfidence.note}}</view>
     <view class="price-valid {{statusData && statusData.expired ? 'price-valid-expired' : ''}}">
       {{statusData && statusData.expired ? '⚠️ 报价已失效（超过 7 天有效期），可重新询价获取新报价' : '⏰ 报价 7 天内有效，逾期请重新询价'}}
     </view>

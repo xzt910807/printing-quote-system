@@ -89,7 +89,10 @@ router.get('/list', optionalUser, async (req, res) => {
       accepts: 'total_accepts DESC',
       response: 'avg_response_hours IS NULL, avg_response_hours ASC',
     };
-    const orderBy = SORTS[sort] || 'total_accepts DESC, rating DESC';
+    // 综合缺省序：与结果页撮合链同思路（评分 → 验真 → 接单量）。
+    // 验真放在接单量之前而不做硬门槛：已验真厂先露脸，未验真厂仍然在列表里（线上 41/53 家未验真，
+    // 直接过滤会让客户搜到空页）；想让验真成为唯一条件就勾「只看已验真」。
+    const orderBy = SORTS[sort] || 'rating DESC, (license_verified = 1 OR verification_level >= 1) DESC, total_accepts DESC';
     // 030 地区筛选：province/city 精确匹配（写入时已规范化）
     const regionConds = [];
     const regionParams = [];

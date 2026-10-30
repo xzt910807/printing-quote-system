@@ -2225,6 +2225,8 @@ CREATE TABLE `quote_calibration`  (
   `bias` decimal(8, 4) NULL DEFAULT NULL COMMENT '偏差率=实际/预估-1，按金额加权；正=平台估价偏低',
   `bias_min` decimal(8, 4) NULL DEFAULT NULL COMMENT '逐笔偏差最小值（看离散度，样本外推要留余量）',
   `bias_max` decimal(8, 4) NULL DEFAULT NULL COMMENT '逐笔偏差最大值',
+  `actual_unit_min` decimal(12, 4) NULL DEFAULT NULL COMMENT '成交单价区间下限（元/个）；样本不足 30 笔时对外只说区间不说偏差',
+  `actual_unit_max` decimal(12, 4) NULL DEFAULT NULL COMMENT '成交单价区间上限（元/个）',
   `window_days` int(0) NOT NULL DEFAULT 180 COMMENT '统计窗口天数（行情会变，久远成交不进样本）',
   `computed_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '最近一次重算时间',
   PRIMARY KEY (`id`) USING BTREE,

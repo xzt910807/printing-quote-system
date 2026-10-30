@@ -12,7 +12,9 @@
  *      引擎参数一旦被调到贴近成交价，重算偏差自动趋近 0，看起来「很准」，其实什么都没测到。
  *      快照 + 成交价才是纯粹的「预测 vs 实际」。
  *   2. 样本不足时**不对外宣称偏差**。库里有 3 笔成交就说「偏差 ±2%」比不说更伤人，
- *      所以低于 MIN_SAMPLE 一律返回 level='none'，前端只显示「样本积累中」。
+ *      所以低于 MIN_SAMPLE 一律返回 level='none'，前端不显示偏差。
+ *      但「样本少」不等于「没有信息」：8 笔以上就能给成交单价**区间**，它比一个点估计诚实得多
+ *      （区间自带「不确定」的语义），且不需要宣称偏差率。区间之外一律只说「样本积累中」。
  */
 const { pool } = require('../config/db');
 
@@ -20,6 +22,8 @@ const { pool } = require('../config/db');
 const WINDOW_DAYS = Number(process.env.CALIBRATION_WINDOW_DAYS) || 180;
 // 低于此样本数不对外宣称偏差（分级门槛见 LEVEL_TABLE）
 const MIN_SAMPLE = 30;
+// 低于此样本数连成交区间也不给：两三笔的 min/max 就是那两三笔本身，等于把个案当行情
+const MIN_BAND_SAMPLE = 8;
 const LEVEL_TABLE = [
   { min: 300, level: 'high' },
   { min: 100, level: 'medium' },
@@ -74,7 +78,9 @@ function aggSql(withDim) {
            ROUND(AVG(actual_unit), 4) AS actual_avg,
            ROUND(SUM(actual_unit) / SUM(engine_unit) - 1, 4) AS bias,
            ROUND(MIN(actual_unit / engine_unit - 1), 4) AS bias_min,
-           ROUND(MAX(actual_unit / engine_unit - 1), 4) AS bias_max
+           ROUND(MAX(actual_unit / engine_unit - 1), 4) AS bias_max,
+           ROUND(MIN(actual_unit), 4) AS actual_min,
+           ROUND(MAX(actual_unit), 4) AS actual_max
     FROM (${PAIR_SQL}) t
     WHERE t.engine_unit > 0 AND t.actual_unit > 0
     GROUP BY product_type ${withDim ? ', material_code, print_mode' : ''}
@@ -100,22 +106,43 @@ async function refresh() {
   }
   const values = rows.map((r) => [
     r.product_type, r.material_code, r.print_mode,
-    Number(r.n) || 0, r.engine_avg, r.actual_avg, r.bias, r.bias_min, r.bias_max, WINDOW_DAYS,
+    Number(r.n) || 0, r.engine_avg, r.actual_avg, r.bias, r.bias_min, r.bias_max,
+    r.actual_min, r.actual_max, WINDOW_DAYS,
   ]);
   // 用 VALUES(col) 老写法而不是 8.0.19+ 的行别名：与 cronService 的 daily_stats 保持同一风格，
   // 也避免运维环境 MySQL 小版本不一时批量 UPSERT 直接语法错。
+  // computed_at 用 NOW() 而不是驱动传 Date：驱动与服务器时区口径不一致时，
+  // 传进去的时间会整体偏移几小时（本机就踩到过，导致「清理旧维度」静默失效）。
   await pool.query(
     `INSERT INTO quote_calibration
        (product_type, material_code, print_mode, sample_n,
-        engine_unit_avg, actual_unit_avg, bias, bias_min, bias_max, window_days)
+        engine_unit_avg, actual_unit_avg, bias, bias_min, bias_max,
+        actual_unit_min, actual_unit_max, window_days)
      VALUES ?
      ON DUPLICATE KEY UPDATE
        sample_n = VALUES(sample_n), engine_unit_avg = VALUES(engine_unit_avg),
        actual_unit_avg = VALUES(actual_unit_avg), bias = VALUES(bias),
        bias_min = VALUES(bias_min), bias_max = VALUES(bias_max),
-       window_days = VALUES(window_days)`,
+       actual_unit_min = VALUES(actual_unit_min), actual_unit_max = VALUES(actual_unit_max),
+       window_days = VALUES(window_days), computed_at = NOW()`,
     [values]
   );
+  // 清掉本次没参与聚合的维度：样本滑出窗口后旧行若一直留着，报价入口会拿早已过期的
+  // 偏差/区间当行情用（它是内存缓存的唯一来源，没人会去比对 computed_at）。
+  // 判定用「主键差集」而不是时间戳：mysql 的 NOW() 与驱动传入的 Date 时区口径不同，
+  // 拿两者比大小会静默失效；而且 UPSERT 数值没变时 computed_at 本就不会动。
+  const keepKeys = new Set(rows.map((r) =>
+    keyOf(r.product_type, r.material_code, r.print_mode) + '|' + WINDOW_DAYS));
+  const [existing] = await pool.query(
+    'SELECT id, product_type, material_code, print_mode, window_days FROM quote_calibration'
+  );
+  const staleIds = existing
+    .filter((e) => !keepKeys.has(
+      keyOf(e.product_type, e.material_code, e.print_mode) + '|' + e.window_days))
+    .map((e) => e.id);
+  if (staleIds.length) {
+    await pool.query('DELETE FROM quote_calibration WHERE id IN (?)', [staleIds]);
+  }
   await loadAll();
   const samples = rows.reduce((s, r) => s + (Number(r.n) || 0), 0);
   console.log('[calibration] 校准维度 ' + rows.length + ' 组 / 配对样本 ' + samples + ' 笔（近 ' + WINDOW_DAYS + ' 天）');
@@ -126,7 +153,7 @@ async function refresh() {
 async function loadAll() {
   try {
     const [rows] = await pool.query(
-      'SELECT product_type, material_code, print_mode, sample_n, engine_unit_avg, actual_unit_avg, bias, bias_min, bias_max, window_days, computed_at FROM quote_calibration'
+      'SELECT product_type, material_code, print_mode, sample_n, engine_unit_avg, actual_unit_avg, bias, bias_min, bias_max, actual_unit_min, actual_unit_max, window_days, computed_at FROM quote_calibration'
     );
     const byKey = new Map();
     for (const r of rows) byKey.set(keyOf(r.product_type, r.material_code, r.print_mode), r);
@@ -158,30 +185,75 @@ function biasText(bias) {
 }
 
 /**
+ * 单价区间文案。精度按量级定：单价 3.30 写两位，单价 0.035 写四位，
+ * 避免统一 toFixed(2) 把便宜货写成「¥0.04–¥0.04」（区间看起来像没区间）。
+ */
+function priceText(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  // 先按 4 位写满再剪尾零（0.0310 → 0.031），但至少保 2 位（1.8 → 1.80），
+  // 保证「¥1.71–¥1.80」与「¥0.031–¥0.039」两种量级都不失真
+  let s = n.toFixed(4).replace(/0+$/, '');
+  const dot = s.indexOf('.');
+  if (dot < 0) return s + '.00';
+  while (s.length - dot - 1 < 2) s += '0';
+  return s;
+}
+
+/** 成交单价区间（样本不足时返回 null，让调用方只说「积累中」） */
+function bandOf(row) {
+  const n = Number(row.sample_n) || 0;
+  const lo = Number(row.actual_unit_min);
+  const hi = Number(row.actual_unit_max);
+  if (n < MIN_BAND_SAMPLE || !isFinite(lo) || !isFinite(hi) || lo <= 0 || hi < lo) return null;
+  return { low: lo, high: hi, text: '¥' + priceText(lo) + '–¥' + priceText(hi) };
+}
+
+/**
  * 某个规格的估价信度。无数据也返回完整结构（level='none'），调用方不必判空。
+ * text 永远可以直接上屏；band 为 null 时调用方别渲染区间，note 是区间旁边的免责句。
  * @param {{productType?:string, materialCode?:string, printMode?:string}} spec
- * @returns {{sampleN:number, bias:number|null, level:string, text:string, windowDays:number|null}}
+ * @returns {{sampleN:number, bias:number|null, level:string, text:string, note:string, low:number|null, high:number|null, windowDays:number|null}}
  */
 function confidenceOf(spec) {
   const s = spec || {};
   const row = rowOf(s.productType, s.materialCode, s.printMode);
   if (!row) {
-    return { sampleN: 0, bias: null, level: 'none', text: '样本积累中，暂无校准数据', windowDays: null };
+    return {
+      sampleN: 0, bias: null, level: 'none', text: '样本积累中，暂无校准数据',
+      note: '', low: null, high: null, windowDays: null,
+    };
   }
   const n = Number(row.sample_n) || 0;
   const level = levelOf(n);
+  const windowDays = Number(row.window_days) || WINDOW_DAYS;
+  const band = bandOf(row);
   // 维度越粗，话术越要含糊：品类级的偏差贴到具体材料上会误导
   const exact = row.material_code === (s.materialCode || ANY) && row.print_mode === (s.printMode || ANY);
-  if (level === 'none') {
-    return { sampleN: n, bias: Number(row.bias), level, text: '样本积累中（已收集 ' + n + ' 笔成交）', windowDays: Number(row.window_days) || WINDOW_DAYS };
-  }
   const scope = exact ? '同类成交' : '同类品类成交';
+  if (level === 'none') {
+    // 8 笔以上给区间：这是「样本不够宣称偏差」阶段唯一诚实的对外口径
+    if (band) {
+      return {
+        sampleN: n, bias: Number(row.bias), level, low: band.low, high: band.high,
+        text: scope + '单价 ' + band.text + '（' + n + ' 笔，近 ' + windowDays + ' 天）',
+        note: '历史成交区间，非报价承诺', windowDays,
+      };
+    }
+    return {
+      sampleN: n, bias: Number(row.bias), level, text: '样本积累中（已收集 ' + n + ' 笔成交）',
+      note: '', low: null, high: null, windowDays,
+    };
+  }
   return {
     sampleN: n,
     bias: Number(row.bias),
     level,
-    text: scope + ' ' + n + ' 笔，' + biasText(row.bias),
-    windowDays: Number(row.window_days) || WINDOW_DAYS,
+    low: band ? band.low : null,
+    high: band ? band.high : null,
+    text: scope + ' ' + n + ' 笔，' + biasText(row.bias) + (band ? '；成交 ' + band.text : ''),
+    note: '历史成交区间，非报价承诺',
+    windowDays,
   };
 }
 
@@ -197,12 +269,14 @@ function list() {
     bias: Number(r.bias) || 0,
     biasMin: Number(r.bias_min) || 0,
     biasMax: Number(r.bias_max) || 0,
+    actualUnitMin: r.actual_unit_min === null ? null : Number(r.actual_unit_min),
+    actualUnitMax: r.actual_unit_max === null ? null : Number(r.actual_unit_max),
     level: levelOf(Number(r.sample_n) || 0),
     computedAt: r.computed_at,
   }));
 }
 
 module.exports = {
-  refresh, loadAll, size, confidenceOf, list, levelOf, biasText,
-  WINDOW_DAYS, MIN_SAMPLE,
+  refresh, loadAll, size, confidenceOf, list, levelOf, biasText, bandOf,
+  WINDOW_DAYS, MIN_SAMPLE, MIN_BAND_SAMPLE,
 };

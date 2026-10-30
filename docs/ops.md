@@ -587,3 +587,49 @@ SELECT verification_level, license_verified, COUNT(*) FROM factory WHERE status 
 SELECT id, name FROM factory WHERE status = 1 AND license_verified = 1 AND verification_level = 0;
 ```
 
+### 14.12 校准区间（成交单价带）与找厂缺省序
+
+样本攒到 30 笔之前，校准回路此前只会说「样本积累中」——真实信息被一句占位语吃掉。
+所以新增两列，让 8 笔以上就能给出**成交单价区间**（区间自带「不确定」语义，不需要宣称偏差率）：
+
+```sql
+ALTER TABLE quote_calibration
+  ADD COLUMN actual_unit_min decimal(12, 4) NULL DEFAULT NULL AFTER bias_max,
+  ADD COLUMN actual_unit_max decimal(12, 4) NULL DEFAULT NULL AFTER actual_unit_min;
+-- 已有库还需要重跑一次，把新列填上
+node -e "require('./src/services/calibrationService').refresh()"
+```
+
+对外口径（`calibrationService.confidenceOf`）：
+
+| 样本数 N | 文案 | level |
+| --- | --- | --- |
+| 0 | 样本积累中，暂无校准数据 | none |
+| 1–7 | 样本积累中（已收集 N 笔成交） | none |
+| 8–29 | 同类成交单价 ¥1.71–¥2.06（9 笔，近 180 天）+「历史成交区间，非报价承诺」 | none |
+| ≥30 | 同类成交 N 笔，实际成交价平均低于平台估价 x%；成交 ¥…–¥… | low/medium/high |
+
+- **门槛定 8**（`MIN_BAND_SAMPLE`）：两三笔的 min/max 就是那两三笔本身，等于把个案当行情。
+- **偏差率门槛仍是 30**（`MIN_SAMPLE`）：区间可以给，偏差不许宣称，两件事不混。
+- **小数位**剪尾零但至少保两位：`¥1.71–¥1.80`、`¥0.031–¥0.039` 都不失真。
+- **免责句**只随区间的存在出现，端上两处渲染：结果页 `.price-disc`、社区详情 `.de-note-disc`。
+- `bias_min/bias_max` 是**偏差率**，乘不出真实单价（每笔的 engine_i 不同），所以区间必须另存两列。
+
+`refresh()` 会顺手清掉「本轮没算出来」的旧维度（按主键差集）：样本滑出 180 天窗口后，
+旧行若一直留着，报价入口会拿过期区间当行情（内存缓存是唯一来源，没人去比对 `computed_at`）。
+`computed_at` 一律写 `NOW()` 而不是驱动传 `Date`——本机 MySQL 的 `SYSTEM` 时区与驱动口径差 8 小时，
+拿两者比大小会静默失效（第一版就是用它做清理条件，结果一行都没删掉）。
+
+找厂列表（`GET /api/factory/list`）缺省序补上验真，与结果页撮合链同思路：
+`rating DESC, (license_verified = 1 OR verification_level >= 1) DESC, total_accepts DESC`。
+评分仍是第一权重，所以**已验真但评分 4.33 的厂会排到 5 星未验真厂之后**（实测：前 11 位全是已验真，
+第 12 位是 5 星未验真）。这是有意的：评分来自真实成交评价，比一纸核验更能代表履约能力。
+
+核对：
+
+```sql
+SELECT COUNT(*) FROM factory WHERE status = 1 AND (license_verified = 1 OR verification_level >= 1);
+SELECT product_type, material_code, print_mode, sample_n, actual_unit_min, actual_unit_max, computed_at
+  FROM quote_calibration ORDER BY sample_n DESC LIMIT 20;
+```
+

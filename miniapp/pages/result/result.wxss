@@ -27,6 +27,7 @@
 .price-total { font-size: 26rpx; opacity: 0.9; margin-bottom: 10rpx; }
 .price-notice { font-size: 22rpx; opacity: 0.75; margin-bottom: 8rpx; }
 .price-conf { font-size: 22rpx; opacity: 0.75; margin-bottom: 8rpx; }
+.price-disc { font-size: 20rpx; opacity: 0.6; margin-bottom: 8rpx; }
 .price-valid { font-size: 22rpx; opacity: 0.75; margin-bottom: 28rpx; }
 .price-valid-expired { color: #fef2f2; opacity: 1; font-weight: 600; }
 

@@ -554,6 +554,8 @@ function shapePost(row, { full = false, withNote = false } = {}) {
     };
     // 端上 wxml 不能调函数取嵌套字段，平铺一层直接渲染
     out.confidenceText = conf.text;
+    // 区间口径的免责句：告诉读者这是历史成交，不是报价承诺（样本不足时为空串，端上不渲染）
+    out.confidenceNote = conf.note;
   }
   // 摘要只给列表用；详情才下发全文与 audit_note（作者本人能看到驳回原因）
   if (full) {
