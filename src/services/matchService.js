@@ -5,6 +5,7 @@ const capabilityService = require('./capabilityService');
 const catalog = require('./catalogService');
 const wxSubscribe = require('./wxService');
 const guard = require('./contentGuard');
+const communityReputation = require('./communityReputation');
 
 /**
  * 021 设计需求入参清洗：
@@ -198,6 +199,9 @@ async function createCInquiry(input) {
     );
     followedSet = new Set(foll.map((r) => Number(r.factory_id)));
   }
+  // Batch E 社区声望：与 followedSet 同一模式一次查完（不按厂回查）；
+  // 内部吞异常，社区表/数据缺失只会得到「没有社区分」，不会拖垮询价
+  const communityRep = await communityReputation.loadReputation(capableIds);
 
   // 存储匹配的工厂信息（去价：评分/接单率/响应时长/能力标签）
   const matches = [];
@@ -220,6 +224,7 @@ async function createCInquiry(input) {
       if (capabilityTags.length >= 4) break;
       if (facProc.has(p)) capabilityTags.push((catalog.baseData.finishing[p] || {}).name || p);
     }
+    const rep = communityReputation.repOf(communityRep, f.id);
     matches.push({
       factoryId: f.id,
       factoryName: f.name,
@@ -239,15 +244,22 @@ async function createCInquiry(input) {
       verified: !!f.license_verified,
       capacity: cap,
       followed: followedSet.has(Number(f.id)),
+      // 社区声望（Batch E）：只在排序链最末尾作 tiebreaker；badge 文案服务层拼好直出
+      community: rep,
+      communityBadge: rep.badge,
     });
   }
   // F-05：排序优先已关注工厂（033 供应商关系沉淀），再闲置产能（空闲>正常>饱和/未填报）、评分降序、接单率降序、工艺命中数降序（不按价格）
+  // Batch E：社区分只追加在**末尾**。发帖答价是低成本行为，放到评分前会让「爱聊天但做工一般」的
+  // 厂挤掉口碑厂（激励反向）；末尾 tiebreaker 在真实分布里仍起作用——大量工厂 rating 默认 5.00、
+  // capacity 同为 unknown、acceptRate 同为 0，前面几个键全打平时就靠它。要调得更激进只需改这一行。
   matches.sort((a, b) =>
     ((b.followed ? 1 : 0) - (a.followed ? 1 : 0)) ||
     (b.capacity.weight - a.capacity.weight) ||
     b.rating - a.rating ||
     b.acceptRate - a.acceptRate ||
-    b.processMatchCount - a.processMatchCount
+    b.processMatchCount - a.processMatchCount ||
+    b.community.score - a.community.score
   );
   // 生成询价号（CQ前缀，biz_seq 全局递增）
   const inquiryNo = await nextBizNo('CQ');
@@ -374,6 +386,7 @@ async function createCInquiry(input) {
     } else {
       matches.length = 0;
       const lockAvatar = avatarOf(lockedFactory.name);
+      const lockRep = communityReputation.repOf(communityRep, preferredId);
       matches.push({
         factoryId: preferredId,
         factoryName: lockedFactory.name,
@@ -387,6 +400,9 @@ async function createCInquiry(input) {
         verified: false,
         capacity: { status: 'unknown', label: '', note: null, fresh: false, weight: 0 },
         followed: followedSet.has(Number(preferredId)),
+        // 最小卡片也要给社区字段，否则端上读 matches[0].communityBadge 会拿到 undefined
+        community: lockRep,
+        communityBadge: lockRep.badge,
       });
     }
     matches[0].isPreferred = true;
