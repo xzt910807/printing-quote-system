@@ -17,6 +17,11 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- Batch D0（2026-10-30）：本文件已并入 sql/migrations/026~034 的全部效果——
+--   新表 5 张：issue_ticket / industry_news / user_news_subscription / supplier_follow / profit_sharing_log（按字母序就位，索引写在 CREATE TABLE 内）；
+--   factory 加 province/city/verification_level/verification_note/verified_at，order_main 加 escrow_status/platform_fee/factory_amount/profit_sharing_no/released_at；
+--   迁移文件已归档删除（data/sql-migrations-backup-20261030.zip），详见 docs/ops.md 第 1 节与第 11 节。
+
 -- ----------------------------
 -- Table structure for admin_user
 -- ----------------------------
@@ -386,67 +391,77 @@ CREATE TABLE `factory`  (
   `capacity_note` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '产能备注（如\"本周档期满\"\"可接加急\"）',
   `capacity_updated_at` timestamp(0) NULL DEFAULT NULL COMMENT '产能填报时间（超72h视为过期，展示降为未填报、不再加权）',
   `license_verified` tinyint(0) NOT NULL DEFAULT 0 COMMENT '平台已核验资质徽章：1=已核验（营业执照/印刷经营许可证）',
+  `province` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '省（地区筛选用，写入时已规范化）',
+  `city` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '市（地区筛选用，写入时已规范化）',
+  `verification_level` tinyint(0) NOT NULL DEFAULT 0 COMMENT '验真分级：0=未核验 1=营业执照已核 2=实地/视频验厂 3=深度验厂（多年合作+评分）',
+  `verification_note` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '验真审核备注',
+  `verified_at` datetime(0) NULL DEFAULT NULL COMMENT '最近核验时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `code`(`code`) USING BTREE,
-  UNIQUE INDEX `uk_factory_username`(`username`) USING BTREE
+  UNIQUE INDEX `uk_factory_username`(`username`) USING BTREE,
+  INDEX `idx_region`(`province`, `city`) USING BTREE,
+  INDEX `idx_verif`(`verification_level`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 57 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '印刷厂主表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of factory
+-- 参考厂数据：username/password_hash 一律置 NULL（既不把真实登录账号写进仓库，
+-- 也避开 uk_factory_username 唯一约束——上一版用固定 'DUMMY_USER' 占位会让新库建到第二行就 Duplicate entry）；
+-- 新装的厂若需登录，走「工厂管理 → 开户」或小程序注册流程重新设账号
 -- ----------------------------
-INSERT INTO `factory` VALUES (1, 'F001','DUMMY_USER','DUMMY_HASH', '浙江新雅包装有限公司','DUMMY','DUMMY', '龙港市世纪大道新雅工业园40-42号楼', '标签、酒盒、药品包装盒、纸袋、日化包装盒、化妆品包装盒、礼品包装盒及防伪包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-26 07:06:49', '2026-09-21 08:10:04', '2026-10-26 07:06:49', 8, 8, 2.08, 5.00, 2, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (2, 'F002','DUMMY_USER','DUMMY_HASH', '诚德科技股份有限公司','DUMMY','DUMMY', '龙港市世纪大道888-1088号', '食品、日化、医药行业塑料复合包装膜（袋），中国包装百强企业，国家高新技术企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-23 06:50:12', '2026-09-21 08:10:04', '2026-10-23 06:50:12', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (3, 'F003','DUMMY_USER','DUMMY_HASH', '浙江新振印刷科技有限公司','DUMMY','DUMMY', '龙港市兴科路555号新城创业园E区115-185号', '药盒包装、精品礼盒、防伪药盒、手提袋、日化包装、文教书刊', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (4, 'F004','DUMMY_USER','DUMMY_HASH', '浙江鑫祥印业有限公司','DUMMY','DUMMY', '龙港市岑东路169号', '药盒、礼品盒、酒盒、金银卡盒、瓦楞彩箱、食品盒、书刊画册、手提袋、不干胶商标', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-29 01:06:14', '2026-09-21 08:10:04', '2026-10-22 06:05:57', 5, 4, 7.85, 4.33, 3, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (5, 'F005','DUMMY_USER','DUMMY_HASH', '温州豪格防伪科技有限公司','DUMMY','DUMMY', '龙港市世纪大道新雅工业园28幢', '防伪标签、一物一码贴纸、卷筒不干胶标签、可变数据防伪标签、RFID射频标签、二维码标签', 0.1800, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (6, 'F006','DUMMY_USER','DUMMY_HASH', '浙江镭博包装有限公司','DUMMY','DUMMY', '龙港市产业大道450-610号龙港新城创业园46幢404-504室', '卷筒不干胶标签、药品/化妆品/酒类防伪标签，拥有日本SANKI七色辊印机', 0.1800, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (7, 'F007','DUMMY_USER','DUMMY_HASH', '温州德龙包装制品有限公司','DUMMY','DUMMY', '龙港市', '包装制品综合生产', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (8, 'F008','DUMMY_USER','DUMMY_HASH', '温州金驰科技有限公司','DUMMY','DUMMY', '龙港市', '数字化改造样本企业，全流程数字化管控', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (9, 'F009','DUMMY_USER','DUMMY_HASH', '浙江博润印刷科技有限公司','DUMMY','DUMMY', '龙港市彩虹智慧创业园28幢101-102号', '高档彩盒、礼品盒、卡牌、纸杯、说明书、不干胶、贺卡、纸袋，覆盖多场景包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (10, 'F010','DUMMY_USER','DUMMY_HASH', '浙江华旭实业有限公司','DUMMY','DUMMY', '龙港市', '综合印刷包装，版权登记优秀企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-26 07:07:34', '2026-09-21 08:10:04', '2026-10-26 07:07:34', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (11, 'F011','DUMMY_USER','DUMMY_HASH', '浙江谦林包装科技有限公司','DUMMY','DUMMY', '龙港市', '包装科技研发与生产', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (12, 'F012','DUMMY_USER','DUMMY_HASH', '浙江思享包装科技有限公司','DUMMY','DUMMY', '龙港市', '数字化改造样本企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (13, 'F013','DUMMY_USER','DUMMY_HASH', '浙江宝驰印刷科技有限公司','DUMMY','DUMMY', '龙港市彩虹大道511-731号彩虹智慧创业园9幢1层', '手提袋、礼品盒、纸盒、药盒、酒盒、红包、对联、不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (14, 'F014','DUMMY_USER','DUMMY_HASH', '浙江晴耕雨读实业有限公司','DUMMY','DUMMY', '龙港市', '版权登记优秀企业，文创包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (15, 'F015','DUMMY_USER','DUMMY_HASH', '浙江温盛包装科技有限公司','DUMMY','DUMMY', '龙港市黄河产业园9幢', '药品盒、食品盒、化妆品盒、高端礼品盒、手提袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (16, 'F016','DUMMY_USER','DUMMY_HASH', '浙江小渔包装科技有限公司','DUMMY','DUMMY', '龙港市发展路511号', '酒盒、化妆品盒、茶叶盒等纸质包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (17, 'F017','DUMMY_USER','DUMMY_HASH', '浙江金燕印业有限公司','DUMMY','DUMMY', '龙港市世纪大道607-647号', '热转印花膜、模内贴标IML，10色电子轴高性能印刷机，广泛应用于电器、文具、化妆品、玩具等', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (18, 'F018','DUMMY_USER','DUMMY_HASH', '温州创大印业有限公司','DUMMY','DUMMY', '龙港市西三街55号', '综合印刷', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (19, 'F019','DUMMY_USER','DUMMY_HASH', '温州佳丰科技有限公司','DUMMY','DUMMY', '龙港市', '包装科技', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (20, 'F020','DUMMY_USER','DUMMY_HASH', '浙江云创印刷科技有限公司','DUMMY','DUMMY', '龙港市', '数码印刷、文创包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (21, 'F021','DUMMY_USER','DUMMY_HASH', '浙江开泰印业有限公司','DUMMY','DUMMY', '龙港市龙港小包装工业园1幢1号', '酒盒、药盒、礼品盒、手提袋、食品包装、广告画册、PVC盒、纸盒、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (22, 'F022','DUMMY_USER','DUMMY_HASH', '浙江佳大印务有限公司','DUMMY','DUMMY', '龙港市上厂街265-271号', '彩盒、印刷品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (23, 'F023','DUMMY_USER','DUMMY_HASH', '温州雅致印业有限公司','DUMMY','DUMMY', '龙港市蔡家街240-260号', '精品礼盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (24, 'F024','DUMMY_USER','DUMMY_HASH', '浙江鑫利美包装科技有限公司','DUMMY','DUMMY', '龙港市新城创业园3幢2单元', '纸包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (25, 'F025','DUMMY_USER','DUMMY_HASH', '温州艺森包装有限公司','DUMMY','DUMMY', '龙港市西城二街133号', '彩盒、礼品盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (26, 'F026','DUMMY_USER','DUMMY_HASH', '浙江港发软包装有限公司','DUMMY','DUMMY', '龙港市兴业路69-93号', '食品、饮品、保健品、调味品、农副产品、日化品、化妆品等软包装膜（袋）', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (27, 'F027','DUMMY_USER','DUMMY_HASH', '温州霞光印刷有限公司','DUMMY','DUMMY', '龙港市东一路202-256号', '手提袋、包装盒、精美画册、彩页、纸卡、贺卡、红包、说明书', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (28, 'F028','DUMMY_USER','DUMMY_HASH', '浙江唐风工艺品有限公司','DUMMY','DUMMY', '龙港市仓盛路78号', '工艺品包装、礼品盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (29, 'F029','DUMMY_USER','DUMMY_HASH', '温州万发印业有限公司','DUMMY','DUMMY', '龙港市彩虹智慧创业园25幢1层101室、102室', '彩盒、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (30, 'F030','DUMMY_USER','DUMMY_HASH', '温州新港印刷有限公司','DUMMY','DUMMY', '龙港市小包装工业园18幢12号', '酒标、塑料制品、凹凸画、广告扇、PVC/PP塑片、吸塑海报、鼠标垫等促销礼品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (31, 'F031','DUMMY_USER','DUMMY_HASH', '龙港盈创纸箱厂','DUMMY','DUMMY', '龙港市九龙路14号一层', '纸箱生产', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 1, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (32, 'F032','DUMMY_USER','DUMMY_HASH', '龙港市科利纸箱厂','DUMMY','DUMMY', '龙港市巴曹镇南路200号一层', '纸箱生产', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 14:53:14', '2026-09-21 08:10:04', '2026-10-22 06:05:57', 3, 3, 9.54, 4.00, 2, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (33, 'F033','DUMMY_USER','DUMMY_HASH', '龙港市瑞俊纸箱加工厂','DUMMY','DUMMY', '龙港市', '纸箱加工', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 1, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (34, 'F034','DUMMY_USER','DUMMY_HASH', '龙港市嘉澜包装股份有限公司','DUMMY','DUMMY', '龙港市时代大道384-448号第二幢东首3楼', '纸箱、彩箱', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-22 07:37:41', '2026-09-21 08:10:04', '2026-10-22 07:37:41', 13, 9, 0.22, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (35, 'F035','DUMMY_USER','DUMMY_HASH', '温州宏愿热转印有限公司','DUMMY','DUMMY', '龙港市新城小微园41幢3层302室', '服装烫画、热升华转印，年产300吨无纺布印刷品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (36, 'F036','DUMMY_USER','DUMMY_HASH', '龙港市鑫志不干胶标签加工厂','DUMMY','DUMMY', '龙港市洪宫二巷47-49号一层', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (37, 'F037','DUMMY_USER','DUMMY_HASH', '温州深蓝印刷有限公司','DUMMY','DUMMY', '龙港市嘉宏工业园7幢', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (38, 'F038','DUMMY_USER','DUMMY_HASH', '温州五辉不干胶','DUMMY','DUMMY', '龙港市人民路460-462号', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (39, 'F039','DUMMY_USER','DUMMY_HASH', '温州市恒生包装有限公司','DUMMY','DUMMY', '龙港市兴业路1288号', '包装印刷、标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (40, 'F040','DUMMY_USER','DUMMY_HASH', '龙港市华联软包装有限公司','DUMMY','DUMMY', '龙港市龙港新城创业园E区53幢', '软包装、复合袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (41, 'F041','DUMMY_USER','DUMMY_HASH', '浙江恒光包装有限公司','DUMMY','DUMMY', '龙港新城兴业路58号1栋', '软包装袋、卷膜', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (42, 'F042','DUMMY_USER','DUMMY_HASH', '浙江立森包装科技有限公司','DUMMY','DUMMY', '龙港市新雅纸塑工业园30幢1层西边', '软包装、复合膜', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (43, 'F043','DUMMY_USER','DUMMY_HASH', '苍南县龙港文光绿色包装有限公司','DUMMY','DUMMY', '龙港市', '环保包装、软包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (44, 'F044','DUMMY_USER','DUMMY_HASH', '温州如仓包装有限公司','DUMMY','DUMMY', '龙港市建新路137号', '无纺布袋、环保袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (45, 'F045','DUMMY_USER','DUMMY_HASH', '龙港市欣望包装厂','DUMMY','DUMMY', '龙港市兴联路1栋12号一层', '无纺布袋、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (46, 'F046','DUMMY_USER','DUMMY_HASH', '龙港市奥龙包装有限公司','DUMMY','DUMMY', '龙港市新城海西路777号浙森科技园1幢', '无纺布袋、纸袋、纸杯、纸碗、餐盒，年产1500万个纸袋、2000万个无纺布袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (47, 'F047','DUMMY_USER','DUMMY_HASH', '龙港市栩杭热转印厂','DUMMY','DUMMY', '龙港市龙港新城创业园41幢302室', '热转印', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (48, 'F048','DUMMY_USER','DUMMY_HASH', '龙港宗孝热转印有限公司','DUMMY','DUMMY', '龙港市', '热转印加工', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (49, 'F049','DUMMY_USER','DUMMY_HASH', '浙江森林控股有限公司','DUMMY','DUMMY', '龙港市凤祥路160号', '外贸文具套装、笔记本、文件夹、装饰贴、出版物，出口欧洲、美国、日本', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (50, 'F050','DUMMY_USER','DUMMY_HASH', '温州格洛博电子有限公司','DUMMY','DUMMY', '龙港市', '电子标签、RFID', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (51, 'T22287421','DUMMY_USER','DUMMY_HASH', '冒烟测试工厂22287421','DUMMY','DUMMY', NULL, NULL, 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 07:44:47', '2026-09-25 07:44:47', '2026-10-23 08:53:35', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (52, 'T22979019','DUMMY_USER','DUMMY_HASH', '冒烟测试工厂22979019','DUMMY','DUMMY', NULL, NULL, 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 07:56:19', '2026-09-25 07:56:19', '2026-10-23 08:22:22', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
-INSERT INTO `factory` VALUES (56, 'F053','DUMMY_USER','DUMMY_HASH', '我的测试工厂','DUMMY','DUMMY', NULL, '测试专用', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', '2026-10-22 07:30:37', '2026-10-26 07:12:22', '2026-10-22 07:30:37', '2026-10-26 07:12:22', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0);
+INSERT INTO `factory` VALUES (1, 'F001',NULL, NULL, '浙江新雅包装有限公司','DUMMY','DUMMY', '龙港市世纪大道新雅工业园40-42号楼', '标签、酒盒、药品包装盒、纸袋、日化包装盒、化妆品包装盒、礼品包装盒及防伪包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-26 07:06:49', '2026-09-21 08:10:04', '2026-10-26 07:06:49', 8, 8, 2.08, 5.00, 2, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 3, '深度验厂：营业执照+实地核查+近半年5笔以上成交，评分达标', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (2, 'F002',NULL, NULL, '诚德科技股份有限公司','DUMMY','DUMMY', '龙港市世纪大道888-1088号', '食品、日化、医药行业塑料复合包装膜（袋），中国包装百强企业，国家高新技术企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-23 06:50:12', '2026-09-21 08:10:04', '2026-10-23 06:50:12', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 2, '视频验厂通过：车间实拍与设备清单核对一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (3, 'F003',NULL, NULL, '浙江新振印刷科技有限公司','DUMMY','DUMMY', '龙港市兴科路555号新城创业园E区115-185号', '药盒包装、精品礼盒、防伪药盒、手提袋、日化包装、文教书刊', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 2, '视频验厂通过：车间实拍与设备清单核对一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (4, 'F004',NULL, NULL, '浙江鑫祥印业有限公司','DUMMY','DUMMY', '龙港市岑东路169号', '药盒、礼品盒、酒盒、金银卡盒、瓦楞彩箱、食品盒、书刊画册、手提袋、不干胶商标', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-29 01:06:14', '2026-09-21 08:10:04', '2026-10-22 06:05:57', 5, 4, 7.85, 4.33, 3, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 3, '深度验厂：营业执照+实地核查+近半年5笔以上成交，评分达标', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (5, 'F005',NULL, NULL, '温州豪格防伪科技有限公司','DUMMY','DUMMY', '龙港市世纪大道新雅工业园28幢', '防伪标签、一物一码贴纸、卷筒不干胶标签、可变数据防伪标签、RFID射频标签、二维码标签', 0.1800, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (6, 'F006',NULL, NULL, '浙江镭博包装有限公司','DUMMY','DUMMY', '龙港市产业大道450-610号龙港新城创业园46幢404-504室', '卷筒不干胶标签、药品/化妆品/酒类防伪标签，拥有日本SANKI七色辊印机', 0.1800, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (7, 'F007',NULL, NULL, '温州德龙包装制品有限公司','DUMMY','DUMMY', '龙港市', '包装制品综合生产', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (8, 'F008',NULL, NULL, '温州金驰科技有限公司','DUMMY','DUMMY', '龙港市', '数字化改造样本企业，全流程数字化管控', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (9, 'F009',NULL, NULL, '浙江博润印刷科技有限公司','DUMMY','DUMMY', '龙港市彩虹智慧创业园28幢101-102号', '高档彩盒、礼品盒、卡牌、纸杯、说明书、不干胶、贺卡、纸袋，覆盖多场景包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 2, '视频验厂通过：车间实拍与设备清单核对一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (10, 'F010',NULL, NULL, '浙江华旭实业有限公司','DUMMY','DUMMY', '龙港市', '综合印刷包装，版权登记优秀企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-26 07:07:34', '2026-09-21 08:10:04', '2026-10-26 07:07:34', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (11, 'F011',NULL, NULL, '浙江谦林包装科技有限公司','DUMMY','DUMMY', '龙港市', '包装科技研发与生产', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (12, 'F012',NULL, NULL, '浙江思享包装科技有限公司','DUMMY','DUMMY', '龙港市', '数字化改造样本企业', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (13, 'F013',NULL, NULL, '浙江宝驰印刷科技有限公司','DUMMY','DUMMY', '龙港市彩虹大道511-731号彩虹智慧创业园9幢1层', '手提袋、礼品盒、纸盒、药盒、酒盒、红包、对联、不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (14, 'F014',NULL, NULL, '浙江晴耕雨读实业有限公司','DUMMY','DUMMY', '龙港市', '版权登记优秀企业，文创包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (15, 'F015',NULL, NULL, '浙江温盛包装科技有限公司','DUMMY','DUMMY', '龙港市黄河产业园9幢', '药品盒、食品盒、化妆品盒、高端礼品盒、手提袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (16, 'F016',NULL, NULL, '浙江小渔包装科技有限公司','DUMMY','DUMMY', '龙港市发展路511号', '酒盒、化妆品盒、茶叶盒等纸质包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (17, 'F017',NULL, NULL, '浙江金燕印业有限公司','DUMMY','DUMMY', '龙港市世纪大道607-647号', '热转印花膜、模内贴标IML，10色电子轴高性能印刷机，广泛应用于电器、文具、化妆品、玩具等', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 2, '视频验厂通过：车间实拍与设备清单核对一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (18, 'F018',NULL, NULL, '温州创大印业有限公司','DUMMY','DUMMY', '龙港市西三街55号', '综合印刷', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (19, 'F019',NULL, NULL, '温州佳丰科技有限公司','DUMMY','DUMMY', '龙港市', '包装科技', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (20, 'F020',NULL, NULL, '浙江云创印刷科技有限公司','DUMMY','DUMMY', '龙港市', '数码印刷、文创包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (21, 'F021',NULL, NULL, '浙江开泰印业有限公司','DUMMY','DUMMY', '龙港市龙港小包装工业园1幢1号', '酒盒、药盒、礼品盒、手提袋、食品包装、广告画册、PVC盒、纸盒、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 1, '浙江省', '温州市', 1, '营业执照联网核验一致', '2026-10-27 16:55:39');
+INSERT INTO `factory` VALUES (22, 'F022',NULL, NULL, '浙江佳大印务有限公司','DUMMY','DUMMY', '龙港市上厂街265-271号', '彩盒、印刷品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (23, 'F023',NULL, NULL, '温州雅致印业有限公司','DUMMY','DUMMY', '龙港市蔡家街240-260号', '精品礼盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (24, 'F024',NULL, NULL, '浙江鑫利美包装科技有限公司','DUMMY','DUMMY', '龙港市新城创业园3幢2单元', '纸包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (25, 'F025',NULL, NULL, '温州艺森包装有限公司','DUMMY','DUMMY', '龙港市西城二街133号', '彩盒、礼品盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (26, 'F026',NULL, NULL, '浙江港发软包装有限公司','DUMMY','DUMMY', '龙港市兴业路69-93号', '食品、饮品、保健品、调味品、农副产品、日化品、化妆品等软包装膜（袋）', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (27, 'F027',NULL, NULL, '温州霞光印刷有限公司','DUMMY','DUMMY', '龙港市东一路202-256号', '手提袋、包装盒、精美画册、彩页、纸卡、贺卡、红包、说明书', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (28, 'F028',NULL, NULL, '浙江唐风工艺品有限公司','DUMMY','DUMMY', '龙港市仓盛路78号', '工艺品包装、礼品盒', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (29, 'F029',NULL, NULL, '温州万发印业有限公司','DUMMY','DUMMY', '龙港市彩虹智慧创业园25幢1层101室、102室', '彩盒、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (30, 'F030',NULL, NULL, '温州新港印刷有限公司','DUMMY','DUMMY', '龙港市小包装工业园18幢12号', '酒标、塑料制品、凹凸画、广告扇、PVC/PP塑片、吸塑海报、鼠标垫等促销礼品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (31, 'F031',NULL, NULL, '龙港盈创纸箱厂','DUMMY','DUMMY', '龙港市九龙路14号一层', '纸箱生产', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 1, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (32, 'F032',NULL, NULL, '龙港市科利纸箱厂','DUMMY','DUMMY', '龙港市巴曹镇南路200号一层', '纸箱生产', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 14:53:14', '2026-09-21 08:10:04', '2026-10-22 06:05:57', 3, 3, 9.54, 4.00, 2, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (33, 'F033',NULL, NULL, '龙港市瑞俊纸箱加工厂','DUMMY','DUMMY', '龙港市', '纸箱加工', 0.1200, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 1, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (34, 'F034',NULL, NULL, '龙港市嘉澜包装股份有限公司','DUMMY','DUMMY', '龙港市时代大道384-448号第二幢东首3楼', '纸箱、彩箱', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-10-22 07:37:41', '2026-09-21 08:10:04', '2026-10-22 07:37:41', 13, 9, 0.22, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (35, 'F035',NULL, NULL, '温州宏愿热转印有限公司','DUMMY','DUMMY', '龙港市新城小微园41幢3层302室', '服装烫画、热升华转印，年产300吨无纺布印刷品', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (36, 'F036',NULL, NULL, '龙港市鑫志不干胶标签加工厂','DUMMY','DUMMY', '龙港市洪宫二巷47-49号一层', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (37, 'F037',NULL, NULL, '温州深蓝印刷有限公司','DUMMY','DUMMY', '龙港市嘉宏工业园7幢', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (38, 'F038',NULL, NULL, '温州五辉不干胶','DUMMY','DUMMY', '龙港市人民路460-462号', '不干胶标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (39, 'F039',NULL, NULL, '温州市恒生包装有限公司','DUMMY','DUMMY', '龙港市兴业路1288号', '包装印刷、标签', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (40, 'F040',NULL, NULL, '龙港市华联软包装有限公司','DUMMY','DUMMY', '龙港市龙港新城创业园E区53幢', '软包装、复合袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (41, 'F041',NULL, NULL, '浙江恒光包装有限公司','DUMMY','DUMMY', '龙港新城兴业路58号1栋', '软包装袋、卷膜', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (42, 'F042',NULL, NULL, '浙江立森包装科技有限公司','DUMMY','DUMMY', '龙港市新雅纸塑工业园30幢1层西边', '软包装、复合膜', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (43, 'F043',NULL, NULL, '苍南县龙港文光绿色包装有限公司','DUMMY','DUMMY', '龙港市', '环保包装、软包装', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (44, 'F044',NULL, NULL, '温州如仓包装有限公司','DUMMY','DUMMY', '龙港市建新路137号', '无纺布袋、环保袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (45, 'F045',NULL, NULL, '龙港市欣望包装厂','DUMMY','DUMMY', '龙港市兴联路1栋12号一层', '无纺布袋、纸袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (46, 'F046',NULL, NULL, '龙港市奥龙包装有限公司','DUMMY','DUMMY', '龙港市新城海西路777号浙森科技园1幢', '无纺布袋、纸袋、纸杯、纸碗、餐盒，年产1500万个纸袋、2000万个无纺布袋', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (47, 'F047',NULL, NULL, '龙港市栩杭热转印厂','DUMMY','DUMMY', '龙港市龙港新城创业园41幢302室', '热转印', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (48, 'F048',NULL, NULL, '龙港宗孝热转印有限公司','DUMMY','DUMMY', '龙港市', '热转印加工', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (49, 'F049',NULL, NULL, '浙江森林控股有限公司','DUMMY','DUMMY', '龙港市凤祥路160号', '外贸文具套装、笔记本、文件夹、装饰贴、出版物，出口欧洲、美国、日本', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (50, 'F050',NULL, NULL, '温州格洛博电子有限公司','DUMMY','DUMMY', '龙港市', '电子标签、RFID', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, NULL, '2026-09-21 08:10:04', '2026-10-22 06:05:57', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, '浙江省', '温州市', 0, NULL, NULL);
+INSERT INTO `factory` VALUES (51, 'T22287421',NULL, NULL, '冒烟测试工厂22287421','DUMMY','DUMMY', NULL, NULL, 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 07:44:47', '2026-09-25 07:44:47', '2026-10-23 08:53:35', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
+INSERT INTO `factory` VALUES (52, 'T22979019',NULL, NULL, '冒烟测试工厂22979019','DUMMY','DUMMY', NULL, NULL, 0.1500, 0.1000, 0.0400, 1, 1, 'approved', NULL, '2026-09-25 07:56:19', '2026-09-25 07:56:19', '2026-10-23 08:22:22', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
+INSERT INTO `factory` VALUES (56, 'F053',NULL, NULL, '我的测试工厂','DUMMY','DUMMY', NULL, '测试专用', 0.1500, 0.1000, 0.0400, 1, 1, 'approved', '2026-10-22 07:30:37', '2026-10-26 07:12:22', '2026-10-22 07:30:37', '2026-10-26 07:12:22', 0, 0, 0.00, 5.00, 0, NULL, 'unknown', NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 
 -- ----------------------------
 -- Table structure for factory_capability
@@ -1626,6 +1641,36 @@ INSERT INTO `flute_factor` VALUES (5, 'BC', 3.30, 44, 1.90, '双坑组合');
 INSERT INTO `flute_factor` VALUES (6, 'BE', 1.90, 71, 1.62, '双坑组合');
 
 -- ----------------------------
+-- Table structure for industry_news
+-- ----------------------------
+DROP TABLE IF EXISTS `industry_news`;
+CREATE TABLE `industry_news`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `title` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `summary` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '摘要',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '正文(HTML或纯文本)',
+  `source_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '来源名称',
+  `source_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '原文链接',
+  `cover_image` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '封面图',
+  `category` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'market' COMMENT '分类：policy|market|tech|material',
+  `published_at` datetime(0) NULL DEFAULT NULL COMMENT '原文发布时间',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `featured` tinyint(0) NOT NULL DEFAULT 0 COMMENT '是否精选 0/1',
+  `editor_note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '编辑推荐语',
+  `editor_id` bigint(0) NULL DEFAULT NULL COMMENT '推荐管理员ID',
+  `keywords` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '逗号分隔关键词',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_url`(`source_url`(200)) USING BTREE,
+  INDEX `idx_category`(`category`) USING BTREE,
+  INDEX `idx_published`(`published_at` DESC) USING BTREE,
+  INDEX `idx_featured`(`featured`, `published_at`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '行业资讯(RSS抓取)' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of industry_news
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for ink_type
 -- ----------------------------
 DROP TABLE IF EXISTS `ink_type`;
@@ -1672,6 +1717,39 @@ CREATE TABLE `inquiry_message`  (
 
 -- ----------------------------
 -- Records of inquiry_message
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for issue_ticket
+-- ----------------------------
+DROP TABLE IF EXISTS `issue_ticket`;
+CREATE TABLE `issue_ticket`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `ticket_no` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '工单编号 IT+日期+序列',
+  `order_id` bigint(0) NOT NULL COMMENT '关联订单ID',
+  `user_id` bigint(0) NOT NULL COMMENT '发起用户',
+  `factory_id` int(0) NOT NULL COMMENT '被诉工厂',
+  `type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '问题类型：quality|delay|reprint|other',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '详细描述',
+  `images` json NULL COMMENT '截图URL数组(最多6)',
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open' COMMENT '状态：open|processing|resolved|closed',
+  `factory_reply` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '工厂回复',
+  `factory_reply_at` datetime(0) NULL DEFAULT NULL COMMENT '工厂回复时间',
+  `admin_note` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '管理员备注',
+  `resolved_at` datetime(0) NULL DEFAULT NULL COMMENT '解决时间',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `updated_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_ticket_no`(`ticket_no`) USING BTREE,
+  INDEX `idx_order`(`order_id`) USING BTREE,
+  INDEX `idx_user`(`user_id`) USING BTREE,
+  INDEX `idx_factory`(`factory_id`) USING BTREE,
+  INDEX `idx_status`(`status`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '异常反馈工单' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of issue_ticket
 -- ----------------------------
 
 -- ----------------------------
@@ -1769,12 +1847,18 @@ CREATE TABLE `order_main`  (
   `logistics_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'pending' COMMENT '物流状态：pending/shipped/delivering/signed',
   `rating` tinyint(0) NULL DEFAULT NULL COMMENT '用户评分 1-5',
   `rated_at` timestamp(0) NULL DEFAULT NULL COMMENT '评分时间',
+  `escrow_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'none' COMMENT '担保状态：none=无担保 frozen=资金冻结 released=已放款 refunded=已退款 partial_refund=部分退款',
+  `platform_fee` decimal(10, 2) NULL DEFAULT NULL COMMENT '平台服务费',
+  `factory_amount` decimal(10, 2) NULL DEFAULT NULL COMMENT '工厂实收金额',
+  `profit_sharing_no` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '微信分账单号',
+  `released_at` datetime(0) NULL DEFAULT NULL COMMENT '放款时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `order_no`(`order_no`) USING BTREE,
   UNIQUE INDEX `uk_inquiry`(`inquiry_id`) USING BTREE,
   INDEX `idx_user`(`user_id`) USING BTREE,
   INDEX `idx_factory`(`factory_id`) USING BTREE,
-  INDEX `idx_status`(`status`) USING BTREE
+  INDEX `idx_status`(`status`) USING BTREE,
+  INDEX `idx_escrow`(`escrow_status`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 41 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '订单主表（工厂接单后生成）' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -1933,6 +2017,26 @@ INSERT INTO `product_config` VALUES (9, 'heatTransfer', '热转印', '[\"gravure
 INSERT INTO `product_config` VALUES (10, 'paperContainer', '纸容器', '[\"flexo\", \"offset\", \"digital\"]', '[\"CUP_PE\", \"CUP_PLA\", \"FOOD_CARD\", \"FOOD_KRAFT\"]', '[\"DIE_CUT\", \"CUP_FORMING\", \"RIM_ROLLING\", \"BOTTOM_SEAL\", \"TUBE_WINDING\", \"LABELING\", \"ASSEMBLY\", \"LINING\", \"PACK\"]', 10, 10000, 1.50, 1, '2026-09-21 08:41:18', '2026-10-23 07:50:43', 0, 1, 0);
 
 -- ----------------------------
+-- Table structure for profit_sharing_log
+-- ----------------------------
+DROP TABLE IF EXISTS `profit_sharing_log`;
+CREATE TABLE `profit_sharing_log`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(0) NOT NULL COMMENT '关联订单ID',
+  `action` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT 'initiate|query|return|finish',
+  `request_body` json NULL COMMENT '请求原文',
+  `response_body` json NULL COMMENT '响应原文',
+  `success` tinyint(0) NULL DEFAULT 0 COMMENT '是否成功',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_order`(`order_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '分账操作日志' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of profit_sharing_log
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for quote_order
 -- ----------------------------
 DROP TABLE IF EXISTS `quote_order`;
@@ -2056,6 +2160,28 @@ CREATE TABLE `shipping_template`  (
 INSERT INTO `shipping_template` VALUES (1, '默认模板（固定10元·满500包邮）', 'fixed', 1.000, 0.00, 1.000, 0.00, 0.00, 10.00, 500.00, 1, 1, '2026-09-20 12:02:10', '2026-09-20 12:57:25');
 
 -- ----------------------------
+-- Table structure for supplier_follow
+-- ----------------------------
+DROP TABLE IF EXISTS `supplier_follow`;
+CREATE TABLE `supplier_follow`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(0) NOT NULL COMMENT 'C端用户',
+  `factory_id` int(0) NOT NULL COMMENT '工厂ID',
+  `tags` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '逗号分隔自定义标签',
+  `note` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
+  `pinned` tinyint(0) NOT NULL DEFAULT 0 COMMENT '是否置顶',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `updated_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_factory`(`user_id`, `factory_id`) USING BTREE,
+  INDEX `idx_user`(`user_id`, `pinned`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户关注供应商' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of supplier_follow
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for user_address
 -- ----------------------------
 DROP TABLE IF EXISTS `user_address`;
@@ -2077,6 +2203,26 @@ CREATE TABLE `user_address`  (
 
 -- ----------------------------
 -- Records of user_address
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for user_news_subscription
+-- ----------------------------
+DROP TABLE IF EXISTS `user_news_subscription`;
+CREATE TABLE `user_news_subscription`  (
+  `id` bigint(0) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(0) NOT NULL COMMENT 'C端用户',
+  `category` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'policy|market|tech|material 或 all',
+  `enabled` tinyint(0) NOT NULL DEFAULT 1 COMMENT '是否推送',
+  `created_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `updated_at` timestamp(0) NULL DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_cat`(`user_id`, `category`) USING BTREE,
+  INDEX `idx_cat`(`category`, `enabled`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户资讯订阅分类' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of user_news_subscription
 -- ----------------------------
 
 -- ----------------------------

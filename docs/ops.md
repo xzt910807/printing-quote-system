@@ -15,14 +15,19 @@ npm ci --omit=dev
 cp .env.example .env && vi .env
 
 # 4) 建库（sql/init.sql 为当前态唯一权威 schema：全部表结构 + 参考/种子数据；
-#    历史 001~027 迁移的效果已全部并入，全新环境跑这一个文件即完成建库；
+#    历史 001~034 迁移的效果已全部并入，新建一个空库后跑这一个文件即完成建库；
 #    业务流水表与账号表（admin_user/factory_user）不预置数据）
-mysql -u root -p < sql/init.sql
-# 本地无 mysql 命令行时改用：node scripts/run-sql.js sql/init.sql --allow-db-ddl
-#   （init.sql 头部带 DROP/CREATE DATABASE + USE；run-sql.js 默认拒绝库级 DDL，
-#     只有 --allow-db-ddl 才会保留 USE 且不预绑库，详见第 13 节）
+#    init.sql 是纯「表结构 + 种子」的导出文件，不含 DROP/CREATE DATABASE 也不含 USE，
+#    所以库必须先建好、并显式指定目标库；它对每张表都带 DROP TABLE IF EXISTS。
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS printing_quote DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p printing_quote < sql/init.sql
+# 本地无 mysql 命令行时改用（目标库取 .env 的 DB_NAME，需先建好该库；
+#   因文件不含库级 DDL，不需要 --allow-db-ddl，详见第 13 节）：
+node scripts/run-sql.js sql/init.sql
+# ⚠️ 上面两种导入 init.sql 的方式（mysql 与 run-sql.js）都只能在「空库」上跑：init.sql 逐表 DROP TABLE IF EXISTS，在存量库执行等于删表重建。
 # sql/migrations/ 已清空（仅留 .gitkeep 占位，目录不可删：migrate.js 扫目录会报 ENOENT），
-# 历史迁移文件归档在 data/sql-migrations-backup-20261027.zip。
+# 历史迁移文件归档在 data/sql-migrations-backup-20261027.zip（001~027）与
+# data/sql-migrations-backup-20261030.zip（026-file-transfer~034）。data/ 被 .gitignore 忽略，备份只在本地，需要时另拷。
 # 建库后跑一次 bootstrap 建立版本表（现存迁移为 0，仅建表不登记）：
 node scripts/migrate.js bootstrap
 node scripts/migrate.js status   # 预期：合计 0 个迁移，未执行 0 个
@@ -48,6 +53,11 @@ npm ci --omit=dev                      # 依赖有变化时
 node scripts/schema-sync.js            # 只看差异
 node scripts/schema-sync.js --apply    # 直接补齐缺表/缺列
 # （sql/migrations 已清空，不再靠迁移文件升级；表结构变更一律改 init.sql + 本工具同步存量库）
+# ⚠️ schema-sync 只比表名与列名，既不比对也不创建索引：给存量表加「带索引的新列」时，
+#    索引必须在 init.sql 的 CREATE TABLE 里写好（新库天然有），并对存量库手工补一条 ADD INDEX。
+#    需手工补的索引清单（本库已执行完毕，新发现的往这里追加）：
+#      ALTER TABLE `order_main` ADD INDEX `idx_escrow`(`escrow_status`);            -- Batch D0，029 迁移原本漏建
+#      ALTER TABLE `factory`    ADD INDEX `idx_latlng`(`lat`, `lng`);               -- Batch D2，随距离排序上线
 node scripts/migrate.js apply          # 仅当 sql/migrations/ 确有新增文件时才需要
 pm2 restart printing-quote
 # 冒烟
@@ -188,6 +198,11 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 
 本功能相关的列/表（`factory.capacity_*`、`license_verified`、`factory_media`、`inquiry_message`）已全部写入 init.sql；原 `027-yinchacha.sql` 迁移文件已与其他历史迁移一并归档删除（见第 1 节）。**存量库若还没执行过这些 DDL，必须先手动补齐（可从归档 zip 中取回 027 语句），否则新接口会因缺列/缺表报错。**
 
+> 2026-10-30 复核：`sql/migrations/` 里的 026~034 曾回流到工作区（与本节此前「已归档删除」的表述不符），
+> 已重新归档为 `data/sql-migrations-backup-20261030.zip` 并删除文件；同时把这 9 个迁移的效果全部并入 init.sql，
+> 并修掉了 init.sql 自身的两处硬伤（factory 种子 INSERT 缺列、占位账号撞 uk_factory_username 唯一索引）——
+> 在此之前，用 init.sql 建全新库是跑不通的。
+
 - **闲置产能**：B 端 `PUT /api/factory/me/capacity` 自报 idle/normal/busy（超 72h 自动降级 unknown、不再参与加权）；撮合与找厂排序对空闲厂加权；C 端列表/详情展示产能状态。
 - **验真徽章**：`factory.license_verified` + `audit_status` 双条件出「已核验」徽章；管理后台「工厂管理 → 编辑」表单内置验真开关（写 `PUT /api/factory/:id` 的 licenseVerified 字段）。
 - **设备图文**：B 端 `GET/POST/DELETE /api/factory/me/media`（base64 上传，落 `uploads/factory-media/`，默认上传即 approved）；管理后台「工厂管理 → 图文」弹窗展示图集并支持逐张通过/驳回（`POST /api/factory/media/:mediaId/audit`，驳回连带删文件）；C 端详情页图集。**uploads 目录需纳入备份与 Nginx 静态反代（第 6 节已有 /uploads/）。**
@@ -205,7 +220,7 @@ curl -s -X POST http://127.0.0.1:6001/api/admin/ops/notify-test \
 | `node scripts/schema-sync.js --sql` | 额外打印补齐 DDL，可粘贴到 mysql 客户端人工执行 | 只输出不执行 |
 | `node scripts/schema-sync.js --apply` | 直接执行补齐（`CREATE TABLE` / `ADD COLUMN`） | **只加不删**，幂等 |
 | `node scripts/run-sql.js <file.sql>` | 通用 SQL 文件执行器（本地无 mysql 命令行时用） | 默认拒执行库级 DDL（见第 13 节） |
-| `node scripts/run-sql.js sql/init.sql --allow-db-ddl` | 首次建库专用：保留文件内 USE、不预绑连接库 | 会重建库，仅当 DDL 库名 == DB_NAME |
+| `node scripts/run-sql.js sql/init.sql` | 首次建库专用：目标库 = `.env` 的 `DB_NAME`（库须先建好，文件内无 USE） | ⚠️ 逐表 `DROP TABLE IF EXISTS`，存量库禁跑 |
 | `node scripts/purge-biz-data.js` | 试运行：列出将被清空的业务流水表与行数 | 只读 |
 | `node scripts/purge-biz-data.js --apply` | 先备份到 `data/purge-backup-<时间>.sql`，再执行 `sql/purge-biz-data.sql` | 破坏性，有备份 |
 | `node scripts/backfill-file-message.js [--apply]` | 把存量 `file_transfer`（仅 inquiry）补成会话消息 | 只插缺的，已有同 `file_id` 消息则跳过，可重复跑 |
@@ -233,14 +248,16 @@ node scripts/binlog-rescue.js --tables=admin_user,factory_user
 node scripts/binlog-rescue.js --apply
 ```
 
-配套恢复顺序（库被整体误删时）：`run-sql.js sql/init.sql --allow-db-ddl` 重建结构与参考种子 →
+配套恢复顺序（库被整体误删时）：先 `CREATE DATABASE printing_quote ...` 建回空库，再
+`node scripts/run-sql.js sql/init.sql` 重建结构与参考种子（init.sql 无库级 DDL，不需要 `--allow-db-ddl`）→
 `binlog-rescue` 捞运行时账号 → 工厂老板账号可从 factory 表凭据派生（原 014 迁移第 2 步：
 `INSERT IGNORE INTO factory_user (factory_id,username,password_hash,real_name,phone,role,status) SELECT id,username,password_hash,contact,phone,'owner',status FROM factory WHERE username<>''`）
 → `schema-sync.js` 校验结构 → `migrate.js bootstrap` 建版本表。
 
 **为什么 run-sql.js 默认拒绝库级 DDL**（本库真实踩过的坑）：工具为对齐 migrate.js 会**过滤 `USE` 语句**，
 于是文件里的 `DROP DATABASE IF EXISTS x` 不再随 USE 切换目标，而是作用在 `.env DB_NAME` 指向的库上——
-用 `DB_NAME=临时库` 执行 init.sql 时，真库被删、建表全落在临时库，表现为「库存在但 0 表」。
+用 `DB_NAME=临时库` 执行当时那份头部带库级 DDL 的 init.sql 时，真库被删、建表全落在临时库，表现为「库存在但 0 表」。
+（现在的 init.sql 已不再带 DROP/CREATE DATABASE 与 USE，护栏保留是为了任何 dump 类文件。）
 因此现在：① 默认遇库级 DDL 直接中止；② `--allow-db-ddl` 时校验库名必须等于 `DB_NAME`，并自动保留 USE、不在连接时预绑库（否则 DROP 后连接默认库失效，报 `No database selected`）。
 任何时候手工切库执行 SQL 文件，都要先确认输出首行的「目标库」再回车。
 
@@ -250,8 +267,8 @@ node scripts/binlog-rescue.js --apply
 
 ```powershell
 # 已在本会话验证，存量库上线时只需重跑一次确认
-node scripts/migrate.js status   # 应看到 031-034 都为 ✓
-node scripts/migrate.js apply    # 幂等，新库上自动补齐
+node scripts/migrate.js status   # 031-034 的效果已并入 init.sql、迁移文件已归档删除，此处应看到「合计 0 个」
+node scripts/schema-sync.js     # 缺表 0 / 缺列 0（索引不在本工具射程，见第 2 节手工补索引清单）
 npm test                         # 27 个用例全绿即可重启服务
 ```
 
