@@ -1250,7 +1250,7 @@ textarea.ui-dialog-input {
 .chat-context-line + .chat-context-line { margin-top: 8px; }
 .chat-context-line .spec-tags { margin-top: 0; }
 
-/* 消息流：超高滚动; 后台没有自我视角, 气泡一律左领, 只按发送方区分底色 */
+/* 消息流：超高滚动; 两端都按发送方分色, 气泡一律左领（不做左右分栏, 翻记录时列宽更稳） */
 .chat-body { max-height: 52vh; overflow-y: auto; padding-right: 4px; }
 .chat-msg { margin-bottom: 12px; }
 .chat-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
@@ -1280,3 +1280,17 @@ textarea.ui-dialog-input {
   font-size: 13px;
   color: #475569;
 }
+
+/* 工厂端会话回复栏：管理端只读没有这一栏, 只有本厂身份能替自己回话;
+   发文件按钮是 label 包一个隐藏 file input, 保持与相邻按钮同宽同高 */
+.chat-reply {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f7;
+}
+.chat-reply textarea { flex: 1; min-height: 54px; resize: vertical; }
+.chat-reply-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.chat-reply-actions .muted { font-size: 12px; }

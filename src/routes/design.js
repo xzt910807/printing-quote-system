@@ -12,7 +12,7 @@ const path = require('path');
 const designService = require('../services/designService');
 const { ok, fail } = require('../utils/helpers');
 const { pool } = require('../config/db');
-const { requireAdmin } = require('../middlewares/auth');
+const { requireAdmin, requireFactory } = require('../middlewares/auth');
 const { requirePermission } = require('../config/permissions');
 
 const router = express.Router();
@@ -191,5 +191,85 @@ adminRouter.get('/', async (req, res) => {
   }
 });
 
+// ========== 工厂端设计稿（/api/factory/designs） ==========
+// 与台账的区别：只统计推送给本厂的询价（factory_inquiry_push 命中）, 客户昵称/手机号不给工厂,
+// 但多带一个 push_id——工厂在小程序里回传成品稿、就地改价都要靠它定位到那一条推送
+const factoryRouter = express.Router();
+factoryRouter.use(requireFactory);
+factoryRouter.use(requirePermission('inquiry:view'));
+
+/**
+ * GET /api/factory/designs?page=&size=&status=&has=&keyword=
+ * 参数口径与管理端台账一致（前端复用同一套筛选控件）, 但数据域锁在本厂
+ */
+factoryRouter.get('/', async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const size = Math.min(Math.max(parseInt(req.query.size, 10) || 20, 1), 100);
+    const offset = (page - 1) * size;
+    const status = String(req.query.status || '').trim();
+    const has = String(req.query.has || '').trim();
+    const keyword = String(req.query.keyword || '').trim().slice(0, 50);
+    const factoryId = req.factory.id;
+
+    const where = ['ip.factory_id = ?'];
+    const params = [factoryId];
+    if (['need', 'public', 'none'].includes(status)) { where.push('ci.design_status = ?'); params.push(status); }
+    if (has === 'img') where.push('ci.design_images IS NOT NULL AND JSON_LENGTH(ci.design_images) > 0');
+    else if (has === 'pdf') where.push('ci.design_pdfs IS NOT NULL AND JSON_LENGTH(ci.design_pdfs) > 0');
+    else if (has === 'fee') where.push('ci.design_fee IS NOT NULL');
+    // 工厂侧只能按自己看得到的字段搜：单号与需求描述（不含客户昵称）
+    if (keyword) {
+      const like = `%${keyword}%`;
+      where.push('(ci.inquiry_no LIKE ? OR ci.design_note LIKE ?)');
+      params.push(like, like);
+    }
+    const whereSql = 'WHERE ' + where.join(' AND ');
+    // 两个 JOIN 都是 1:1（uk_inquiry_factory 已按本厂过滤、order_main.uk_inquiry 保证一单一订）,
+    // 故不需要 GROUP BY, COUNT(*) 与列表行数天然一致
+    const joins = ` JOIN factory_inquiry_push ip ON ip.inquiry_id = ci.id
+     LEFT JOIN order_main o ON o.inquiry_id = ci.id`;
+
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(*) total FROM c_inquiry ci${joins} ${whereSql}`, params);
+    const [rows] = await pool.query(
+      `SELECT ci.id, ip.id AS push_id, ci.inquiry_no, ci.product_type, ci.quantity, ci.status,
+              ci.design_status, ci.design_note, ci.design_images, ci.design_pdfs, ci.design_fee,
+              ci.contact_name, ci.created_at, ip.push_time AS pushed_at,
+              ip.response AS factory_response,
+              o.id AS order_id, o.order_no, o.status AS order_status
+       FROM c_inquiry ci${joins} ${whereSql}
+       ORDER BY ci.id DESC LIMIT ? OFFSET ?`,
+      [...params, size, offset]);
+
+    // 顶部统计同样锁在本厂范围内（全库概况是平台侧台账的事, 工厂看了只会误判接单量）
+    const [[stat]] = await pool.query(
+      `SELECT COUNT(DISTINCT ci.id) total,
+              SUM(ci.design_status = 'need') need_cnt,
+              SUM(ci.design_status = 'public') public_cnt,
+              SUM(ci.design_images IS NOT NULL AND JSON_LENGTH(ci.design_images) > 0) has_img,
+              SUM(ci.design_pdfs IS NOT NULL AND JSON_LENGTH(ci.design_pdfs) > 0) has_pdf
+       FROM c_inquiry ci JOIN factory_inquiry_push ip ON ip.inquiry_id = ci.id
+       WHERE ip.factory_id = ?`, [factoryId]);
+
+    res.json(ok({
+      list: rows,
+      total,
+      page,
+      size,
+      stat: {
+        total: Number(stat.total) || 0,
+        need: Number(stat.need_cnt) || 0,
+        public: Number(stat.public_cnt) || 0,
+        hasImg: Number(stat.has_img) || 0,
+        hasPdf: Number(stat.has_pdf) || 0,
+      },
+    }));
+  } catch (err) {
+    res.status(500).json(fail(err.message));
+  }
+});
+
 module.exports = router;
 module.exports.adminRouter = adminRouter;
+module.exports.factoryRouter = factoryRouter;

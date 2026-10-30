@@ -10,6 +10,7 @@ const { pool } = require('../config/db');
 const { ok, fail } = require('../utils/helpers');
 const issueService = require('../services/issueService');
 const { requireFactory, requireAdmin } = require('../middlewares/auth');
+const { requirePermission } = require('../config/permissions');
 
 // ========== 用户端 ==========
 const userRouter = express.Router();
@@ -151,11 +152,13 @@ factoryRouter.get('/:id/files', async (req, res) => {
 });
 
 // ========== 管理端 ==========
+// 权限点与菜单同源（此前只挂 requireAdmin）：工单里带着客户描述、证据附件与处理备注,
+// 低权角色（如 viewer）不该能读, 更不该能推进状态——“藏菜单不藏接口”不是权限
 const adminRouter = express.Router();
 adminRouter.use(requireAdmin);
 
 // GET / — 全部工单（可按状态/类型/工厂筛, keyword 走服务端）
-adminRouter.get('/', async (req, res) => {
+adminRouter.get('/', requirePermission('issue:view'), async (req, res) => {
   try {
     const { status, type, factoryId, keyword } = req.query;
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -190,8 +193,8 @@ adminRouter.get('/', async (req, res) => {
   } catch (err) { res.status(400).json(fail(err.message)); }
 });
 
-// PUT /:id — 管理端标注 / 推进状态
-adminRouter.put('/:id', async (req, res) => {
+// PUT /:id — 管理端标注 / 推进状态（issue:manage：看工单不等于可以处置）
+adminRouter.put('/:id', requirePermission('issue:manage'), async (req, res) => {
   try {
     await issueService.adminUpdate(parseInt(req.params.id, 10), req.body || {});
     res.json(ok({ updated: true }));
@@ -199,7 +202,7 @@ adminRouter.put('/:id', async (req, res) => {
 });
 
 // GET /:id/files — 管理端查看证据附件
-adminRouter.get('/:id/files', async (req, res) => {
+adminRouter.get('/:id/files', requirePermission('issue:view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const [rows] = await pool.query(

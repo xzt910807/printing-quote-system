@@ -33,7 +33,7 @@ router.get('/threads', byIdentity, async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 50);
     const r = req.factory
-      ? await chat.listFactoryThreads(req.factory.id, { page, pageSize })
+      ? await chat.listFactoryThreads(req.factory.id, { page, pageSize, keyword: req.query.keyword })
       : await chat.listUserThreads(req.user.id, { page, pageSize });
     const unread = req.factory
       ? await chat.factoryUnread(req.factory.id)

@@ -128,14 +128,23 @@ const app = createApp({
       database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>',
       shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
       monitor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+      // stage18 菜单去重：会话/消息/设计稿/仲裁/资讯/工单此前与别的菜单项共用同一个图形,
+      // 侧栏一排看下来只能靠文字区分, 这里给每项配一个不歧义的线性图
+      chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.4 8.4 0 0 1 12.5 3.2a8.4 8.4 0 0 1 8.5 8.3z"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01"/></svg>',
+      bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+      palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2.5-2.5c0-.6-.2-1.2-.6-1.6a2.4 2.4 0 0 1-.6-1.6A2.5 2.5 0 0 1 15.8 14H18a4 4 0 0 0 4-4 8 8 0 0 0-10-8z"/><circle cx="6.5" cy="11.5" r="1"/><circle cx="9.5" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>',
+      gavel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.4 7.4a2.1 2.1 0 0 1-3-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>',
+      megaphone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M11 6.5 21 3v18l-10-3.5"/><path d="M7 17v2a2 2 0 0 0 4 0v-1.5"/></svg>',
+      alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
     };
 
-    const NAV_GROUPS = ['概览', '业务', '管理', '系统'];
+    // stage18：新增「协同」组——买卖双方沟通与交付物自成一段, 顺手把原来十几项的「管理」组拆短
+    const NAV_GROUPS = ['概览', '业务', '协同', '管理', '系统'];
     const NAV_MENU = [
       { key: 'dashboard', title: '数据概览', factoryTitle: '我的数据', group: '概览', svg: NAV_ICONS.grid, mode: 'both', perm: 'dashboard:view' },
       { key: 'calculator', title: '报价计算器', group: '业务', svg: NAV_ICONS.calculator, mode: 'both', perm: 'calculator:use' },
       { key: 'quotes', title: '报价单', factoryTitle: '我的报价单', group: '业务', svg: NAV_ICONS.file, mode: 'both', perm: 'quote:view' },
-      { key: 'inquiries', title: 'C端询价', factoryTitle: '我的询价', group: '业务', svg: NAV_ICONS.inbox, mode: 'both', perm: 'inquiry:view' },
+      { key: 'inquiries', title: 'C端询价', factoryTitle: '我的询价', group: '业务', svg: NAV_ICONS.inbox, mode: 'both', perm: 'inquiry:view', adminPerm: 'c_inquiry:view' },
       { key: 'orders', title: '订单管理', factoryTitle: '我的订单', group: '业务', svg: NAV_ICONS.box, mode: 'both', perm: 'order:view' },
       { key: 'finance', title: '财务对账', group: '业务', svg: NAV_ICONS.card, mode: 'factory', perm: 'finance:view', soon: true },
       { key: 'pricing', title: '价格设置', group: '管理', svg: NAV_ICONS.tag, mode: 'factory', perm: 'price:edit' },
@@ -145,21 +154,30 @@ const app = createApp({
       { key: 'customers', title: '客户管理', group: '管理', svg: NAV_ICONS.user, mode: 'both', perm: 'customer:manage' },
       { key: 'catalog', title: '目录数据', group: '管理', svg: NAV_ICONS.database, mode: 'admin', perm: 'catalog:view' },
       // 028/031 行业资讯：小程序有资讯页, 后台此前只能改精选（无列表页）
-      { key: 'news', title: '资讯管理', group: '管理', svg: NAV_ICONS.file, mode: 'admin', perm: 'news:manage' },
-      // 后台只读补齐三项：小程序早已上线买卖双方 IM / 我的消息 / 设计稿交付, 后台一条都看不到
-      // 三项一律 mode:'admin' 且只读——工厂端看自家会话走小程序接单页, 不放后台避免越权翻别家
-      { key: 'chats', title: '询价会话', group: '管理', svg: NAV_ICONS.inbox, mode: 'admin', perm: 'chat:view' },
-      { key: 'messages', title: '站内消息', group: '管理', svg: NAV_ICONS.card, mode: 'admin', perm: 'message:view' },
-      { key: 'designs', title: '设计稿台账', group: '管理', svg: NAV_ICONS.tag, mode: 'admin', perm: 'design:view' },
+      { key: 'news', title: '资讯管理', group: '管理', svg: NAV_ICONS.megaphone, mode: 'admin', perm: 'news:manage' },
+      // 027 工单管理 + 029 仲裁中心（工单列表两端同一入口, 管理端读 /api/admin/issue 需 issue:view）
+      { key: 'issues', title: '工单管理', factoryTitle: '售后工单', group: '业务', svg: NAV_ICONS.alert, mode: 'both', perm: 'inquiry:view', adminPerm: 'issue:view' },
+      { key: 'arbitration', title: '仲裁中心', group: '系统', svg: NAV_ICONS.gavel, mode: 'admin', perm: 'order:view' },
+      // 协同三项：小程序早有买卖双方 IM / 我的消息 / 设计稿交付, 后台此前一条都看不到。
+      // chats 与 designs 对工厂端也开放, 但走的是本厂接口（/api/messages、/api/factory/designs
+      // 的 factoryId 由令牌推导）, 工厂天然翻不到别家；perm=工厂侧权限点, adminPerm=管理侧权限点
+      { key: 'chats', title: '询价会话', factoryTitle: '客户会话', group: '协同', svg: NAV_ICONS.chat, mode: 'both', perm: 'inquiry:view', adminPerm: 'chat:view' },
+      { key: 'messages', title: '站内消息', group: '协同', svg: NAV_ICONS.bell, mode: 'admin', perm: 'message:view' },
+      { key: 'designs', title: '设计稿台账', factoryTitle: '设计稿待办', group: '协同', svg: NAV_ICONS.palette, mode: 'both', perm: 'inquiry:view', adminPerm: 'design:view' },
       { key: 'accounts', title: '账户管理', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'account:manage' },
       { key: 'sessions', title: '在线设备', group: '系统', svg: NAV_ICONS.monitor, mode: 'admin', perm: 'session:view' },
       { key: 'fee-ledger', title: '服务费台账', group: '系统', svg: NAV_ICONS.banknote, mode: 'admin', perm: 'finance:view' },
-      // 027 工单管理 + 029 仲裁中心
-      { key: 'issues', title: '工单管理', factoryTitle: '售后工单', group: '业务', svg: NAV_ICONS.inbox, mode: 'both', perm: 'inquiry:view' },
-      { key: 'arbitration', title: '仲裁中心', group: '系统', svg: NAV_ICONS.shield, mode: 'admin', perm: 'order:view' },
     ];
 
+    // 同一菜单项在两端打的是不同接口（管理端读全平台, 工厂端读本厂）, 权限点也就不同源：
+    // 只配一个 perm 必然出现「菜单点得进去但接口 403」或「后端要 A 菜单看 B」
+    function itemPerm(item) {
+      return state.isFactoryMode ? item.perm : (item.adminPerm || item.perm);
+    }
+
     // F-165 权限判定：工厂端看 factoryAuth.permissions；管理端看 admin-me 的 perms（角色映射兜底）
+    // 管理端角色只有 super/admin 两种, 各自相对全量权限点的缺口（与后端 ROLE_PERMISSIONS 同口径）
+    const ADMIN_ROLE_DENY = { super: [], admin: ['account:manage'] };
     function hasPerm(perm) {
       if (!perm) return true;
       if (state.isFactoryMode) {
@@ -169,9 +187,10 @@ const app = createApp({
       }
       const me = state.currentUser || {};
       if (Array.isArray(me.perms)) return me.perms.includes(perm);
-      const role = me.role || 'admin';
-      if (role === 'super') return true;
-      return perm !== 'account:manage'; // admin 角色唯一缺口
+      // 拿不到 perms（旧会话/异常响应）时按角色表兜底, 且兜底方向必须是“不给看”：
+      // 后端 requirePermission 只认 ROLE_PERMISSIONS, 前端这里放宽只会摆出一点就 403 的菜单
+      const deny = ADMIN_ROLE_DENY[me.role];
+      return deny ? !deny.includes(perm) : false;
     }
 
     function menuTitle(item) {
@@ -180,7 +199,7 @@ const app = createApp({
 
     const visibleMenu = computed(() => NAV_MENU.filter((item) => {
       if (state.isFactoryMode ? item.mode === 'admin' : item.mode === 'factory') return false;
-      return hasPerm(item.perm);
+      return hasPerm(itemPerm(item));
     }));
 
     // stage15：按 NAV_GROUPS 顺序聚合成"分组 -> 菜单项"，空分组不渲染
@@ -214,9 +233,9 @@ const app = createApp({
       issues: state.isFactoryMode ? '售后工单' : '工单管理',
       arbitration: '仲裁中心',
       news: '资讯管理',
-      chats: '询价会话',
+      chats: state.isFactoryMode ? '客户会话' : '询价会话',
       messages: '站内消息',
-      designs: '设计稿台账',
+      designs: state.isFactoryMode ? '设计稿待办' : '设计稿台账',
     })[state.page]);
 
       const materialCount = computed(() =>
@@ -244,6 +263,10 @@ const app = createApp({
     };
     const issueTypeStyle = (t) => ISSUE_TYPE_STYLE[t] || ISSUE_TYPE_STYLE.other;
     const issueStatusStyle = (s) => ISSUE_STATUS_STYLE[s] || ISSUE_STATUS_STYLE.closed;
+    // 接手/推进工单与仲裁都是写接口（后端分别收为 issue:manage 与 order:manage）,
+    // 只按“能不能进菜单”摆按钮, 会让只读角色点一下吃 403
+    const canIssueManage = computed(() => !state.isFactoryMode && hasPerm('issue:manage'));
+    const canArbitrate = computed(() => !state.isFactoryMode && hasPerm('order:manage'));
     const issueFilter = reactive({ status: '', type: '', keyword: '', page: 1 });
     const issuesState = reactive({ list: [], total: 0, loading: false });
     const issuePages = computed(() => Math.max(1, Math.ceil(issuesState.total / LIST_PAGE_SIZE)));
@@ -572,9 +595,10 @@ const app = createApp({
       }
     }
 
-    // ===== 询价会话 IM（后台只读）=====
-    // 只读是硬约束：后端给后台单独开了 getThreadAdmin, 看一眼不会把对方消息置为已读；
-    // 小程序那套 listThread 一进会话就消红点, 运营代为“已读”属于篡改用户状态
+    // ===== 询价会话 IM（管理端只读 / 工厂端可回复）=====
+    // 管理端只读是硬约束：后端给后台单独开了 getThreadAdmin, 看一眼不会把对方消息置为已读,
+    // 运营代为“已读”属于篡改用户状态; 工厂端用小程序那套 listThread 是对的——
+    // 它吃掉的就是自己这边的未读
     const CHAT_SENDER_TEXT = { user: '客户', factory: '工厂', system: '系统' };
     const CHAT_SENDER_STYLE = {
       user: 'background:#dbeafe;color:#1d4ed8',
@@ -585,15 +609,29 @@ const app = createApp({
     const chatSenderStyle = (t) => CHAT_SENDER_STYLE[t] || CHAT_SENDER_STYLE.system;
     // 会话里的文件消息只有 mime 是 image/ 才补缩略图, 其余（PDF/刀模图）只给下载链接
     const isImageMsg = (m) => /^image\//i.test(String((m && m.mime_type) || ''));
-    const chatState = reactive({ list: [], total: 0, page: 1, keyword: '', factoryId: '', loading: false });
+    const chatState = reactive({ list: [], total: 0, page: 1, keyword: '', factoryId: '', loading: false, unread: 0 });
     const chatPages = computed(() => Math.max(1, Math.ceil(chatState.total / LIST_PAGE_SIZE)));
-    const chatModal = reactive({ open: false, loading: false, inquiryNo: '', factoryId: 0, list: [], context: null });
+    const chatModal = reactive({
+      open: false, loading: false, inquiryNo: '', inquiryId: 0, factoryId: 0,
+      customerName: '', list: [], context: null, reply: '', sending: false, uploading: false,
+    });
 
     async function loadChatThreads(page) {
       chatState.loading = true;
       try {
         const q = new URLSearchParams();
         if (chatState.keyword) q.set('keyword', chatState.keyword);
+        if (state.isFactoryMode) {
+          // 工厂端读本厂会话：不传 factoryId（后端从令牌推导, 传了也不信）, 分页参数名是 pageSize
+          q.set('page', page || chatState.page || 1);
+          q.set('pageSize', LIST_PAGE_SIZE);
+          const res = await api.request('/api/messages/threads?' + q.toString());
+          chatState.list = res.list || [];
+          chatState.total = res.total || 0;
+          chatState.page = res.page || page || 1;
+          chatState.unread = Number(res.unread) || 0;
+          return;
+        }
         if (chatState.factoryId) q.set('factoryId', chatState.factoryId);
         q.set('page', page || chatState.page || 1);
         q.set('size', LIST_PAGE_SIZE);
@@ -601,6 +639,7 @@ const app = createApp({
         chatState.list = res.list || [];
         chatState.total = res.total || 0;
         chatState.page = res.page || page || 1;
+        chatState.unread = 0;   // 只读视图不吃未读, 摆个永远消不掉的徽标只会误导
       } catch (err) {
         alert('会话加载失败：' + err.message);
       } finally {
@@ -610,15 +649,22 @@ const app = createApp({
     function onChatSearch() { debounceSearch('chat', () => loadChatThreads(1)); }
     function onChatFilterChange() { loadChatThreads(1); }
 
-    // 会话弹窗：只展示, 不提供输入框——平台代任何一方发言会把纠纷责任搅浑
-    async function openChatThread(t) {
-      Object.assign(chatModal, {
-        open: true, loading: true, inquiryNo: t.inquiryNo, factoryId: t.factoryId,
-        list: [], context: null,
-      });
+    // 会话弹窗：管理端只展示（平台代任何一方发言会把纠纷责任搅浑）；
+    // 工厂端是自己的会话, 可以给客户回话、可以直接发设计文件
+    async function refreshChatThread(t) {
+      chatModal.loading = true;
       try {
-        const res = await api.request(`/api/admin/chat/thread/${t.inquiryId}?factoryId=${t.factoryId}`);
-        chatModal.list = res.list || [];
+        const res = state.isFactoryMode
+          ? await api.request('/api/messages/thread/' + t.inquiryId)
+          : await api.request(`/api/admin/chat/thread/${t.inquiryId}?factoryId=${t.factoryId}`);
+        const list = res.list || [];
+        if (state.isFactoryMode) {
+          // 本厂侧接口不关联发送人姓名（只有 getThreadAdmin 才 JOIN）, 前端给个不会认错的称呼
+          list.forEach((m) => {
+            m.senderName = m.sender_type === 'factory' ? '本厂' : (chatModal.customerName || '客户');
+          });
+        }
+        chatModal.list = list;
         chatModal.context = res.context || null;
       } catch (err) {
         alert('消息加载失败：' + err.message);
@@ -626,7 +672,72 @@ const app = createApp({
         chatModal.loading = false;
       }
     }
+
+    async function openChatThread(t) {
+      Object.assign(chatModal, {
+        open: true, loading: false, inquiryNo: t.inquiryNo, inquiryId: t.inquiryId,
+        factoryId: t.factoryId || 0, customerName: t.customerName || '',
+        list: [], context: null, reply: '',
+      });
+      await refreshChatThread(t);
+      // 工厂端进会话已把客户消息消费为已读（listThread 会置位）, 列表侧的未读徽标得同步
+      if (state.isFactoryMode) loadChatThreads(chatState.page);
+    }
     function closeChatThread() { chatModal.open = false; }
+
+    async function sendChatReply() {
+      const text = String(chatModal.reply || '').trim();
+      if (!text) return ui.alert('回复内容不能为空');
+      chatModal.sending = true;
+      try {
+        const msg = await api.request('/api/messages/send', {
+          method: 'POST', body: { inquiryId: chatModal.inquiryId, content: text },
+        });
+        chatModal.list.push(Object.assign({ senderName: '本厂' }, msg));
+        chatModal.reply = '';
+        loadChatThreads(chatState.page);
+      } catch (err) {
+        alert('发送失败：' + err.message);
+      } finally {
+        chatModal.sending = false;
+      }
+    }
+
+    /**
+     * 会话里发文件：走 /api/factory/file/upload（落 file_transfer 并自动进消息流）
+     * 不能复用 api.request()——它写死 Content-Type: application/json, multipart 需要
+     * 浏览器自己带 boundary, 手动指定反而会让后端解不了 form
+     */
+    async function uploadChatFile(event) {
+      const input = event.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const auth = api.getFactoryAuth() || {};
+      const fd = new FormData();
+      fd.append('refType', 'inquiry');
+      fd.append('refId', String(chatModal.inquiryId));
+      fd.append('file', file);
+      chatModal.uploading = true;
+      try {
+        const res = await fetch('/api/factory/file/upload', {
+          method: 'POST',
+          headers: { 'X-Factory-Id': String(auth.factoryId || ''), 'X-Factory-Token': auth.token || '' },
+          body: fd,
+        });
+        if (res.status === 401) {
+          window.dispatchEvent(new CustomEvent('admin-unauthorized'));
+          throw new Error('未授权，请重新登录');
+        }
+        const body = await res.json();
+        if (!body.success) throw new Error(body.error || '上传失败');
+        input.value = '';
+        await refreshChatThread({ inquiryId: chatModal.inquiryId });
+      } catch (err) {
+        alert('文件发送失败：' + err.message);
+      } finally {
+        chatModal.uploading = false;
+      }
+    }
 
     // ===== 站内消息（c_message）只读 =====
     // 类型码由各业务各自写死, 后端不做白名单拦截：历史种子里还出现过 note_accepted 这种
@@ -703,7 +814,9 @@ const app = createApp({
         if (designState.keyword) q.set('keyword', designState.keyword);
         q.set('page', page || designState.page || 1);
         q.set('size', LIST_PAGE_SIZE);
-        const res = await api.request('/api/admin/designs?' + q.toString());
+        // 工厂端只回本厂相关的设计稿（/api/factory/designs 锁 factory_inquiry_push）, 不下发客户昵称/手机号
+        const base = state.isFactoryMode ? '/api/factory/designs?' : '/api/admin/designs?';
+        const res = await api.request(base + q.toString());
         designState.list = res.list || [];
         designState.total = res.total || 0;
         designState.page = res.page || page || 1;
@@ -1484,7 +1597,7 @@ const app = createApp({
       const item = NAV_MENU.find((x) => x.key === page);
       if (!item) return;
       if (state.isFactoryMode ? item.mode === 'admin' : item.mode === 'factory') return;
-      if (!hasPerm(item.perm)) return;
+      if (!hasPerm(itemPerm(item))) return;
       if (item.soon) { alert('「' + menuTitle(item) + '」将在后续阶段上线，敬请期待'); return; }
       // stage15d：切到某页时自动展开它所在的分组，左侧一定要能看到当前菜单项
       expandGroupOf(item);
@@ -2916,11 +3029,13 @@ const app = createApp({
       // 028/031 资讯管理（选稿 + 手动补采）
       NEWS_CATEGORY_TEXT, newsCategoryStyle, newsState, newsPages, loadNews, onNewsSearch, onNewsFilterChange,
       newsModal, openNewsEditor, closeNewsEditor, saveNewsFeature, crawlNewsNow,
-      // 后台只读补齐：询价会话 IM / 站内消息 / 设计稿台账
+      // 后台补齐三项：询价会话 IM（管理端只读 / 工厂端可回复）、站内消息、设计稿（台账/本厂待办）
       CHAT_SENDER_TEXT, chatSenderLabel, chatSenderStyle, isImageMsg, chatState, chatPages, loadChatThreads,
-      onChatSearch, onChatFilterChange, chatModal, openChatThread, closeChatThread,
+      onChatSearch, onChatFilterChange, chatModal, openChatThread, closeChatThread, sendChatReply, uploadChatFile,
       MSG_TYPE_TEXT, msgTypeLabel, msgTypeStyle, msgState, msgPages, loadMessages, onMsgSearch, onMsgFilterChange, msgTargetLabel,
       DESIGN_STATUS_TEXT, designState, designPages, loadDesigns, onDesignSearch, onDesignFilterChange,
+      // stage18 菜单权限：双端不同源的权限点 + 写操作按钮的可见性
+      itemPerm, canIssueManage, canArbitrate,
     };
   },
 });

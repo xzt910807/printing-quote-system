@@ -233,6 +233,9 @@ app.use('/api/admin/issue', issuesRoutes.adminRouter);
 app.use('/api/admin/chat', messagesRoutes.adminRouter);
 app.use('/api/admin/messages', adminMessagesRoutes);
 app.use('/api/admin/designs', designRoutes.adminRouter);
+// 工厂端设计稿待办：同一份 c_inquiry.design_* 数据, 但只限推送过本厂的询价,
+// 且不下发客户昵称/手机号（鉴权 requireFactory + 权限点 inquiry:view 在子路由内）
+app.use('/api/factory/designs', designRoutes.factoryRouter);
 // 028 行业资讯：/api/c/news 与 /api/admin/news/crawl（管理端手动触发）
 app.use('/api/c/news', newsRoutes);
 const newsService = require('./services/newsService');
@@ -250,10 +253,12 @@ adminNewsFeature.use(requireAdmin);
 adminNewsFeature.use(newsRoutes.adminRouter);
 app.use('/api/admin/news', adminNewsFeature);
 // 029 仲裁接口（管理端）：/api/admin/order/:id/arbitrate
+// 这道接口会直接推动担保资金退款/放款, 不能只靠“是管理员”就放行（此前只挂 requireAdmin,
+// 连只读角色都能执行）, 与菜单「仲裁中心」同源的写权限收为 order:manage
 const escrowService = require('./services/escrowService');
 const adminEscrow = express.Router();
 adminEscrow.use(requireAdmin);
-adminEscrow.post('/order/:id/arbitrate', async (req, res) => {
+adminEscrow.post('/order/:id/arbitrate', requirePermission('order:manage'), async (req, res) => {
   try {
     const ret = await escrowService.arbitrate(parseInt(req.params.id, 10), req.body || {});
     res.json(ok(ret || { arbitrated: true }));

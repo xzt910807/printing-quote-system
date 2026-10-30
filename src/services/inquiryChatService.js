@@ -307,21 +307,33 @@ async function listUserThreads(userId, { page = 1, pageSize = 20 } = {}) {
 /**
  * 工厂的会话列表（分页）：推送给我厂且有消息往来的询价
  * 未读 = 客户发来且未读
+ * @param {Object} opts { page, pageSize, keyword } keyword 可选（PC 后台用, 小程序不传则行为与原来一致）
  */
-async function listFactoryThreads(factoryId, { page = 1, pageSize = 20 } = {}) {
+async function listFactoryThreads(factoryId, { page = 1, pageSize = 20, keyword = '' } = {}) {
   const limit = parseInt(pageSize, 10);
   const offset = (parseInt(page, 10) - 1) * limit;
+  const where = ['im.factory_id = ?'];
+  const params = [factoryId];
+  // 工厂找会话的口径只有「单号 / 联系人 / 客户昵称」, 不检消息正文（正文量大且无索引）
+  const kw = String(keyword || '').trim();
+  if (kw) {
+    const like = `%${kw}%`;
+    where.push('(ci.inquiry_no LIKE ? OR ci.contact_name LIKE ? OR eu.nickname LIKE ?)');
+    params.push(like, like, like);
+  }
+  const joins = ` JOIN c_inquiry ci ON ci.id = im.inquiry_id
+     LEFT JOIN c_end_user eu ON eu.id = ci.user_id`;
+  const whereSql = 'WHERE ' + where.join(' AND ');
   const [rows] = await pool.query(
     `SELECT im.inquiry_id AS inquiryId, ci.inquiry_no AS inquiryNo,
+            ci.status AS inquiryStatus, ci.design_status AS designStatus,
             ci.product_type AS productType, ci.quantity AS quantity,
-            MAX(im.id) AS lastId,
+            COUNT(*) AS msgCount, MAX(im.id) AS lastId,
             SUM(CASE WHEN im.sender_type = 'user' AND im.is_read = 0 THEN 1 ELSE 0 END) AS unread
-     FROM inquiry_message im
-     JOIN c_inquiry ci ON ci.id = im.inquiry_id
-     WHERE im.factory_id = ?
-     GROUP BY im.inquiry_id, ci.inquiry_no, ci.product_type, ci.quantity
+     FROM inquiry_message im${joins} ${whereSql}
+     GROUP BY im.inquiry_id, ci.inquiry_no, ci.status, ci.design_status, ci.product_type, ci.quantity
      ORDER BY lastId DESC LIMIT ? OFFSET ?`,
-    [factoryId, limit, offset]
+    [...params, limit, offset]
   );
   // 客户昵称需经 c_end_user 关联；会话发起方可能是匿名（user_id 为 NULL）
   const inquiryIds = rows.map((r) => r.inquiryId);
@@ -338,8 +350,11 @@ async function listFactoryThreads(factoryId, { page = 1, pageSize = 20 } = {}) {
     }
   }
   await attachLastInfo(rows, 'factory');
-  rows.forEach((r) => { r.customerName = nameMap[r.inquiryId] || '客户'; });
-  const total = await countThread('JOIN c_inquiry ci ON ci.id = im.inquiry_id WHERE im.factory_id = ?', [factoryId]);
+  rows.forEach((r) => {
+    r.customerName = nameMap[r.inquiryId] || '客户';
+    r.msgCount = Number(r.msgCount) || 0;
+  });
+  const total = await countThread(joins + ' ' + whereSql, params);
   return { total, list: rows };
 }
 
