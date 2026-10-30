@@ -23,6 +23,12 @@ const INQUIRY_STATUS_TEXT = {
  * C端公开配置（小程序启动时拉取）：订阅消息模板ID等
  */
 router.get('/config', (req, res) => {
+  // Batch E：材料编码 → 中文名。社区发帖的「规格」卡只需名称与白名单（不像计算器还要材料大类），
+  // 由目录统一出，避免小程序再抄一份材料映射表（现在 quote.js 里那份就是历史包袱）
+  const materialNames = {};
+  for (const t of ['boardPaper', 'cardPaper', 'rawPaper', 'plasticFilm']) {
+    for (const row of Object.values(catalog.baseData[t] || {})) materialNames[row.code] = row.name;
+  }
   res.json(ok({
     subscribeTmplIds: [
       process.env.WX_TMPL_ORDER_ACCEPTED,
@@ -36,6 +42,7 @@ router.get('/config', (req, res) => {
     // 目录新增/停用工序，C 端选项与一句话解析同步生效，无需改小程序代码
     finishingProcesses: Object.values(catalog.baseData.finishing || {})
       .map((r) => ({ code: r.code, name: r.name })),
+    materialNames,
   }));
 });
 

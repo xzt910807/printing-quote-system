@@ -6,6 +6,9 @@ const community = require('../../utils/community');
 const MAX_IMAGE_MB = 5;
 const MAX_VIDEO_MB = 20;
 const MAX_IMAGES = 9;
+// Batch E：默认展开规格卡的版块（报价求助 / 供需信息）, 其余版块折叠——
+// 经验交流、素材模板这类帖子填长宽高是负担, 但用户想填也随时能展开
+const SPEC_CATEGORIES = ['price', 'demand'];
 // 标题/正文长度上限直接写在 wxml 的 maxlength 里（100 / 5000）, 与服务层 MAX_TITLE_LEN、
 // MAX_CONTENT_LEN 同值——端上没有函数调用可用, 与其把常量塞进 data 再拼字符串, 不如让它明明白白在模板上
 
@@ -27,6 +30,18 @@ Page({
     uploading: 0,       // 正在传的文件数, >0 时禁掉发布按钮
     submitting: false,
     identityHint: '',
+    // Batch E：规格（选填）→ 服务端按平台计价模型算参考价快照；
+    // 品类/材料/工艺清单全部来自 /api/c/config, 端上不写死映射
+    specOpen: false,
+    specTypes: [],        // [{ value, name, printModes, materials:[{code,name}], processes:[{code,name}] }]
+    specTypeNames: [],
+    specTypeIndex: -1,
+    specMaterials: [],    // 当前品类的材料（白名单外的组合服务端会降级, 这里先收窄）
+    specMaterialNames: [],
+    specMaterialIndex: -1,
+    specProcesses: [],    // [{ code, name, selected }]
+    // 尺寸用 mm 手输：发帖场景下没人愿意先换算再填, 而引擎吃的是米制
+    specForm: { lengthMm: '', widthMm: '', heightMm: '', quantity: '' },
   },
 
   onLoad() {
@@ -40,6 +55,7 @@ Page({
     } catch (e) { /* 拿不到就用默认高度 */ }
     this.setData({ identityHint: community.identityHint() });
     this.loadCategories();
+    this.loadSpecConfig();
   },
 
   async loadCategories() {
@@ -56,7 +72,126 @@ Page({
     const i = Number(e.detail.value);
     const c = this.data.categories[i];
     if (!c) return;
-    this.setData({ catIndex: i, categoryCode: c.code });
+    // 报价求助/供需信息默认摊开规格卡, 其它版块收起（用户手动展开的不在这里打架）
+    this.setData({
+      catIndex: i, categoryCode: c.code,
+      specOpen: SPEC_CATEGORIES.indexOf(c.code) >= 0,
+    });
+  },
+
+  /**
+   * Batch E：拉品类/材料/工艺清单（与计算器同一个 /api/c/config）
+   * 失败就整块不渲染——规格是选填增强, 不能因为它拉不到把发帖废掉
+   */
+  async loadSpecConfig() {
+    try {
+      const res = await api.request('/api/c/config');
+      const cfg = (res && res.data) || {};
+      const pc = cfg.productConfig || {};
+      const names = cfg.materialNames || {};
+      const allProc = (cfg.finishingProcesses || []).map((p) => ({ code: p.code, name: p.name }));
+      const procName = {};
+      allProc.forEach((p) => { procName[p.code] = p.name; });
+      const allMats = Object.keys(names).map((code) => ({ code, name: names[code] }));
+      const types = Object.keys(pc).map((code) => {
+        const c = pc[code] || {};
+        // 白名单为空 = 该品类不限材料/工艺（与引擎同口径）, 此时放开全量清单
+        const mats = (c.materials || []).length
+          ? c.materials.map((mc) => ({ code: mc, name: names[mc] || mc }))
+          : allMats;
+        const procs = (c.processes || []).length
+          ? c.processes.filter((x) => procName[x]).map((x) => ({ code: x, name: procName[x] }))
+          : allProc;
+        return { value: code, name: c.productName || code, printModes: c.printModes || [], materials: mats, processes: procs };
+      });
+      this.setData({ specTypes: types, specTypeNames: types.map((t) => t.name) });
+      this.applySpecDraft(wx.getStorageSync('communitySpec'));
+    } catch (e) { /* 规格卡整块不渲染, 发帖流程不受影响 */ }
+  },
+
+  /**
+   * 计算器「把这个需求发到社区求助」带过来的草稿：读完即清（一次性语义）
+   * 这里不做校验, 交给服务层 normalizeSpec——端上校验只用来回填得好看
+   */
+  applySpecDraft(draft) {
+    if (!draft || !draft.productType) return;
+    wx.removeStorageSync('communitySpec');
+    const ti = this.data.specTypes.findIndex((t) => t.value === draft.productType);
+    if (ti < 0) return;
+    const t = this.data.specTypes[ti];
+    const mi = Math.max(0, t.materials.findIndex((m) => m.code === draft.materialCode));
+    const sel = new Set(Array.isArray(draft.processes) ? draft.processes : []);
+    this.setData({
+      specOpen: true,
+      specTypeIndex: ti,
+      specMaterials: t.materials,
+      specMaterialNames: t.materials.map((m) => m.name),
+      specMaterialIndex: mi,
+      specProcesses: t.processes.map((p) => ({ code: p.code, name: p.name, selected: sel.has(p.code) })),
+      specForm: {
+        lengthMm: draft.lengthMm ? String(draft.lengthMm) : '',
+        widthMm: draft.widthMm ? String(draft.widthMm) : '',
+        heightMm: draft.heightMm ? String(draft.heightMm) : '',
+        quantity: draft.quantity ? String(draft.quantity) : '',
+      },
+    });
+  },
+
+  toggleSpecOpen() { this.setData({ specOpen: !this.data.specOpen }); },
+
+  onSpecTypeChange(e) {
+    const i = Number(e.detail.value);
+    const t = this.data.specTypes[i];
+    if (!t) return;
+    this.setData({
+      specTypeIndex: i,
+      specMaterials: t.materials,
+      specMaterialNames: t.materials.map((m) => m.name),
+      specMaterialIndex: t.materials.length ? 0 : -1,
+      // 换品类后旧勾选的工艺多半不在新白名单里, 直接清空比让人猜为什么没生效好
+      specProcesses: t.processes.map((p) => ({ code: p.code, name: p.name, selected: false })),
+    });
+  },
+
+  onSpecMaterialChange(e) {
+    this.setData({ specMaterialIndex: Number(e.detail.value) });
+  },
+
+  onSpecLen(e) { this.setData({ 'specForm.lengthMm': e.detail.value }); },
+  onSpecWid(e) { this.setData({ 'specForm.widthMm': e.detail.value }); },
+  onSpecHgt(e) { this.setData({ 'specForm.heightMm': e.detail.value }); },
+  onSpecQty(e) { this.setData({ 'specForm.quantity': e.detail.value }); },
+
+  toggleSpecProcess(e) {
+    const code = e.currentTarget.dataset.code;
+    this.setData({
+      specProcesses: this.data.specProcesses.map((p) => (
+        p.code === code ? { ...p, selected: !p.selected } : p
+      )),
+    });
+  },
+
+  /** 规格不完整就当没填：参考价是选填增强, 不该因为漏一个高就卡住发布 */
+  buildSpec() {
+    const t = this.data.specTypes[this.data.specTypeIndex];
+    if (!t) return null;
+    const m = this.data.specMaterials[this.data.specMaterialIndex];
+    if (!m) return null;
+    const f = this.data.specForm;
+    const lengthMm = parseInt(f.lengthMm, 10) || 0;
+    const widthMm = parseInt(f.widthMm, 10) || 0;
+    const quantity = parseInt(f.quantity, 10) || 0;
+    if (!lengthMm || !widthMm || !quantity) return null;
+    return {
+      productType: t.value,
+      printMode: (t.printModes || [])[0] || '',
+      lengthMm,
+      widthMm,
+      heightMm: parseInt(f.heightMm, 10) || 0,
+      quantity,
+      materialCode: m.code,
+      processes: this.data.specProcesses.filter((p) => p.selected).map((p) => p.code),
+    };
   },
 
   onTitleInput(e) { this.setData({ title: e.detail.value }); },
@@ -204,7 +339,7 @@ Page({
     if (msg) return wx.showToast({ title: msg, icon: 'none' });
     this.setData({ submitting: true });
     try {
-      await api.request('/api/c/community/post', {
+      const res = await api.request('/api/c/community/post', {
         method: 'POST',
         data: {
           categoryCode: this.data.categoryCode,
@@ -213,10 +348,18 @@ Page({
           images: this.data.images.map((x) => x.url),
           videoUrl: this.data.video ? this.data.video.url : undefined,
           coverUrl: this.data.cover ? this.data.cover.url : undefined,
+          spec: this.data.specOpen ? this.buildSpec() : undefined,
         },
         headers: community.identityHeaders(),
       });
-      wx.showToast({ title: '已发布', icon: 'success' });
+      // 规格组合算不出参考价时服务端降级发帖并回 estimateError：提示一句但照常返回列表,
+      // 不能因为一个选填项让人以为整条帖没发出去
+      const estimateError = res && res.data && res.data.estimateError;
+      if (estimateError) {
+        wx.showToast({ title: estimateError, icon: 'none', duration: 2500 });
+      } else {
+        wx.showToast({ title: '已发布', icon: 'success' });
+      }
       setTimeout(() => wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/community/community' }) }), 700);
     } catch (e) {
       const m = e.message || '发布失败';

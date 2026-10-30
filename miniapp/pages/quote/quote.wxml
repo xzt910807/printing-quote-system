@@ -258,6 +258,10 @@
     <view class="btn-primary" bindtap="submitQuote" style="margin-top:30rpx">
       {{loading ? '计算中...' : '立即报价'}}
     </view>
+
+    <!-- Batch E：拿不准价就先让人报价——把当前表单带成社区帖子的「规格」草稿；
+         社区是 tabBar 页带不了 query, 只能走 storage 一次性回填 -->
+    <view class="btn-community" bindtap="shareToCommunity">把这个需求发到社区求助</view>
   </view>
 
   <view class="footnote">报价由龙港本地工厂数据实时计算 · 材料/印工/后道逐项透明</view>

@@ -14,9 +14,38 @@
       <text class="dc-essence" wx:if="{{post.isEssence}}">精</text>
     </view>
     <view class="dc-title">{{post.title}}</view>
-    <view class="dc-author">{{post.authorShow}} · {{post.timeText}}</view>
+    <view class="dc-author">{{post.authorShow}} · {{post.timeText}}
+      <text class="dc-trust" wx:if="{{post.trustText}}">{{post.trustText}}</text>
+    </view>
 
     <view class="dc-content">{{post.content}}</view>
+
+    <!-- Batch E：平台参考价（发帖那一刻的快照, 不实时重算）-->
+    <view class="dc-est" wx:if="{{post.estimateUnit}}">
+      <view class="de-head">
+        <text class="de-label">平台参考价</text>
+        <text class="de-unit">¥{{post.estimateUnit}}<text class="de-suffix">/个</text></text>
+      </view>
+      <view class="de-total">含税合计 ¥{{post.estimateTotal}} · {{post.estimateQty}} 个</view>
+      <view class="de-spec" wx:if="{{post.specText}}">{{post.specText}}</view>
+
+      <view class="de-toggle" wx:if="{{post.breakdown.length}}" bindtap="toggleBreakdown">
+        {{breakdownOpen ? '收起成本拆解' : '展开成本拆解'}}
+      </view>
+      <view class="de-bd" wx:if="{{breakdownOpen}}">
+        <view class="de-row" wx:for="{{post.breakdown}}" wx:key="key">
+          <view class="de-row-head">
+            <text class="de-row-name">{{item.name}}</text>
+            <text class="de-row-cost">{{item.costText}}</text>
+          </view>
+          <view class="de-row-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+        </view>
+      </view>
+
+      <view class="de-note">按平台计价模型估算，实际以工厂报价为准</view>
+      <view class="de-note-warn" wx:if="{{post.estimateStale}}">{{post.estimateStale}}</view>
+      <view class="de-btn" bindtap="calcFromSpec">按此参数算一算</view>
+    </view>
 
     <!-- 九宫格：详情页摆全（列表页只给 3 格）-->
     <view class="dc-imgs" wx:if="{{post.imageCount}}">
@@ -54,9 +83,18 @@
       <view class="cm-head">
         <text class="badge {{item.authorBadge}}">{{item.authorText}}</text>
         <text class="cm-name">{{item.authorShow}}</text>
+        <text class="cm-trust" wx:if="{{item.trustText}}">{{item.trustText}}</text>
         <text class="cm-time">{{item.timeText}}</text>
       </view>
       <view class="cm-body">{{item.content}}</view>
+
+      <!-- 工厂答价（Batch E）：报价 / 有效期 / 采纳状态；帖主还能采纳一条 -->
+      <view class="cm-quote {{item.acceptedText ? 'cm-quote-on' : ''}}" wx:if="{{item.quotePriceText}}">
+        <text class="cq-price">{{item.quotePriceText}}</text>
+        <text class="cq-valid" wx:if="{{item.quoteValidText}}">{{item.quoteValidText}}</text>
+        <text class="cq-accepted" wx:if="{{item.acceptedText}}">{{item.acceptedText}}</text>
+        <text class="cq-btn" wx:elif="{{isAuthor}}" data-id="{{item.id}}" catchtap="acceptQuote">采纳</text>
+      </view>
       <view class="cm-pending" wx:if="{{item.status !== 'published'}}">{{item.status === 'pending' ? '复核中，暂不对他人展示' : '已隐藏'}}{{item.auditNote ? '：' + item.auditNote : ''}}</view>
       <view class="cm-foot">
         <text class="cm-act" data-id="{{item.id}}" bindtap="likeComment">赞 {{item.likeCount}}</text>
@@ -67,28 +105,45 @@
     </view>
   </view>
 
-  <!-- 底部占位：固定输入栏不跟着内容滚, 得留出一段高度 -->
-  <view class="bottom-holder"></view>
+  <!-- 底部占位：固定输入栏不跟着内容滚, 得留出一段高度（工厂多一行附报价开关）-->
+  <view class="bottom-holder" style="height: {{isFactory ? 240 : 140}}rpx;"></view>
 </view>
 
 <view class="loading" wx:elif="{{loading}}">加载中…</view>
 
-<!-- 底部互动栏：点赞 / 收藏 / 评论输入 -->
-<view class="act-bar" wx:if="{{post}}">
-  <view class="act-icon {{liked ? 'act-on' : ''}}" bindtap="toggleLike">
-    <text class="act-glyph">♥</text>
-    <text class="act-num">{{post.likeCount}}</text>
+<!-- 底部互动栏：点赞 / 收藏 / 评论输入；工厂多一行「附报价」 -->
+<view class="act-wrap" wx:if="{{post}}">
+  <view class="qp-bar" wx:if="{{isFactory}}">
+    <view class="qp-head" bindtap="toggleQuoteOn">
+      <view class="qp-check {{quoteOn ? 'qp-on' : ''}}">{{quoteOn ? '✓' : ''}}</view>
+      <text class="qp-text">附报价（工厂答价，可选）</text>
+    </view>
+    <view class="qp-inputs" wx:if="{{quoteOn}}">
+      <input class="qp-input" type="digit" value="{{quotePrice}}" placeholder="1.35"
+             placeholder-class="act-ph" bindinput="onQuotePrice"/>
+      <text class="qp-unit">元/个</text>
+      <input class="qp-input qp-days" type="number" value="{{quoteDays}}" placeholder="7"
+             placeholder-class="act-ph" bindinput="onQuoteDays"/>
+      <text class="qp-unit">天有效</text>
+    </view>
   </view>
-  <view class="act-icon {{favorited ? 'act-on' : ''}}" bindtap="toggleFavorite">
-    <text class="act-glyph">★</text>
-    <text class="act-num">{{post.favoriteCount}}</text>
+
+  <view class="act-bar">
+    <view class="act-icon {{liked ? 'act-on' : ''}}" bindtap="toggleLike">
+      <text class="act-glyph">♥</text>
+      <text class="act-num">{{post.likeCount}}</text>
+    </view>
+    <view class="act-icon {{favorited ? 'act-on' : ''}}" bindtap="toggleFavorite">
+      <text class="act-glyph">★</text>
+      <text class="act-num">{{post.favoriteCount}}</text>
+    </view>
+    <view class="act-input-wrap">
+      <view class="act-reply" wx:if="{{replyTo}}" bindtap="cancelReply">回复 {{replyTo.name}} ✕</view>
+      <input class="act-input" value="{{inputText}}" placeholder="写评论…"
+             placeholder-class="act-ph" confirm-type="send" bindinput="onInput" />
+    </view>
+    <view class="act-send {{sending ? 'act-send-off' : ''}}" bindtap="sendComment">发送</view>
   </view>
-  <view class="act-input-wrap">
-    <view class="act-reply" wx:if="{{replyTo}}" bindtap="cancelReply">回复 {{replyTo.name}} ✕</view>
-    <input class="act-input" value="{{inputText}}" placeholder="写评论…"
-           placeholder-class="act-ph" confirm-type="send" bindinput="onInput" />
-  </view>
-  <view class="act-send {{sending ? 'act-send-off' : ''}}" bindtap="sendComment">发送</view>
 </view>
 
 <!-- 举报弹层：理由必选（与后端 REASONS 同集合）, 补充说明选填 -->

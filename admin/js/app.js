@@ -622,6 +622,24 @@ const app = createApp({
     const communityAuthorStyle = (t) => COMMUNITY_AUTHOR_STYLE[t] || COMMUNITY_STATUS_STYLE.removed;
     const COMMUNITY_REASON_TEXT = { porn: '色情低俗', ad: '广告导流', abuse: '辱骂攻击', fake: '虚假信息', other: '其他' };
     const communityReasonLabel = (r) => COMMUNITY_REASON_TEXT[r] || r || '-';
+    // Batch E：工厂信任徽章 / 平台参考价 / 工厂答价——文案与小程序端同一口径,
+    // 审核时「这个厂有没有资质」、「这个帖有没有参考价」、「哪条答价被采纳」都是判帖质量的硬信号
+    const communityTrustStyle = 'background:#f0fdfa;color:#0d9488';
+    const communityTrustText = (t) => {
+      if (!t) return '';
+      const parts = [];
+      if (Number(t.verificationLevel) > 0) parts.push('验真 L' + Number(t.verificationLevel));
+      if (t.licenseVerified) parts.push('执照核验');
+      if (t.hasCertificate) parts.push('资质证书');
+      return parts.join(' · ');
+    };
+    // 参考价是发帖那刻的系统基准价快照, 后台只展示不重算（重算会让历史帖数字集体漂移）
+    const communityEstimateText = (est) => (est && est.unitPrice
+      ? '参考价 ¥' + Number(est.unitPrice).toFixed(2) + '/个 · ' + (Number(est.quantity) || 0) + ' 个'
+      : '');
+    const communityQuoteText = (c) => (Number(c.isQuote) === 1 && c.quotePrice != null
+      ? '答价 ¥' + Number(c.quotePrice).toFixed(2) + '/个' + (c.quoteValidDays ? ' · 有效 ' + c.quoteValidDays + ' 天' : '')
+      : '');
     // 顶栏七个筛选态：四个帖子状态 + 举报/评论队列 + 版块维护, 数字取自 /stats
     const COMMUNITY_VIEWS = [
       { key: 'pending', label: '待审帖子', status: 'pending', count: 'pendingPosts' },
@@ -3384,6 +3402,7 @@ const app = createApp({
       // D4 UGC 社区审核面板
       COMMUNITY_STATUS_TEXT, COMMUNITY_VIEWS, communityStatusStyle, communityAuthorLabel, communityAuthorStyle,
       communityReasonLabel, communityViewCount, communityState, communityPages, canCommunityManage,
+      communityTrustStyle, communityTrustText, communityEstimateText, communityQuoteText,
       loadCommunity, loadCommunityStats, switchCommunityView, onCommunitySearch, onCommunityFilterChange,
       communityModal, openCommunityDetail, closeCommunityDetail, doCommunityAudit,
       doCommunityCommentAudit, doCommunityReportHandle,

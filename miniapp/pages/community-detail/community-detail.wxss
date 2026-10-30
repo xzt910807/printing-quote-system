@@ -49,14 +49,17 @@
 
 /* 底部固定互动栏：内容多时长, 用占位块避免最后一条评论被压住 */
 .bottom-holder { height: 140rpx; }
-.act-bar {
+/* Batch E：固定定位上移到 act-wrap, 这样工厂的「附报价」条能叠在输入栏上方一起固定 */
+.act-wrap {
   position: fixed; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center;
-  padding: 12rpx 20rpx;
-  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
   background: #fff;
   box-shadow: 0 -2rpx 12rpx rgba(15, 23, 42, .06);
   z-index: 100;
+}
+.act-bar {
+  display: flex; align-items: center;
+  padding: 12rpx 20rpx;
+  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
 }
 .act-icon { display: flex; flex-direction: column; align-items: center; width: 84rpx; }
 .act-glyph { font-size: 32rpx; color: #94a3b8; line-height: 1.1; }
@@ -70,6 +73,48 @@
 .act-send-off { background: #bfdbfe; }
 
 .loading { text-align: center; color: #94a3b8; font-size: 26rpx; padding: 80rpx 0; }
+
+/* Batch E：作者信任徽章（仅工厂作者有值）*/
+.dc-trust { font-size: 21rpx; color: #0d9488; background: #f0fdfa; border-radius: 6rpx; padding: 2rpx 12rpx; margin-left: 12rpx; }
+
+/* Batch E：平台参考价卡（发帖快照, 不实时重算）*/
+.dc-est { background: #fafcff; border: 1rpx solid #e2e8f5; border-radius: 12rpx; padding: 22rpx 24rpx; margin-top: 22rpx; }
+.de-head { display: flex; align-items: baseline; }
+.de-label { font-size: 24rpx; color: #64748b; margin-right: 16rpx; }
+.de-unit { font-size: 42rpx; font-weight: 600; color: #dc2626; line-height: 1.1; }
+.de-suffix { font-size: 22rpx; font-weight: 400; color: #94a3b8; margin-left: 4rpx; }
+.de-total { font-size: 23rpx; color: #475569; margin-top: 10rpx; }
+.de-spec { font-size: 23rpx; color: #64748b; margin-top: 6rpx; }
+.de-toggle { font-size: 23rpx; color: #2563eb; margin-top: 16rpx; }
+.de-bd { margin-top: 14rpx; padding-top: 12rpx; border-top: 1rpx dashed #e2e8f5; }
+.de-row { padding: 10rpx 0; }
+.de-row-head { display: flex; align-items: center; }
+.de-row-name { font-size: 23rpx; color: #475569; }
+.de-row-cost { font-size: 23rpx; color: #1f2937; margin-left: auto; }
+.de-row-detail { font-size: 21rpx; color: #94a3b8; line-height: 1.5; margin-top: 4rpx; }
+.de-note { font-size: 21rpx; color: #94a3b8; margin-top: 16rpx; }
+.de-note-warn { font-size: 21rpx; color: #b45309; background: #fffbeb; border-radius: 8rpx; padding: 8rpx 14rpx; margin-top: 8rpx; }
+.de-btn { text-align: center; font-size: 26rpx; color: #2563eb; background: #eff6ff; border-radius: 999rpx; padding: 16rpx 0; margin-top: 18rpx; }
+
+/* Batch E：评论里的工厂答价报价条 */
+.cm-trust { font-size: 20rpx; color: #0d9488; background: #f0fdfa; border-radius: 6rpx; padding: 2rpx 10rpx; margin-right: 10rpx; }
+.cm-quote { display: flex; align-items: center; flex-wrap: wrap; background: #f7f8fa; border-radius: 10rpx; padding: 12rpx 16rpx; margin-top: 12rpx; }
+.cm-quote-on { background: #f0fdf4; }
+.cq-price { font-size: 28rpx; font-weight: 600; color: #dc2626; margin-right: 16rpx; }
+.cq-valid { font-size: 21rpx; color: #94a3b8; }
+.cq-accepted { font-size: 21rpx; color: #16a34a; background: #dcfce7; border-radius: 6rpx; padding: 2rpx 12rpx; margin-left: auto; }
+.cq-btn { font-size: 22rpx; color: #fff; background: #2563eb; border-radius: 999rpx; padding: 6rpx 26rpx; margin-left: auto; }
+
+/* Batch E：底部「附报价」条（叠在 act-bar 上方一起固定）*/
+.qp-bar { padding: 12rpx 20rpx 0; border-bottom: 1rpx solid #f1f5f9; }
+.qp-head { display: flex; align-items: center; padding-bottom: 12rpx; }
+.qp-check { width: 32rpx; height: 32rpx; line-height: 32rpx; text-align: center; font-size: 22rpx; color: #fff; border: 1rpx solid #cbd5e1; border-radius: 8rpx; margin-right: 12rpx; }
+.qp-on { background: #2563eb; border-color: #2563eb; }
+.qp-text { font-size: 24rpx; color: #475569; }
+.qp-inputs { display: flex; align-items: center; padding-bottom: 12rpx; }
+.qp-input { width: 160rpx; height: 60rpx; background: #f2f3f5; border-radius: 12rpx; padding: 0 18rpx; font-size: 25rpx; color: #1f2937; }
+.qp-days { width: 120rpx; margin-left: 16rpx; }
+.qp-unit { font-size: 22rpx; color: #64748b; margin-left: 10rpx; }
 
 /* 举报弹层 */
 .rp-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 200; display: flex; align-items: flex-end; }

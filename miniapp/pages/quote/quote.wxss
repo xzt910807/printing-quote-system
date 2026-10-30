@@ -429,6 +429,14 @@
   margin: 10rpx 0 30rpx;
 }
 
+/* Batch E：次入口——不抢「立即报价」的视觉, 只给一句文字链 */
+.btn-community {
+  text-align: center;
+  font-size: 26rpx;
+  color: #2563eb;
+  padding: 26rpx 0 4rpx;
+}
+
 /* 自定义下拉弹层：原生 picker 弹层字号过小且不可样式化，这里统一大字体 */
 .picker-mask {
   position: fixed;

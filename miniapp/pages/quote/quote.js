@@ -402,6 +402,8 @@ Page({
   },
 
   // 一键复购：从「我的-询价记录」点「再次询价」跳转过来，带入历史参数
+  // Batch E：社区帖子详情的「按此参数算一算」也走同一个通道（tabBar 页带不了 query, 只能走 storage）,
+  // 它额外给一个 tip 覆盖文案——不然明明从社区带过来的也会说成「上次询价参数」
   applyRepurchase() {
     const p = wx.getStorageSync('repurchaseParams');
     if (!p || !p.productType) return;
@@ -429,7 +431,7 @@ Page({
     this.setData({
       processes: this.data.processes.map((x) => ({ ...x, selected: sel.has(x.code) })),
     });
-    wx.showToast({ title: '已带入上次询价参数', icon: 'none' });
+    wx.showToast({ title: p.tip || '已带入上次询价参数', icon: 'none' });
   },
 
   // 场景模板：联动产品类型 + 推荐材料
@@ -1010,6 +1012,33 @@ Page({
       designImages: this.data.designMode === 'public' ? [] : this.data.designImages,
       designPdfs: this.data.designMode === 'public' ? [] : this.data.designPdfs,
     };
+  },
+
+  /**
+   * Batch E：把当前填好的表单变成社区帖的「规格」草稿
+   * 只搬计价需要的字段（尺寸回 mm）：社区参考价用系统基准价算, 与这里选的工厂无关；
+   * 社区页是 tabBar 页带不了 query, 走 storage 一次性语义, 发帖页读完即清。
+   */
+  shareToCommunity() {
+    const product = this.data.productTypes[this.data.productIndex];
+    const material = this.data.materialOptions[this.data.materialIndex];
+    if (!product || !material) return wx.showToast({ title: '先选好品类与材料', icon: 'none' });
+    const f = this.buildForm();
+    const spec = {
+      productType: product.value,
+      printMode: f.printMode,
+      lengthMm: Math.round((f.lengthM || 0) * 1000),
+      widthMm: Math.round((f.widthM || 0) * 1000),
+      heightMm: Math.round((f.heightM || 0) * 1000),
+      quantity: f.quantity,
+      materialCode: material.code,
+      processes: f.processes || [],
+    };
+    if (!spec.lengthMm || !spec.widthMm || !spec.quantity) {
+      return wx.showToast({ title: '先填好尺寸与数量', icon: 'none' });
+    }
+    wx.setStorageSync('communitySpec', spec);
+    wx.switchTab({ url: '/pages/community/community' });
   },
 
   parseLocal(text) {

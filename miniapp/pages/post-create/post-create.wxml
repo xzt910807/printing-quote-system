@@ -37,6 +37,62 @@
     </view>
   </view>
 
+  <!-- Batch E：规格（选填）→ 服务端按平台计价模型算一个参考价快照随帖落库；
+       算不出来只提示一句, 帖子照常发（报价求助/供需信息默认展开）-->
+  <view class="f-card" wx:if="{{specTypes.length}}">
+    <view class="sp-head" bindtap="toggleSpecOpen">
+      <text class="sp-title">规格（选填，用于生成参考价）</text>
+      <text class="sp-arrow">{{specOpen ? '收起' : '展开'}}</text>
+    </view>
+
+    <view class="sp-body" wx:if="{{specOpen}}">
+      <view class="f-row">
+        <text class="f-label">品类</text>
+        <picker mode="selector" range="{{specTypeNames}}" value="{{specTypeIndex}}" bindchange="onSpecTypeChange">
+          <view class="f-picker {{specTypeIndex >= 0 ? '' : 'f-ph'}}">
+            {{specTypeIndex >= 0 ? specTypeNames[specTypeIndex] : '请选择品类'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="f-row">
+        <text class="f-label">尺寸 mm</text>
+        <input class="sp-num" type="number" value="{{specForm.lengthMm}}" placeholder="长"
+               placeholder-class="f-ph" bindinput="onSpecLen"/>
+        <input class="sp-num" type="number" value="{{specForm.widthMm}}" placeholder="宽"
+               placeholder-class="f-ph" bindinput="onSpecWid"/>
+        <input class="sp-num" type="number" value="{{specForm.heightMm}}" placeholder="高(选填)"
+               placeholder-class="f-ph" bindinput="onSpecHgt"/>
+      </view>
+
+      <view class="f-row">
+        <text class="f-label">数量</text>
+        <input class="sp-qty" type="number" value="{{specForm.quantity}}" placeholder="1000"
+               placeholder-class="f-ph" bindinput="onSpecQty"/>
+        <text class="sp-unit">个</text>
+      </view>
+
+      <view class="f-row" wx:if="{{specMaterials.length}}">
+        <text class="f-label">材料</text>
+        <picker mode="selector" range="{{specMaterialNames}}" value="{{specMaterialIndex}}" bindchange="onSpecMaterialChange">
+          <view class="f-picker {{specMaterialIndex >= 0 ? '' : 'f-ph'}}">
+            {{specMaterialIndex >= 0 ? specMaterialNames[specMaterialIndex] : '请选择材料'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="f-row f-row-col" wx:if="{{specProcesses.length}}">
+        <text class="f-label">工艺（可不选）</text>
+        <scroll-view class="sp-procs" scroll-y>
+          <text class="sp-proc {{item.selected ? 'sp-proc-on' : ''}}" wx:for="{{specProcesses}}" wx:key="code"
+                data-code="{{item.code}}" bindtap="toggleSpecProcess">{{item.name}}</text>
+        </scroll-view>
+      </view>
+
+      <view class="sp-tip">参考价按平台计价模型估算，只作发帖参考；参数不全或组合不支持时不会生成。</view>
+    </view>
+  </view>
+
   <!-- 配图九宫格：选完即传, 格子上显示的是后端返回的正式地址（与最终展示同一张）-->
   <view class="f-card">
     <view class="f-line">

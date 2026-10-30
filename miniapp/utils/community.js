@@ -63,6 +63,7 @@ function friendTime(t) {
  */
 function shapeItem(p) {
   const imgs = mediaUrls(p.images);
+  const est = p.estimate || null;
   return Object.assign({}, p, {
     imageUrl: imgs,
     imageCount: imgs.length,
@@ -74,7 +75,66 @@ function shapeItem(p) {
     timeText: friendTime(p.createdAt),
     statText: (p.commentCount > 0 ? p.commentCount + '评论' : '')
       + (p.likeCount > 0 ? (p.commentCount > 0 ? ' · ' : '') + p.likeCount + '赞' : ''),
+    // Batch E：信任徽章（仅工厂作者有, 客户帖后端给 null）与平台参考价
+    trustText: trustText(p.authorTrust),
+    priceChip: est && est.unitPrice ? '¥' + money(est.unitPrice) + '/个起' : '',
+    estimateUnit: est && est.unitPrice ? money(est.unitPrice) : '',
+    estimateTotal: est && est.finalPrice ? money(est.finalPrice) : '',
+    estimateQty: est && est.quantity ? est.quantity : 0,
+    estimateStale: estimateAgeText(est),
+    breakdown: breakdownList(est && est.breakdown),
+    // 工厂答价的报价条：isQuote=0 的普通评论这几个字段都是空串
+    quotePriceText: Number(p.isQuote) === 1 && p.quotePrice
+      ? '¥' + money(p.quotePrice) + '/个' : '',
+    quoteValidText: Number(p.isQuote) === 1 && p.quoteValidDays
+      ? '报价有效期 ' + p.quoteValidDays + ' 天' : '',
+    acceptedText: Number(p.isAccepted) === 1 ? '已采纳' : '',
   });
 }
 
-module.exports = { isFactory, identityHeaders, identityHint, mediaUrl, mediaUrls, friendTime, shapeItem };
+/** 金额统一两位小数（wxml 里没有 toFixed） */
+function money(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+}
+
+/** 工厂信任徽章文案；authorTrust 为 null（客户作者）返回空串，端上 wx:if 判空即可 */
+function trustText(t) {
+  if (!t) return '';
+  const parts = [];
+  if (Number(t.verificationLevel) > 0) parts.push('验真 L' + Number(t.verificationLevel));
+  if (t.licenseVerified) parts.push('执照核验');
+  if (t.hasCertificate) parts.push('资质证书');
+  return parts.join(' · ');
+}
+
+/** 参考价快照超过 90 天才提示行情已变（后台不重算，见 docs/ops.md 14.9） */
+const ESTIMATE_STALE_DAYS = 90;
+function estimateAgeText(est) {
+  if (!est || !est.calculatedAt) return '';
+  const t = new Date(est.calculatedAt).getTime();
+  if (!t) return '';
+  const days = Math.floor((Date.now() - t) / 86400e3);
+  return days > ESTIMATE_STALE_DAYS ? '参考价发布于 ' + days + ' 天前，行情可能已变' : '';
+}
+
+/**
+ * 成本拆解 → 数组：wxml 只能遍历数组，且 0 成本项不展示
+ * （软包装才有固定费, 其它品类 fixed=0, 不滤掉就是一行 ¥0.00 占位）
+ */
+function breakdownList(bd) {
+  if (!bd) return [];
+  return ['material', 'plate', 'printing', 'finishing', 'fixed']
+    .filter((k) => bd[k] && Number(bd[k].cost) > 0)
+    .map((k) => ({
+      key: k,
+      name: bd[k].name || k,
+      costText: '¥' + money(bd[k].cost),
+      detail: bd[k].detail || (bd[k].items || []).map((x) => x.detail || x.name).join('；'),
+    }));
+}
+
+module.exports = {
+  isFactory, identityHeaders, identityHint, mediaUrl, mediaUrls, friendTime, shapeItem,
+  trustText, money,
+};

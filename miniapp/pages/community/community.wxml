@@ -43,7 +43,12 @@
       <text class="pc-time">{{item.timeText}}</text>
     </view>
 
+    <!-- 信任徽章（Batch E）：只对工厂作者下发, 客户帖为空串不占位 -->
+    <view class="pc-trust" wx:if="{{item.trustText}}">{{item.trustText}}</view>
+
     <view class="pc-title">{{item.title}}</view>
+    <!-- 平台参考价（发帖时按计价模型算的快照） -->
+    <view class="pc-price" wx:if="{{item.priceChip}}">{{item.priceChip}}<text class="pc-price-tip">参考价</text></view>
     <view class="pc-summary" wx:if="{{item.summary}}">{{item.summary}}</view>
 
     <!-- 配图：列表最多摆 3 张, 第 4 格显剩余张数（九宫格留给详情页）-->

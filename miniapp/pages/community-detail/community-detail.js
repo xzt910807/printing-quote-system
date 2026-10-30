@@ -31,6 +31,13 @@ Page({
     reportReason: '',
     reportDetail: '',
     reportSubmitting: false,
+    // Batch E：成本拆解默认收起（占屏太大, 想知道的人自己展开）
+    breakdownOpen: false,
+    // Batch E：工厂身份才能「附报价」，客户打开开关也没意义（后端会静默忽略价格）
+    isFactory: false,
+    quoteOn: false,
+    quotePrice: '',
+    quoteDays: '7',
   },
 
   onLoad(options) {
@@ -43,7 +50,7 @@ Page({
       });
     } catch (e) { /* 拿不到就用 data 里的默认高度, 导航栏不至于塌 */ }
     const id = Number(options && options.id) || 0;
-    this.setData({ id });
+    this.setData({ id, isFactory: community.isFactory() });
     if (!id) {
       wx.showToast({ title: '缺少内容编号', icon: 'none' });
       this.setData({ loading: false });
@@ -96,19 +103,92 @@ Page({
     const content = (this.data.inputText || '').trim();
     if (!content) return wx.showToast({ title: '请先写点内容', icon: 'none' });
     if (this.data.sending) return;
+    // 附报价：只有工厂身份且开了开关才带 price；校验口径与后端一致，不把 400 留给用户去猜
+    const withQuote = this.data.isFactory && this.data.quoteOn;
+    let quotePrice;
+    let quoteValidDays;
+    if (withQuote) {
+      quotePrice = Number(this.data.quotePrice);
+      if (!(quotePrice > 0)) return wx.showToast({ title: '请填写报价（元/个）', icon: 'none' });
+      quoteValidDays = Number(this.data.quoteDays) || 7;
+    }
     this.setData({ sending: true });
     try {
       await api.request('/api/c/community/post/' + this.data.id + '/comment', {
         method: 'POST',
-        data: { content, parentId: this.data.replyTo ? this.data.replyTo.id : undefined },
+        data: {
+          content,
+          parentId: this.data.replyTo ? this.data.replyTo.id : undefined,
+          quotePrice,
+          quoteValidDays,
+        },
         headers: community.identityHeaders(),
       });
-      this.setData({ inputText: '', replyTo: null });
+      this.setData({ inputText: '', replyTo: null, quoteOn: false, quotePrice: '', quoteDays: '7' });
       wx.showToast({ title: '已发布', icon: 'success' });
       await this.load();
     } catch (e) {
       wx.showToast({ title: this.loginTip(e), icon: 'none' });
     } finally { this.setData({ sending: false }); }
+  },
+
+  // Batch E：成本拆解展开/收起
+  toggleBreakdown() { this.setData({ breakdownOpen: !this.data.breakdownOpen }); },
+
+  // Batch E：工厂「附报价」开关
+  toggleQuoteOn() { this.setData({ quoteOn: !this.data.quoteOn }); },
+
+  onQuotePrice(e) { this.setData({ quotePrice: e.detail.value }); },
+
+  onQuoteDays(e) { this.setData({ quoteDays: e.detail.value }); },
+
+  /**
+   * Batch E：帖主采纳一条工厂答价。不自动建询价单（采纳只是信任信号，反哺撮合），
+   * 真要下单走「按此参数算一算」→ 计算器 → 询价，链路本来就有。
+   */
+  acceptQuote(e) {
+    const commentId = Number(e.currentTarget.dataset.id) || 0;
+    if (!commentId) return;
+    wx.showModal({
+      title: '采纳这条报价',
+      content: '采纳后会标记该报价已被你采用，同一帖只能采纳一条。',
+      confirmText: '采纳',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          await api.request('/api/c/community/post/' + this.data.id + '/accept-quote', {
+            method: 'POST',
+            data: { commentId },
+            headers: community.identityHeaders(),
+          });
+          wx.showToast({ title: '已采纳', icon: 'success' });
+          await this.load();
+        } catch (err) { wx.showToast({ title: this.loginTip(err), icon: 'none' }); }
+      },
+    });
+  },
+
+  /**
+   * Batch E：把帖子规格带回计算器。calculator 是 tabBar 页，wx.switchTab 带不了 query，
+   * 只能走 storage（复用「再次询价」的 repurchaseParams 通道，p.tip 覆盖 toast 文案）。
+   */
+  calcFromSpec() {
+    const spec = this.data.post && this.data.post.spec;
+    if (!spec) return wx.showToast({ title: '这条帖没有填规格', icon: 'none' });
+    wx.setStorageSync('repurchaseParams', {
+      productType: spec.productType,
+      length_m: spec.lengthMm / 1000,
+      width_m: spec.widthMm / 1000,
+      height_m: (spec.heightMm || 0) / 1000,
+      quantity: spec.quantity,
+      material_code: spec.materialCode,
+      processes: spec.processes || [],
+      box_type: spec.boxType || 'normal',
+      n_up: spec.nUp || 1,
+      film_layers: spec.filmLayers || 1,
+      tip: '已带入帖子里的规格参数',
+    });
+    wx.switchTab({ url: '/pages/quote/quote' });
   },
 
   /** 401 的文案（后端「请先登录后再发布内容」）在端上换成可操作的指引 */

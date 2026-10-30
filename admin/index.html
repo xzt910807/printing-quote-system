@@ -1400,10 +1400,18 @@
                   <span class="badge" style="background:#f1f5f9;color:#475569">{{ p.categoryName }}</span>
                   <span v-if="p.isTop" class="badge" style="background:#fee2e2;color:#dc2626">置顶</span>
                   <span v-if="p.isEssence" class="badge" style="background:#fef3c7;color:#b45309">精</span>
+                  <!-- Batch E：工厂作者的信任信号（客户作者后端给 null, 这里就不会渲染） -->
+                  <span v-if="communityTrustText(p.authorTrust)" class="badge" :style="communityTrustStyle">{{ communityTrustText(p.authorTrust) }}</span>
+                  <span v-if="p.acceptedCommentId" class="badge" style="background:#dcfce7;color:#15803d">已采纳报价</span>
                   <span class="cc-title">{{ p.title }}</span>
                   <span class="muted">{{ p.authorName }}{{ p.factoryName ? '（' + p.factoryName + '）' : '' }} · {{ formatTime(p.createdAt) }}</span>
                 </div>
                 <div class="cc-summary">{{ p.summary }}</div>
+                <!-- Batch E：平台参考价（发帖时的系统基准价快照）+ 规格人读文案 -->
+                <div class="cc-meta" v-if="communityEstimateText(p.estimate)">
+                  <span style="color:#dc2626">{{ communityEstimateText(p.estimate) }}</span>
+                  <span class="muted" v-if="p.specText">{{ p.specText }}</span>
+                </div>
                 <div class="cc-imgs" v-if="p.images && p.images.length">
                   <img v-for="(u, i) in p.images" :key="i" :src="u" class="design-thumb"
                        title="点击查看大图" @click="openDesignImg(u)" />
@@ -1540,12 +1548,18 @@
                   <span class="badge" :style="communityAuthorStyle(communityModal.post.authorType)">{{ communityAuthorLabel(communityModal.post.authorType) }}</span>
                   <span class="badge" :style="communityStatusStyle(communityModal.post.status)">{{ COMMUNITY_STATUS_TEXT[communityModal.post.status] || communityModal.post.status }}</span>
                   <span class="badge" style="background:#f1f5f9;color:#475569">{{ communityModal.post.categoryName }}</span>
+                  <span v-if="communityTrustText(communityModal.post.authorTrust)" class="badge" :style="communityTrustStyle">{{ communityTrustText(communityModal.post.authorTrust) }}</span>
                 </div>
                 <div class="cc-title">{{ communityModal.post.title }}</div>
                 <div class="muted">{{ communityModal.post.authorName }}{{ communityModal.post.factoryName ? '（' + communityModal.post.factoryName + '）' : '' }} · {{ formatTime(communityModal.post.createdAt) }}</div>
                 <div class="issue-block">
                   <div class="issue-block-label">正文</div>
                   <div class="issue-block-text" style="white-space:pre-wrap">{{ communityModal.post.content }}</div>
+                </div>
+                <!-- Batch E：审核时能看到发帖人自己填的规格与实际落库的参考价, 不必再取 JSON 列 -->
+                <div class="cc-meta" v-if="communityEstimateText(communityModal.post.estimate)">
+                  <span style="color:#dc2626">{{ communityEstimateText(communityModal.post.estimate) }}</span>
+                  <span class="muted" v-if="communityModal.post.specText">{{ communityModal.post.specText }}</span>
                 </div>
                 <div class="cc-imgs" v-if="communityModal.post.images && communityModal.post.images.length">
                   <img v-for="(u, i) in communityModal.post.images" :key="i" :src="u" class="design-thumb"
@@ -1578,9 +1592,15 @@
                         <span class="badge" :style="communityAuthorStyle(c.authorType)">{{ communityAuthorLabel(c.authorType) }}</span>
                         <span>{{ c.authorName }}</span>
                         <span class="badge" :style="communityStatusStyle(c.status)">{{ COMMUNITY_STATUS_TEXT[c.status] || c.status }}</span>
+                        <span v-if="communityTrustText(c.authorTrust)" class="badge" :style="communityTrustStyle">{{ communityTrustText(c.authorTrust) }}</span>
                         <span>{{ formatTime(c.createdAt) }}</span>
                       </div>
                       <div>{{ c.content }}</div>
+                      <!-- Batch E：工厂答价与采纳状态（同一帖只能采纳一条, 服务层互斥） -->
+                      <div class="muted" v-if="communityQuoteText(c)">
+                        <span style="color:#dc2626;font-weight:600">{{ communityQuoteText(c) }}</span>
+                        <span v-if="Number(c.isAccepted)" class="badge" style="background:#dcfce7;color:#15803d;margin-left:8px">已采纳</span>
+                      </div>
                       <div class="muted" v-if="c.auditNote">备注：{{ c.auditNote }}</div>
                     </div>
                     <div class="muted" v-if="!communityModal.comments.length">暂无评论</div>
@@ -2434,7 +2454,7 @@
   <script src="./js/api.js?v=21"></script>
   <script src="./js/dialog.js?v=17"></script>
   <script src="./js/login.js?v=17"></script>
-  <script src="./js/app.js?v=37"></script>
+  <script src="./js/app.js?v=38"></script>
   <noscript>请启用 JavaScript 后使用管理后台</noscript>
 </body>
 </html>
