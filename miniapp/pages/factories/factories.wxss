@@ -53,6 +53,26 @@
 
 .filter-tags { flex: 1; display: flex; flex-wrap: wrap; gap: 12rpx; }
 
+/* 快筛行：地区 + 信任并排一行，不带左侧标签列。
+   原来这两项各占一整行、左边挂「地区/信任」标签，每行只有一颗 chip，空得像表单 */
+.quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  padding-bottom: 16rpx;
+}
+
+/* 地区 chip 里的清除：并进 chip 当关闭按钮。只在蓝底（已选地区）时出现，
+   所以分隔线用半透明白；单独一颗「✕ 清除」挨着信任 chip 时容易被误读成清除信任 */
+.tag-x {
+  margin-left: 10rpx;
+  padding-left: 10rpx;
+  font-size: 20rpx;
+  opacity: 0.8;
+  border-left: 1rpx solid rgba(255, 255, 255, 0.4);
+}
+
 /* 筛选卡里的 chip 统一收一档（24rpx + 8/22 内边距），
    和地区弹层里的字号（正文 26rpx、辅助 24rpx）是同一档；
    地区 chip 与「只看已验真」原来一个 24rpx 一个 26rpx、内边距也不同，同一行看着一高一矮 */
@@ -152,17 +172,20 @@
 }
 
 /* ---------- F-100 排序条 ---------- */
-.sort-bar { white-space: nowrap; padding: 14rpx 0 22rpx; }
+/* 6 项要一屏放下：按钮文案两字（见 sortOptions）+ 内边距与筛选 chip 同一档，390 屏合计约 325px。
+   四字文案时每项多约 25px、总宽 ~650px，只能露到「响应快」的一半，得横向拖 */
+.sort-bar { white-space: nowrap; padding: 12rpx 0 18rpx; }
 
 .sort-chip {
   display: inline-block;
-  font-size: 25rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
   color: #475569;
   background: #fff;
   border: 1rpx solid #e2e8f0;
   border-radius: 999rpx;
-  padding: 10rpx 30rpx;
-  margin-right: 14rpx;
+  padding: 8rpx 22rpx;
+  margin-right: 10rpx;
 }
 
 .sort-on { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }

@@ -28,15 +28,16 @@ Page({
     keyword: '',
     // F-6 只看已验真：客户主动勾选的筛选（后端 verified=1），不是平台偷改曝光
     verifiedOnly: false,
-    // F-100 排序：综合（缺省）/ 评分 / 接单量 / 响应速度 / 产能优先 / 距离最近
+    // F-100 排序：综合（缺省）/ 产能空闲 / 评分高 / 接单多 / 响应快 / 距离最近（顺序即后端 sort 参数）
+    // 按钮上只留两字：六项要在一屏里放完，四字文案会溢出、得横向拖才看得到最后两项
     sort: '',
     sortOptions: [
       { code: '', name: '综合' },
-      { code: 'capacity', name: '产能空闲' },
-      { code: 'rating', name: '评分高' },
-      { code: 'accepts', name: '接单多' },
-      { code: 'response', name: '响应快' },
-      { code: 'distance', name: '距离最近' },
+      { code: 'capacity', name: '产能' },
+      { code: 'rating', name: '评分' },
+      { code: 'accepts', name: '接单' },
+      { code: 'response', name: '响应' },
+      { code: 'distance', name: '距离' },
     ],
     // Batch D2 用户定位（{ lat, lng } 或 null）：拿不到就隐藏距离且不参与距离排序，不弹错误
     userGeo: null,

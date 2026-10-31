@@ -17,7 +17,8 @@
     </view>
   </view>
 
-  <!-- F-100 排序：综合 / 产能空闲 / 评分高 / 接单多 / 响应快 / 距离最近 -->
+  <!-- F-100 排序：综合 / 产能空闲 / 评分高 / 接单多 / 响应快 / 距离最近
+       按钮上只写两字：六项要一屏放完，四字文案总宽约 650px，390 屏只露得到「响应快」的一半 -->
   <!-- 距离项：没拿到定位时置灰（点了会引导开定位，而不是默默换一个序） -->
   <scroll-view scroll-x class="sort-bar" enhanced show-scrollbar="{{false}}">
     <view class="sort-chip {{sort === item.code ? 'sort-on' : ''}} {{item.code === 'distance' && !userGeo ? 'sort-dim' : ''}}"
@@ -27,25 +28,20 @@
 
   <!-- 筛选栏 -->
   <view class="card filter-card">
-    <!-- 030 地区筛选：省 + 市两级，选中后拼入 /api/factory/list?province=&city=
-         弹层用自建的 region-picker（系统 picker 的字号/行高改不了，两级时还会有两列「全部」） -->
-    <view class="filter-row">
-      <text class="filter-label">地区</text>
-      <view class="filter-tags">
-        <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}" bindtap="openRegion">
-          {{filter.province ? filter.province + ' · ' + filter.city : '全部地区 ›'}}
-        </view>
-        <view class="tag tag-picker" wx:if="{{filter.province}}" bindtap="clearRegion">✕ 清除</view>
+    <!-- 快筛行：地区 + 信任并成一行。原来各占一整行、左边还挂着「地区/信任」标签，
+         两行各只有一颗 chip，空得像表单；这两项是全局开关，不是列表型选项，所以不给标签列 -->
+    <view class="quick-row">
+      <!-- 030 地区筛选：省 + 市两级，选中后拼入 /api/factory/list?province=&city=
+           弹层用自建的 region-picker（系统 picker 的字号/行高改不了，两级时还会有两列「全部」） -->
+      <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}" bindtap="openRegion">
+        <text wx:if="{{filter.province}}">{{filter.province}} · {{filter.city}}</text>
+        <text wx:else>全部地区 ›</text>
+        <!-- 清除并进 chip 里当关闭按钮，不再单独占一颗 chip（单独一颗容易被当成「清除信任」） -->
+        <text class="tag-x" wx:if="{{filter.province}}" catchtap="clearRegion">✕</text>
       </view>
-    </view>
-
-    <view class="filter-row">
-      <text class="filter-label">信任</text>
-      <view class="filter-tags">
-        <!-- F-6：只看已验真（向后端传 verified=1）。默认不选：线上未验真工厂占多数，
-             默认开启会让人以为平台没几家厂 -->
-        <view class="tag {{verifiedOnly ? 'tag-active' : ''}}" bindtap="toggleVerified">✓ 只看已验真</view>
-      </view>
+      <!-- F-6：只看已验真（向后端传 verified=1）。默认不选：线上未验真工厂占多数，
+           默认开启会让人以为平台没几家厂 -->
+      <view class="tag {{verifiedOnly ? 'tag-active' : ''}}" bindtap="toggleVerified">✓ 只看已验真</view>
     </view>
 
     <view class="filter-row">
