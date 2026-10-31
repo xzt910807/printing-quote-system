@@ -320,6 +320,11 @@ Page({
           trustLabel: x.trustLabel || '',
           // 关注态由后端按登录用户下发（匿名访问恒 false）
           followed: !!x.followed,
+          // 电话：与详情页同一口径（登录且工厂接受直拨才下发明文），卡片据此决定给「拨打」还是「查看号码」
+          phoneVisible: !!x.phoneVisible,
+          acceptDirectCall: x.acceptDirectCall !== false,
+          // 有号码才给按钮：库里 13 家填的是「待核实」占位文本，不能进拨号盘
+          phoneUsable: /\d/.test(String(x.phone || '')),
           capacityLabel: x.capacityStatus && x.capacityStatus !== 'unknown' ? x.capacityLabel : '',
           capacityStatus: x.capacityStatus || '',
           capNameList: [
@@ -380,9 +385,55 @@ Page({
   },
 
   quickQuote(e) {
-    const item = this.data.factories.find((x) => x.id === e.currentTarget.dataset.id);
-    wx.setStorageSync('preferFactoryId', e.currentTarget.dataset.id);
+    this.gotoQuote(e.currentTarget.dataset.id);
+  },
+
+  // 带目标工厂回报价页（询价入口只有这一个，callFactory 的「工厂不接受直拨」也走它）
+  gotoQuote(id) {
+    const item = this.data.factories.find((x) => Number(x.id) === Number(id));
+    wx.setStorageSync('preferFactoryId', id);
     wx.setStorageSync('preferFactoryName', item ? item.name : '');
     wx.switchTab({ url: '/pages/quote/quote' });
+  },
+
+  // 卡片直接拨号：三分支与详情页一致
+  //   工厂关掉直拨 → 引导询价（号码对谁都不展开）
+  //   未登录 → 引导登录（登录后 onShow 会重拉列表，号码才变明文）
+  //   可拨 → 交给系统拨号盘（接口给的已是明文，若仍是脱敏串说明列表是登录前拉的，重拉一次）
+  callFactory(e) {
+    const id = Number(e.currentTarget.dataset.id);
+    const item = this.data.factories.find((x) => Number(x.id) === id);
+    if (!item) return;
+    if (!item.phoneUsable) {
+      wx.showToast({ title: '该工厂未留联系电话', icon: 'none' });
+      return;
+    }
+    if (!item.acceptDirectCall) {
+      wx.showModal({
+        title: '该工厂暂不接受直接拨打',
+        content: '可以发一条询价，工厂报价后会通过报价单联系你',
+        confirmText: '去询价',
+        cancelText: '知道了',
+        success: (r) => { if (r.confirm) this.gotoQuote(id); },
+      });
+      return;
+    }
+    const u = wx.getStorageSync('userAuth');
+    if (!u || !u.userId || !u.token) {
+      wx.showModal({
+        title: '登录后查看完整号码',
+        content: '登录后可看到该工厂电话并一键拨打，也能关注工厂、保存报价记录',
+        confirmText: '去登录',
+        cancelText: '取消',
+        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
+      });
+      return;
+    }
+    if (String(item.phone).indexOf('*') >= 0) {
+      wx.showToast({ title: '号码刷新中，请稍后再点', icon: 'none' });
+      this.loadFactories();
+      return;
+    }
+    wx.makePhoneCall({ phoneNumber: String(item.phone) });
   },
 });

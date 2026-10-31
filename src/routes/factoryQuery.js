@@ -115,14 +115,22 @@ router.get('/list', optionalUser, async (req, res) => {
       kw ? [matchedIds, '%' + kw + '%', '%' + kw + '%', ...regionParams] : [matchedIds, ...regionParams]
     );
 
-    // 附上每家工厂的完整能力 + 产能/验真画像；F-30：找厂列表态工厂联系人脱敏（询价看价流程中才对归属者下发全文）
+    // 附上每家工厂的完整能力 + 产能/验真画像
+    // 电话口径与 /public/:id 完全一致（2026-10 起）：登录且工厂接受直拨才下发明文，否则脱敏。
+    // 以前列表态一律脱敏、只有询价看价后给全文；现在卡片上就能直接打，但工厂关掉直拨的一律不给号码。
+    const loggedIn = !!req.user;
     let list = rows.map((f) => {
       const cap = capacityOf(f);
       const trust = trustOf(f);
       const { lat, lng, ...rest } = f;
+      // tinyint NOT NULL DEFAULT 1：只有明确 0 才算关闭
+      const acceptDirectCall = Number(f.accept_direct_call) === 0 ? false : true;
+      const phoneVisible = loggedIn && acceptDirectCall;
       return {
         ...rest,
-        phone: maskPhone(f.phone),
+        phone: phoneVisible ? (f.phone || '') : maskPhone(f.phone),
+        phoneVisible,
+        acceptDirectCall,
         capabilities: capabilityService.getByFactory(f.id),
         capacityStatus: cap.status,
         capacityLabel: cap.label,

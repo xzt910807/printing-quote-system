@@ -105,7 +105,13 @@
     <view class="cap-row">
       <text class="cap-tag" wx:for="{{item.capNameList}}" wx:key="*this">{{item}}</text>
     </view>
-    <view class="btn-outline fi-btn" catchtap="quickQuote" data-id="{{item.id}}">报价 →</view>
+    <!-- 底部操作：电话（主）/ 报价（次）并列。工厂关掉直拨或没留号码时只剩询价，并说明原因 -->
+    <view class="fi-actions">
+      <view class="btn-primary fi-btn fi-btn-cell" wx:if="{{item.phoneUsable && item.acceptDirectCall}}"
+            catchtap="callFactory" data-id="{{item.id}}">{{item.phoneVisible ? '拨打电话' : '查看号码'}}</view>
+      <view class="btn-outline fi-btn fi-btn-cell" catchtap="quickQuote" data-id="{{item.id}}">报价 →</view>
+    </view>
+    <view class="fi-call-tip" wx:if="{{item.phoneUsable && !item.acceptDirectCall}}">该厂暂不接受直接拨打，可发起询价，报价后会主动联系你</view>
   </view>
 
   <view wx:if="{{factories.length === 0}}" class="empty">
