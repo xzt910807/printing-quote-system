@@ -14,8 +14,12 @@
     <view class="factory-sub">账号 {{factoryInfo.username}}</view>
   </view>
 
-  <!-- 分区导航：点击切换分区，只展示当前分区（选中项高亮） -->
-  <view class="sec-nav">
+  <!-- 分区导航：点击切换分区，只展示当前分区（选中项高亮）
+       吸顶按状态栏高度让开：top:0 会贴到屏幕最上沿、被状态栏文字压住。
+       吸顶后条与右上角胶囊同一水平线，还要让出右侧一段宽度（capsuleGap），
+       否则最右边几段被胶囊盖住；未吸顶时条在头部卡片下方、那里没有胶囊，所以只在吸顶时让 -->
+  <view class="sec-nav"
+        style="top: {{statusBarHeight}}px;{{navStuck && capsuleGap ? ' padding-right:' + capsuleGap + 'px;' : ''}}">
     <view class="sec-nav-item {{section === 'dashboard' ? 'sec-on' : ''}}" data-section="dashboard" bindtap="switchSection">经营</view>
     <view class="sec-nav-item {{section === 'profile' ? 'sec-on' : ''}}" data-section="profile" bindtap="switchSection">资料</view>
     <view class="sec-nav-item {{section === 'price' ? 'sec-on' : ''}}" data-section="price" bindtap="switchSection">价格</view>

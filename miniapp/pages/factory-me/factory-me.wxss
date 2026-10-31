@@ -221,6 +221,8 @@
 /* ---------- 分区吸顶导航：长页面分区定位，免反复下拉 ---------- */
 .sec-nav {
   position: sticky;
+  /* 兜底值：实际吸顶位置由 wxml 的内联 style 设成状态栏高度，
+     避免贴到屏幕最上沿被状态栏文字压住（改这里不会生效，改 wxml 那处） */
   top: 0;
   z-index: 20;
   display: flex;
@@ -237,6 +239,8 @@
   color: #64748b;
   padding: 14rpx 0;
   border-radius: 12rpx;
+  /* 吸顶后要让出胶囊那段宽度，7 段均分剩下的空间很紧，不加这句两字标签会被挤成两行 */
+  white-space: nowrap;
 }
 .sec-nav-item:active { background: #f1f5f9; }
 

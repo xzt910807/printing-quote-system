@@ -206,6 +206,11 @@ Page({
     // 自定义导航栏高度（与其他页面同一套算法）
     statusBarHeight: 20,
     navBarHeight: 44,
+    // 吸顶后条右侧要让出的宽度（px）：胶囊固定在右上角，吸顶后条与它同一水平线，最右边几段会被盖住。
+    // 0 表示拿不到胶囊信息，不做避让
+    capsuleGap: 0,
+    // 吸顶态：只有吸顶时条才与胶囊同一水平线、才需要让位（未吸顶时条在头部卡片下方，那里没有胶囊）
+    navStuck: false,
     auth: null,
     factoryInfo: { name: '', code: '', username: '' },
     profile: { contact: '', phone: '', address: '', intro: '', acceptDirectCall: 1 },
@@ -279,10 +284,17 @@ Page({
     try {
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const navBarHeight = (menu.top - info.statusBarHeight) * 2 + menu.height;
-      this.setData({ statusBarHeight: info.statusBarHeight, navBarHeight });
+      // statusBarHeight 有 0.5px 取整的情况，先用 Number 兜一层再参与运算（否则会算出 NaN）
+      const sbh = Number(info.statusBarHeight) || 20;
+      const navBarHeight = (menu.top - sbh) * 2 + menu.height;
+      // 胶囊让位宽度：屏宽 - 胶囊左边缘 + 8px 间距。条本身还缩在 .container 的 24rpx 内边距里，
+      // 实际内容右边界会比这个更靠左，所以这个值偏保守（宁可多让一点也不能让段钻到胶囊下面）
+      const capsuleGap = info.windowWidth && menu.left
+        ? Math.round(info.windowWidth - menu.left) + 8
+        : 0;
+      this.setData({ statusBarHeight: sbh, navBarHeight, capsuleGap });
     } catch (e) {
-      this.setData({ statusBarHeight: 20, navBarHeight: 44 });
+      this.setData({ statusBarHeight: 20, navBarHeight: 44, capsuleGap: 0 });
     }
 
     const auth = wx.getStorageSync('factoryAuth');
@@ -327,7 +339,48 @@ Page({
     this.setData({ section: s });
     wx.setStorageSync('factoryMeSection', s);
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    // 回顶后必然不再吸顶；直接落一次，免得 scrollTop 本来就是 0 时收不到滚动事件、条还留着让位
+    this.updateNavStuck(0);
     if (s === 'dashboard' && !this.data.dashLoaded) this.loadDashboard();
+  },
+
+  // ===== 分区导航吸顶（Batch D1 的 .sec-nav） =====
+  // 注意这页和工厂详情页不是一回事：这里是「切换分区」，点了只换下面的内容并回顶，
+  // 没有分段锚点要滚过去、也没有「滚动反算高亮」，所以这里没有定位基准要调；
+  // 要做的只有判定「条有没有吸顶」——吸顶时才补状态栏让位与胶囊空档。
+  onReady() {
+    this.measureNavStick();
+  },
+
+  // 吸顶临界点：条滚到状态栏下沿时的 scrollTop。条在文档流里的位置固定在头部卡片下方，
+  // 分区切换不会动它，所以只在渲染完成、资料回填后各量一次，不跟着滚动反复量
+  measureNavStick() {
+    wx.createSelectorQuery()
+      .select('.sec-nav')
+      .boundingClientRect()
+      .selectViewport()
+      .scrollOffset()
+      .exec((res) => {
+        const rect = res && res[0];
+        const scroll = res && res[1];
+        if (!rect || !scroll) return;
+        // 条让开了状态栏（wxml 里 sticky top 用的就是 statusBarHeight），临界点要减掉这一段
+        const barTop = Number(this.data.statusBarHeight) || 0;
+        this._navStickAt = rect.top + scroll.scrollTop - barTop;
+        this.updateNavStuck(scroll.scrollTop);
+      });
+  },
+
+  // 只翻一个布尔、不涉及布局反算，所以不节流；结论没变就不 setData
+  updateNavStuck(scrollTop) {
+    const at = this._navStickAt;
+    if (at === undefined) return;
+    const stuck = scrollTop >= at - 1;
+    if (stuck !== this.data.navStuck) this.setData({ navStuck: stuck });
+  },
+
+  onPageScroll(e) {
+    this.updateNavStuck(e.scrollTop);
   },
 
   // 029 经营概览：汇总 / 趋势 / 品类（均拉失败不卡页面，汇总中默认 0）
@@ -494,6 +547,8 @@ Page({
         hasGeo: !!(p.lat && p.lng),
         media: decorateMedia(mediaRes.data && mediaRes.data.list),
       });
+      // 工厂名回填后头部卡片高度可能变，条的绝对位置跟着变，这里重量一次
+      wx.nextTick(() => this.measureNavStick());
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
       if (err.message.indexOf('验证失败') >= 0 || err.message.indexOf('登录') >= 0) {
