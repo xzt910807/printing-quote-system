@@ -6,7 +6,7 @@
   </view>
 </view>
 
-<view class="page page-tab">
+<view class="page page-tab" id="fd-page">
   <view class="empty" wx:if="{{loading}}">
     <text class="empty-icon">⏳</text>
     加载中...

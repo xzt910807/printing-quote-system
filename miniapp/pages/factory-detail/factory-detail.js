@@ -197,14 +197,16 @@ Page({
   // ===== 四段吸顶 tab =====
   // 没用定高 scroll-view：本页面带自定义导航栏 + 底部操作条，再套一层滚动容器就要手算避让，
   // 而 sticky 在 scroll-view 内不生效；所以走页面滚动 + pageScrollTo 锚点（与 factory-me 同机制）。
-  measureSegments() {
+  measureSegments(done) {
     const query = wx.createSelectorQuery();
     SEGMENTS.forEach((s) => query.select('#seg-' + s.key).boundingClientRect());
     query.select('#fd-tabs').boundingClientRect();
+    query.select('#fd-page').boundingClientRect();
     query.selectViewport().scrollOffset();
     query.exec((res) => {
       const barRect = res[SEGMENTS.length];
-      const scroll = res[SEGMENTS.length + 1] || { scrollTop: 0 };
+      const pageRect = res[SEGMENTS.length + 1];
+      const scroll = res[SEGMENTS.length + 2] || { scrollTop: 0 };
       const barH = barRect ? barRect.height : 0;
       const tops = {};
       SEGMENTS.forEach((s, i) => {
@@ -212,28 +214,61 @@ Page({
         if (rect) tops[s.key] = rect.top + scroll.scrollTop - barH - 6;
       });
       this._segTops = tops;
+      // 末段不足一屏时，它自己的 top 永远滚不到（滚到底时还差一截），所以额外记一个「最大可滚距离」做兜底。
+      // 量页面容器而不是最后一段：最后一段下面还有底部操作条 + page-tab 的留白，用段底会偏小
+      try {
+        const win = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        const pageH = pageRect ? pageRect.bottom + scroll.scrollTop : 0;
+        this._maxScroll = Math.max(pageH - win.windowHeight, 0);
+      } catch (e) {
+        this._maxScroll = 0;
+      }
+      if (typeof done === 'function') done(tops);
     });
+  },
+
+  // 点击跳段途中要锁一会儿高亮：pageScrollTo 会依次经过前面几段，
+  // 不锁的话 onPageScroll 会把 activeTab 反算回上一段，看起来就像「点了没切」
+  lockActive(ms) {
+    this._activeLockedUntil = Date.now() + ms;
   },
 
   onTabTap(e) {
     const key = e.currentTarget.dataset.key;
+    // 点谁先切谁，视觉反馈不等滚动
+    this.lockActive(600);
     this.setData({ activeTab: key });
-    const top = (this._segTops || {})[key];
-    if (top === undefined) return;
-    wx.pageScrollTo({ scrollTop: Math.max(top, 0), duration: 200 });
+    // 段顶偏移会随后续渲染抖动，点的时候现量一次再滚，比吃加载时那一版更准
+    this.measureSegments((tops) => {
+      const top = tops[key];
+      if (top === undefined) return;
+      wx.pageScrollTo({
+        scrollTop: Math.max(top, 0),
+        duration: 220,
+        complete: () => {
+          // 动画尾帧常被丢掉，这里以点击目标为准再确认一次，并刷新测量值供后续手动滚动使用
+          this.lockActive(200);
+          if (this.data.activeTab !== key) this.setData({ activeTab: key });
+          setTimeout(() => this.measureSegments(), 120);
+        },
+      });
+    });
   },
 
   onPageScroll(e) {
-    // 滚动时反过来高亮当前段：从后往前找第一个已经滚过去的段；120ms 节流（scroll 事件很密）
     const tops = this._segTops;
     if (!tops) return;
-    const now = Date.now();
-    if (now - (this._scrollAt || 0) < 120) return;
-    this._scrollAt = now;
-    let active = this.data.activeTab;
+    if (Date.now() < (this._activeLockedUntil || 0)) return;
+    // 不节流：这里只是一次 4 段的比较，只有结论变了才 setData；
+    // 原来 120ms 节流会把滚动末帧丢掉，停在上一段（点了 tab 滚到位、高亮却没跟上的直接原因）
+    let active = SEGMENTS[0].key;
     for (let i = SEGMENTS.length - 1; i >= 0; i -= 1) {
       const key = SEGMENTS[i].key;
       if (tops[key] !== undefined && e.scrollTop >= tops[key] - 4) { active = key; break; }
+    }
+    // 滚到底就认定最后一段：末段不够一屏时（只有一张视频卡）它自己的 top 到不了
+    if (this._maxScroll > 100 && e.scrollTop >= this._maxScroll - 8) {
+      active = SEGMENTS[SEGMENTS.length - 1].key;
     }
     if (active !== this.data.activeTab) this.setData({ activeTab: active });
   },
