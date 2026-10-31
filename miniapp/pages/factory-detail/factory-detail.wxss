@@ -93,7 +93,9 @@
 .fd-stats { display: flex; gap: 20rpx; margin-top: 14rpx; justify-content: center; }
 .fd-stat { font-size: 24rpx; color: #b45309; background: #fff7ed; border-radius: 999rpx; padding: 6rpx 20rpx; }
 
-/* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶） */
+/* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶）
+   这里的 top 只是兜底：实际吸顶位置由 wxml 的内联 style 设成状态栏高度，
+   避免贴到屏幕最上沿被状态栏文字压住（改这里不会生效，改 wxml 那处） */
 .fd-tabs {
   position: sticky;
   top: 0;

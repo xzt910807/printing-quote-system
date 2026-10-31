@@ -38,8 +38,9 @@
       </view>
     </view>
 
-    <!-- 四段吸顶 tab（Batch D1，印查查式工厂页）：概况 / 能力 / 图集 / 视频 -->
-    <view class="fd-tabs" id="fd-tabs">
+    <!-- 四段吸顶 tab（Batch D1，印查查式工厂页）：概况 / 能力 / 图集 / 视频
+         吸顶位置按状态栏高度让开：top:0 会贴到屏幕最上沿、被状态栏文字压住 -->
+    <view class="fd-tabs" id="fd-tabs" style="top: {{statusBarHeight}}px;">
       <view class="fd-tab {{activeTab === item.key ? 'fd-tab-on' : ''}}"
             wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="onTabTap">{{item.label}}</view>
     </view>

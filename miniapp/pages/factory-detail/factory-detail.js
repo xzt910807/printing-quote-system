@@ -208,10 +208,13 @@ Page({
       const pageRect = res[SEGMENTS.length + 1];
       const scroll = res[SEGMENTS.length + 2] || { scrollTop: 0 };
       const barH = barRect ? barRect.height : 0;
+      // 吸顶条让开了状态栏（wxml 里 sticky top 用的是同一个 statusBarHeight），
+      // 所以段顶要停在「状态栏 + 条高 + 6px」下面，这里必须把这段基准一起减掉
+      const barTop = Number(this.data.statusBarHeight) || 0;
       const tops = {};
       SEGMENTS.forEach((s, i) => {
         const rect = res[i];
-        if (rect) tops[s.key] = rect.top + scroll.scrollTop - barH - 6;
+        if (rect) tops[s.key] = rect.top + scroll.scrollTop - barTop - barH - 6;
       });
       this._segTops = tops;
       // 末段不足一屏时，它自己的 top 永远滚不到（滚到底时还差一截），所以额外记一个「最大可滚距离」做兜底。
