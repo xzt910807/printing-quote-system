@@ -1,5 +1,8 @@
 {
   "navigationStyle": "custom",
   "navigationBarTitleText": "收货地址",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "region-picker": "/components/region-picker/index"
+  }
 }

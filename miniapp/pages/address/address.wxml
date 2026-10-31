@@ -36,11 +36,8 @@
       <view class="sheet-title">{{form.id ? '编辑地址' : '新增地址'}}</view>
       <input class="input" placeholder="联系人姓名" value="{{form.contactName}}" data-field="contactName" bindinput="onFieldInput" />
       <input class="input" type="number" maxlength="11" placeholder="手机号" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onFieldInput" />
-      <!-- stage14 省市区三级联动（内置数据 regions.js，multiSelector 联动刷新） -->
-      <picker mode="multiSelector" range="{{regionRange}}" value="{{regionIndex}}"
-              bindchange="onRegionChange" bindcolumnchange="onRegionColumnChange">
-        <view class="input region-display {{regionText ? '' : 'region-placeholder'}}">{{regionText || '省 / 市 / 区'}}</view>
-      </picker>
+      <!-- stage14 省市区三级：点开自建弹层 region-picker（系统 picker 的弹层字号/行高改不了） -->
+      <view class="input region-display {{regionText ? '' : 'region-placeholder'}}" bindtap="openRegionPicker">{{regionText || '省 / 市 / 区'}}</view>
       <textarea class="input textarea addr-textarea" placeholder="详细地址（街道、门牌号等）"
                 value="{{form.detailAddress}}" data-field="detailAddress" bindinput="onFieldInput" />
       <view class="default-row">
@@ -53,5 +50,9 @@
       </view>
     </view>
   </view>
+
+  <!-- 地区弹层：三级（省 + 市 + 区），层级高于上面这个表单弹层，所以能叠在它上面 -->
+  <region-picker show="{{regionShow}}" levels="3" value="{{regionValue}}"
+                 title="选择地区" bindconfirm="onRegionConfirm" bindcancel="closeRegionPicker" />
 
 </view>

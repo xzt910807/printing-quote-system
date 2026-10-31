@@ -181,8 +181,7 @@
 
 .empty-icon { display: block; font-size: 70rpx; margin-bottom: 16rpx; }
 
-/* 030 地区 picker 行内样式 */
-.region-picker { display: inline-flex; }
+/* 030 地区筛选：入口是一个普通 chip，点开 components/region-picker 弹层 */
 .tag-picker {
   font-size: 24rpx;
   padding: 8rpx 22rpx;

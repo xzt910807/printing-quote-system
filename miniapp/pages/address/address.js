@@ -1,8 +1,7 @@
 const api = require('../../utils/api');
-// stage14 省市区三级数据（内置，精简自 modood 行政区划 MIT 数据）
-const REGIONS = require('../../utils/regions');
 
 // 收货地址簿（stage13）：订单用的是支付时的地址快照，改地址簿不影响历史订单
+// 省市区数据（utils/regions.js）已收进 components/region-picker，本页不再持有
 Page({
   data: {
     // 自定义导航栏高度（与其他页面同一套算法）
@@ -16,9 +15,9 @@ Page({
       province: '', city: '', district: '', detailAddress: '',
       isDefault: false,
     },
-    // stage14 省市区联动：三列选择器数据与当前选中下标
-    regionRange: [[], [], []],
-    regionIndex: [0, 0, 0],
+    // stage14 省市区：弹层开关 + 回显值（交给 region-picker 组件按名字反查下标）
+    regionShow: false,
+    regionValue: ['', '', ''],
     regionText: '',
   },
 
@@ -32,78 +31,39 @@ Page({
     } catch (e) {
       this.setData({ statusBarHeight: 20, navBarHeight: 44 });
     }
-
-    // 初始化三列数据（默认第一省 / 其第一市 / 其第一区）
-    this.setData({ regionRange: this.buildRange([0, 0, 0]).range });
   },
 
-  // 按下标组装三列 range，并夹紧返回合法下标（省/市变化后区可能越界）
-  buildRange(index) {
-    const pIdx = Math.max(0, Math.min(index[0], REGIONS.length - 1));
-    const cities = REGIONS[pIdx].children;
-    const cIdx = Math.max(0, Math.min(index[1], cities.length - 1));
-    const districts = cities[cIdx].children || [];
-    const dIdx = districts.length ? Math.max(0, Math.min(index[2], districts.length - 1)) : 0;
-    return {
-      range: [
-        REGIONS.map((p) => p.name),
-        cities.map((c) => c.name),
-        districts.slice(),
-      ],
-      index: [pIdx, cIdx, dIdx],
-    };
+  // 地区弹层：三列数据与联动都在 region-picker 组件里，这里只负责开关、回显、回写表单
+  openRegionPicker() {
+    const f = this.data.form;
+    this.setData({ regionShow: true, regionValue: [f.province || '', f.city || '', f.district || ''] });
   },
 
-  // 某一列滑动时联动刷新后续列（省变重置市区，市变重置区）
-  onRegionColumnChange(e) {
-    const { column, value } = e.detail;
-    const index = this.data.regionIndex.slice();
-    index[column] = value;
-    if (column === 0) { index[1] = 0; index[2] = 0; }
-    if (column === 1) { index[2] = 0; }
-    const built = this.buildRange(index);
-    this.setData({ regionRange: built.range, regionIndex: built.index });
+  closeRegionPicker() {
+    this.setData({ regionShow: false });
   },
 
-  // 点确定：从选中路径写入 form 的省/市/区与摘要
-  onRegionChange(e) {
-    const index = e.detail.value;
-    const p = REGIONS[index[0]];
-    const c = p.children[index[1]];
-    const d = (c.children || [])[index[2]] || '';
+  onRegionConfirm(e) {
+    const { province, city, district } = e.detail || {};
+    const names = [province || '', city || '', district || ''];
     this.setData({
-      regionIndex: index,
-      regionText: [p.name, c.name, d].filter(Boolean).join(' '),
-      'form.province': p.name,
-      'form.city': c.name,
-      'form.district': d,
+      regionShow: false,
+      regionValue: names,
+      regionText: names.filter(Boolean).join(' '),
+      'form.province': names[0],
+      'form.city': names[1],
+      'form.district': names[2],
     });
   },
 
-  // 打开表单时回显：按已存省市区反查下标并重建三列
+  // 打开表单时回显：把已存的省市区交给组件反查下标
   resetRegionPicker(item) {
-    if (!item || !item.province) {
-      const built = this.buildRange([0, 0, 0]);
-      this.setData({ regionRange: built.range, regionIndex: built.index, regionText: '' });
-      return;
-    }
-    let index = [0, 0, 0];
-    const pIdx = REGIONS.findIndex((p) => p.name === item.province);
-    if (pIdx >= 0) {
-      const cities = REGIONS[pIdx].children;
-      const cIdx = cities.findIndex((c) => c.name === item.city);
-      if (cIdx >= 0) {
-        const dIdx = (cities[cIdx].children || []).indexOf(item.district);
-        index = [pIdx, cIdx, dIdx >= 0 ? dIdx : 0];
-      } else {
-        index = [pIdx, 0, 0];
-      }
-    }
-    const built = this.buildRange(index);
+    const names = item && item.province
+      ? [item.province, item.city || '', item.district || '']
+      : ['', '', ''];
     this.setData({
-      regionRange: built.range,
-      regionIndex: built.index,
-      regionText: [item.province, item.city, item.district].filter(Boolean).join(' '),
+      regionValue: names,
+      regionText: names.filter(Boolean).join(' '),
     });
   },
 

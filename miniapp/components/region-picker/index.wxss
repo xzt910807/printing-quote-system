@@ -1,0 +1,63 @@
+/* 层级：高于页面自身的弹层（地址页 .mask 是 100）与自定义 tabBar（100），低于系统原生层 */
+.rp-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.45);
+}
+.rp-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  /* 全面屏底部留白，避免最后一列压到手势条上 */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16rpx);
+}
+.rp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 32rpx;
+}
+.rp-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #0f172a;
+}
+.rp-act {
+  font-size: 28rpx;
+  color: #64748b;
+  padding: 12rpx 4rpx;
+}
+.rp-act-main {
+  color: #2563eb;
+  font-weight: 500;
+}
+/* 五行的可视高度：上下各两行淡出，中间一行是选中项。
+   行高 72rpx ≈ 37px（390 屏），比系统 picker 的 ~34px 略宽松一点点但不显空 */
+.rp-view {
+  height: 360rpx;
+}
+.rp-indicator {
+  border-top: 1rpx solid #e2e8f0;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+/* 行高必须与 indicator-style 的 72rpx 一致，否则选中行与中间那条线对不上 */
+.rp-item {
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+.rp-item-on {
+  color: #2563eb;
+  font-weight: 600;
+}

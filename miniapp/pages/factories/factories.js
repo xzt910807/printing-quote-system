@@ -1,17 +1,5 @@
 const api = require('../../utils/api');
 const { getAvatarConfig } = require('../../utils/avatar');
-const REGIONS = require('../../utils/regions');
-
-// 030 地区二级列表：省 + 市（district 不参与筛选）
-function buildRegionRange() {
-  const provinces = ['全部'];
-  const cityMap = { '全部': ['全部'] };
-  for (const p of REGIONS) {
-    provinces.push(p.name);
-    cityMap[p.name] = ['全部', ...(p.children || []).map((c) => c.name)];
-  }
-  return { provinces, cityMap };
-}
 
 Page({
   data: {
@@ -98,48 +86,28 @@ Page({
     ],
     processOptions: [], // 由 applyLinkage 按当前品类填充（配置到达前为空）
     factories: [],
-    // 030 二级 picker 数据（省列 + 当前省对应的市列）
-    regionRange: [[], []],
-    regionIndex: [0, 0],
+    // 030 地区筛选：弹层开关 + 回显值（省、市两级，空串表示不限）
+    regionShow: false,
+    regionValue: [],
   },
 
-  // 内部保存一份 provinces + cityMap，避免 setData 存储过多数据
-  _regionProvinces: null,
-  _regionCityMap: null,
-
-  initRegion() {
-    const { provinces, cityMap } = buildRegionRange();
-    this._regionProvinces = provinces;
-    this._regionCityMap = cityMap;
-    this.setData({
-      regionRange: [provinces, cityMap[provinces[0]]],
-      regionIndex: [0, 0],
-    });
+  // 030 地区筛选：选项与联动都在 region-picker 组件里，页面只管开关、回显和查询
+  openRegion() {
+    const f = this.data.filter;
+    this.setData({ regionShow: true, regionValue: [f.province || '', f.city || ''] });
   },
 
-  onRegionColumnChange(e) {
-    const { column, value } = e.detail;
-    if (column !== 0) return;
-    const prov = this._regionProvinces[value] || '全部';
-    const cities = this._regionCityMap[prov] || ['全部'];
-    const idx = this.data.regionIndex.slice();
-    idx[0] = value;
-    idx[1] = 0;
-    this.setData({
-      'regionRange[1]': cities,
-      regionIndex: idx,
-    });
+  closeRegion() {
+    this.setData({ regionShow: false });
   },
 
-  onRegionChange(e) {
-    const [pi, ci] = e.detail.value;
-    const prov = this._regionProvinces[pi] || '全部';
-    const cities = this._regionCityMap[prov] || ['全部'];
-    const city = cities[ci] || '全部';
+  // 组件确认后回传名字（省列选「不限」时两者都是空串）
+  onRegionConfirm(e) {
+    const { province, city } = e.detail || {};
     this.setData({
-      'filter.province': prov === '全部' ? '' : prov,
-      'filter.city': city === '全部' ? '' : city,
-      regionIndex: [pi, ci],
+      regionShow: false,
+      'filter.province': province || '',
+      'filter.city': province ? (city || '') : '',
     });
     this.loadFactories();
   },
@@ -148,8 +116,6 @@ Page({
     this.setData({
       'filter.province': '',
       'filter.city': '',
-      regionIndex: [0, 0],
-      'regionRange[1]': this._regionCityMap['全部'],
     });
     this.loadFactories();
   },
@@ -164,9 +130,8 @@ Page({
     } catch (e) {
       this.setData({ statusBarHeight: 20, navBarHeight: 44 });
     }
-    // Stage12 拉取品类联动配置（工艺白名单），到达后按当前品类（默认纸箱）收窄工艺展示
-    this.initRegion();
     this.requestUserGeo();
+    // Stage12 拉取品类联动配置（工艺白名单），到达后按当前品类（默认纸箱）收窄工艺展示
     api.request('/api/c/config').then((res) => {
       this.setData({ linkConfig: (res && res.data && res.data.productConfig) || {} });
       this.applyLinkage(this.data.filter.productType);

@@ -27,16 +27,14 @@
 
   <!-- 筛选栏 -->
   <view class="card filter-card">
-    <!-- 030 地区筛选：二级 picker (省 + 市)，选中后拼入 /api/factory/list?province=&city= -->
+    <!-- 030 地区筛选：省 + 市两级，选中后拼入 /api/factory/list?province=&city=
+         弹层用自建的 region-picker（系统 picker 的字号/行高改不了，两级时还会有两列「全部」） -->
     <view class="filter-row">
       <text class="filter-label">地区</text>
       <view class="filter-tags">
-        <picker class="region-picker" mode="multiSelector" range="{{regionRange}}" value="{{regionIndex}}"
-                bindcolumnchange="onRegionColumnChange" bindchange="onRegionChange">
-          <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}">
-            {{filter.province ? filter.province + ' · ' + filter.city : '全部地区 ›'}}
-          </view>
-        </picker>
+        <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}" bindtap="openRegion">
+          {{filter.province ? filter.province + ' · ' + filter.city : '全部地区 ›'}}
+        </view>
         <view class="tag tag-picker" wx:if="{{filter.province}}" bindtap="clearRegion">✕ 清除</view>
       </view>
     </view>
@@ -118,4 +116,8 @@
     <view class="empty-ic"><view class="ic ic-factory"><view class="ic-a"></view></view></view>
     没有符合条件的工厂，换个筛选条件试试
   </view>
+
+  <!-- 地区弹层：两级（省 + 市），省列带「不限」；组件内部自取 regions.js，页面只传当前值做回显 -->
+  <region-picker show="{{regionShow}}" levels="2" allow-all="{{true}}" value="{{regionValue}}"
+                 title="选择地区" bindconfirm="onRegionConfirm" bindcancel="closeRegion" />
 </view>

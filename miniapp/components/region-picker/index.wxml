@@ -1,0 +1,25 @@
+<!-- 地区选择弹层：底部滑出 + 三列联动。开关由页面控制（show），本组件只负责改选与回传 -->
+<view class="rp-mask" wx:if="{{show}}" catchtap="onCancel"></view>
+<view class="rp-sheet" wx:if="{{show}}" catchtap="noop">
+  <view class="rp-head">
+    <view class="rp-act" catchtap="onCancel">取消</view>
+    <view class="rp-title">{{title}}</view>
+    <view class="rp-act rp-act-main" catchtap="onConfirm">确定</view>
+  </view>
+  <picker-view class="rp-view" indicator-style="height: 72rpx;" indicator-class="rp-indicator"
+               value="{{viewValue}}" bindchange="onChange">
+    <picker-view-column>
+      <view wx:for="{{range[0]}}" wx:for-index="i" wx:key="*this"
+            class="rp-item {{index[0] === i ? 'rp-item-on' : ''}}">{{item}}</view>
+    </picker-view-column>
+    <picker-view-column>
+      <view wx:for="{{range[1]}}" wx:for-index="i" wx:key="*this"
+            class="rp-item {{index[1] === i ? 'rp-item-on' : ''}}">{{item}}</view>
+    </picker-view-column>
+    <!-- 两级（找厂筛选）只用省 + 市，第三列不渲染，也就不存在空列 -->
+    <picker-view-column wx:if="{{levels >= 3}}">
+      <view wx:for="{{range[2]}}" wx:for-index="i" wx:key="*this"
+            class="rp-item {{index[2] === i ? 'rp-item-on' : ''}}">{{item}}</view>
+    </picker-view-column>
+  </picker-view>
+</view>
