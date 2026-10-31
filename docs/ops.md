@@ -763,6 +763,13 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
   Android 的状态栏高度有 0.5px 取整误差，白底正好卡在 `statusBarHeight` 时会漏 1~2px 灰线；多顶的 2px 落在
   状态栏区域内，不会侵入内容。`onLoad` 里同时用 `Number(info.statusBarHeight) || 20` 兜了一层，避免取到
   `undefined` 时算出 `NaN` 让 `top` 失效。
+- **吸顶后还要让开右上角胶囊**：胶囊固定在右上角，吸顶后 tab 条正好与它同一水平线，最右边的「视频」
+  会被整个盖住（真机截图确认过）。所以吸顶时给条加内联 `padding-right: capsuleGap px`，
+  `capsuleGap = 屏宽 - 胶囊左边缘 + 8px 间距`（`onLoad` 里用 `getWindowInfo().windowWidth` 与
+  `getMenuButtonBoundingClientRect().left` 算）。注意是 **padding 不是 margin**：条的白色背景仍铺满整宽、
+  延伸到胶囊后面，只有 4 段内容收进胶囊左侧，视觉上白条与胶囊叠在一起是正常的（胶囊是原生层，压在最上面）。
+  也让 `.fd-tab` 加了 `white-space: nowrap`——宽度收窄后两个字的标签容易被挤成两行。
+  只在吸顶时让位（`tabsStuck && capsuleGap`），未吸顶时条在卡片下方、那里没有胶囊，让位反而出现一块怪空白。
 - **只在吸顶时才渲染**（`wx:if="{{tabsStuck}}"`）：未吸顶时它会被负的 top 顶到上方卡片底部、压掉一片。
   `tabsStuck` 由 `updateStuck(scrollTop)` 维护，临界点 `_stickAt = 条绝对位置 - statusBarHeight`（1px 容差，
   宁可早一像素补上，也不要晚一像素漏缝）。`updateStuck` 放在 `onPageScroll` 的**高亮锁判断之前**——
@@ -796,6 +803,10 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - 第四轮 14/14（z-index 改 0 + 上沿多 2px 后）：`fillTop` = -22（20+2）、`navBarHeight` 仍按原公式；
   基准 830 / 1330 / 1830、可滚距离 1800、吸顶临界点 280 **全部与第三轮一致**（再次确认定位基准不受白底影响）；
   点图集停 1330、高亮图集、跳完白底仍在；回顶白底撤掉并回到概况。
+- 第五轮 12/12（加胶囊避让后，假机型屏宽 390 / 胶囊 left 296）：`capsuleGap` = 390−296+8 = 102，
+  4 段均分后每段 ≈ 70px（两字 27px 放得下）；基准 830 / 1330 / 1830、可滚距离 1800、吸顶临界点 280
+  **仍与上一轮一致**（`padding-right` 只改宽度不改垂直位置）；未吸顶不触发让位、吸顶后生效；
+  点最右边的视频仍 clamp 到 1800 并正确高亮。
 
 **局限**：
 - 仿真只覆盖「偏移 / 临界点 → 状态」的判定逻辑，真机的 `pageScrollTo` 缓动、`onPageScroll` 触发频率、
@@ -805,3 +816,5 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - 状态栏那块的底色现在是纯白，与 tab 条一致；如果以后页面换成非白背景，这块要跟着改。
 - 2px 余量是按「Android 取整误差 ≤ 2px」估的，真机上若仍看到细灰线，把 `fillTop` 的 `+ 2` 调成 `+ 3` 即可，
   定位基准不受影响（补丁不占布局）。
+- 吸顶那一下 4 段会整体收窄（补了胶囊让位），文字位置横向跳一下；这是「只在吸顶时让位」的代价，
+  不想要跳动就得让条一直窄着，但未吸顶时右侧会空一块，取舍在这。

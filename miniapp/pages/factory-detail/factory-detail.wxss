@@ -118,6 +118,8 @@
   color: #64748b;
   padding: 14rpx 0;
   border-radius: 12rpx;
+  /* 吸顶后条要让出胶囊那段宽度（4 段均分剩下的空间），不加这句「概况」这类两字标签会被挤成两行 */
+  white-space: nowrap;
 }
 .fd-tab:active { background: #f1f5f9; }
 .fd-tab-on { background: #eff6ff; color: #2563eb; font-weight: 500; }

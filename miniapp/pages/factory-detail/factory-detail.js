@@ -50,6 +50,9 @@ Page({
     // 吸顶白底的上沿（负数）：比状态栏再向上多顶 2px。
     // Android 的状态栏高度有取整误差，白底正好卡在 statusBarHeight 时会漏 1~2px 灰线
     fillTop: -22,
+    // 吸顶后 tab 条右侧要让出的宽度（px）：吸顶后条与右上角胶囊落在同一水平线上，
+    // 不让开的话最后一段「视频」会被胶囊整个盖住。0 表示拿不到胶囊信息，不做避让
+    capsuleGap: 0,
     navBarHeight: 44,
     loading: true,
     factoryId: 0,
@@ -91,9 +94,14 @@ Page({
       // statusBarHeight 有 0.5px 取整的情况，先用 Number 兜一层再参与运算（否则会算出 NaN）
       const sbh = Number(info.statusBarHeight) || 20;
       const navBarHeight = (menu.top - sbh) * 2 + menu.height;
-      this.setData({ statusBarHeight: sbh, navBarHeight, fillTop: -(sbh + 2) });
+      // 胶囊固定在右上角，吸顶后 tab 条正好与它同一水平线，最后一段会被它盖住。
+      // 让出「屏幕宽 - 胶囊左边缘 + 8px 间距」这段宽度，4 段就都落在胶囊左侧
+      const capsuleGap = info.windowWidth && menu.left
+        ? Math.round(info.windowWidth - menu.left) + 8
+        : 0;
+      this.setData({ statusBarHeight: sbh, navBarHeight, fillTop: -(sbh + 2), capsuleGap });
     } catch (e) {
-      this.setData({ statusBarHeight: 20, navBarHeight: 44, fillTop: -22 });
+      this.setData({ statusBarHeight: 20, navBarHeight: 44, fillTop: -22, capsuleGap: 0 });
     }
 
     const factoryId = parseInt(options.id, 10) || 0;
