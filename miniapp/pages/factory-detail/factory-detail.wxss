@@ -108,6 +108,10 @@
   box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.06);
 }
 .fd-tab {
+  /* 抬到白底上面：fill 是 z-index:0 的绝对定位层，不抬的话 tab 文字会被它盖住。
+     relative 对 flex 布局没有影响，条高、各自位置都不变 */
+  position: relative;
+  z-index: 1;
   flex: 1;
   text-align: center;
   font-size: 26rpx;
@@ -119,16 +123,19 @@
 .fd-tab-on { background: #eff6ff; color: #2563eb; font-weight: 500; }
 
 /* 吸顶后向上延伸的白色底：盖住状态栏下方那条缝，视觉上与 tab 条连成一体。
-   绝对定位 + z-index:-1，只画到父盒底部，不参与布局——条自身的盒高、吸顶位置都不受影响，
+   绝对定位，不参与布局——条自身的盒高、吸顶位置都不受影响，
    所以 measureSegments 的段顶基准不用跟着改。
    这里刻意不留圆角：fill 若和条一样圆角，条左上/右上那两块圆角外侧就会双双透明、露出页面灰底，
-   正好把这条白底存在的意义抹掉；直角铺满反而把圆角缝隙一起补上（顶部就是屏幕边缘，不需要圆角） */
+   正好把这条白底存在的意义抹掉；直角铺满反而把圆角缝隙一起补上（顶部就是屏幕边缘，不需要圆角）。
+   z-index 用 0 而不是 -1：负值在部分 WebView 内核里会被父背景吞掉（iOS/Android 表现不一致），
+   代价是 z-index:0 的定位元素会盖住非定位的同级内容，所以 .fd-tab 要一起抬到 1（见上） */
 .fd-tabs-fill {
   position: absolute;
+  /* top 由 wxml 内联给（=-状态栏高度-2px），这里不设 top 会退化成贴在父盒顶部 */
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: -1;
+  z-index: 0;
   background: #fff;
 }
 

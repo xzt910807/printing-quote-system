@@ -42,8 +42,9 @@
          吸顶位置按状态栏高度让开：top:0 会贴到屏幕最上沿、被状态栏文字压住 -->
     <view class="fd-tabs" id="fd-tabs" style="top: {{statusBarHeight}}px;">
       <!-- 吸顶后才补的白色底：向上铺满状态栏下方那条缝，与 tab 条连成一体；
-           未吸顶不渲染，否则这块会盖住上方卡片底部 -->
-      <view class="fd-tabs-fill" wx:if="{{tabsStuck}}" style="top: -{{statusBarHeight}}px;"></view>
+           未吸顶不渲染，否则这块会盖住上方卡片底部。
+           top 用 fillTop（= -状态栏高度 - 2px），多顶的 2px 是兜 Android 状态栏高度的取整误差 -->
+      <view class="fd-tabs-fill" wx:if="{{tabsStuck}}" style="top: {{fillTop}}px;"></view>
       <view class="fd-tab {{activeTab === item.key ? 'fd-tab-on' : ''}}"
             wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="onTabTap">{{item.label}}</view>
     </view>

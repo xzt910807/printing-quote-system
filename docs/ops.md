@@ -756,6 +756,13 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
   白底既铺满那条缝、又盖到条自身的圆角处，视觉上和条连成一体。
   这块白底**不留圆角**（直角铺满）：条的上两角是圆角，fill 若也圆角，两处圆角外侧会同时透明、露出页面灰底，
   等于白补——直角才能把圆角缝隙一起封住，而顶部本来就是屏幕边缘。
+- **`z-index` 用 0，不用 -1**：负 z-index 在部分 WebView 内核里会被父元素背景吞掉（iOS / Android 表现不一致），
+  白底直接看不见。改成 0 的代价是「z-index:0 的定位元素会盖住同级的非定位内容」，所以 `.fd-tab` 必须一起抬到
+  `position: relative; z-index: 1`，否则 tab 文字被白底盖住。这两处是**成对**的，只改一处就会出现「白底在、字没了」或反之。
+- **上沿比状态栏多顶 2px**：wxml 里 `top` 取 `fillTop`（= `-(statusBarHeight + 2)`，在 `onLoad` 算好）。
+  Android 的状态栏高度有 0.5px 取整误差，白底正好卡在 `statusBarHeight` 时会漏 1~2px 灰线；多顶的 2px 落在
+  状态栏区域内，不会侵入内容。`onLoad` 里同时用 `Number(info.statusBarHeight) || 20` 兜了一层，避免取到
+  `undefined` 时算出 `NaN` 让 `top` 失效。
 - **只在吸顶时才渲染**（`wx:if="{{tabsStuck}}"`）：未吸顶时它会被负的 top 顶到上方卡片底部、压掉一片。
   `tabsStuck` 由 `updateStuck(scrollTop)` 维护，临界点 `_stickAt = 条绝对位置 - statusBarHeight`（1px 容差，
   宁可早一像素补上，也不要晚一像素漏缝）。`updateStuck` 放在 `onPageScroll` 的**高亮锁判断之前**——
@@ -786,6 +793,9 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - 第三轮 18/18（加白底补丁后）：三项基准仍是 830 / 1330 / 1830、可滚距离仍 1800（证明基准没被白底带偏）；
   吸顶临界点 280，前 5px 不补白、前 1px 落在 1px 容差内已算吸顶、回顶撤掉；点能力途中就补上白底；
   一路滑到底高亮视频、白底在、`setData` ≤ 5（多出的一次是 `tabsStuck` 翻转）。
+- 第四轮 14/14（z-index 改 0 + 上沿多 2px 后）：`fillTop` = -22（20+2）、`navBarHeight` 仍按原公式；
+  基准 830 / 1330 / 1830、可滚距离 1800、吸顶临界点 280 **全部与第三轮一致**（再次确认定位基准不受白底影响）；
+  点图集停 1330、高亮图集、跳完白底仍在；回顶白底撤掉并回到概况。
 
 **局限**：
 - 仿真只覆盖「偏移 / 临界点 → 状态」的判定逻辑，真机的 `pageScrollTo` 缓动、`onPageScroll` 触发频率、
@@ -793,3 +803,5 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - 白底只铺到 tab 条自身的宽度：`.fd-tabs` 目前没有左右 margin、父级 `.page` 也没有左右 padding，
   所以左右是贴边的；哪天给条加了左右 margin，白底要跟着改成 `left/right: -margin`。
 - 状态栏那块的底色现在是纯白，与 tab 条一致；如果以后页面换成非白背景，这块要跟着改。
+- 2px 余量是按「Android 取整误差 ≤ 2px」估的，真机上若仍看到细灰线，把 `fillTop` 的 `+ 2` 调成 `+ 3` 即可，
+  定位基准不受影响（补丁不占布局）。

@@ -47,6 +47,9 @@ function currentUserId() {
 Page({
   data: {
     statusBarHeight: 20,
+    // 吸顶白底的上沿（负数）：比状态栏再向上多顶 2px。
+    // Android 的状态栏高度有取整误差，白底正好卡在 statusBarHeight 时会漏 1~2px 灰线
+    fillTop: -22,
     navBarHeight: 44,
     loading: true,
     factoryId: 0,
@@ -85,10 +88,12 @@ Page({
     try {
       const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const navBarHeight = (menu.top - info.statusBarHeight) * 2 + menu.height;
-      this.setData({ statusBarHeight: info.statusBarHeight, navBarHeight });
+      // statusBarHeight 有 0.5px 取整的情况，先用 Number 兜一层再参与运算（否则会算出 NaN）
+      const sbh = Number(info.statusBarHeight) || 20;
+      const navBarHeight = (menu.top - sbh) * 2 + menu.height;
+      this.setData({ statusBarHeight: sbh, navBarHeight, fillTop: -(sbh + 2) });
     } catch (e) {
-      this.setData({ statusBarHeight: 20, navBarHeight: 44 });
+      this.setData({ statusBarHeight: 20, navBarHeight: 44, fillTop: -22 });
     }
 
     const factoryId = parseInt(options.id, 10) || 0;
