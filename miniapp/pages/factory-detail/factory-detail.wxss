@@ -89,14 +89,9 @@
 .fd-cap-busy { color: #dc2626; background: #fef2f2; }
 .fd-cap-note { margin-top: 12rpx; font-size: 24rpx; color: #64748b; text-align: center; }
 
-/* 信任数据位：评分 + 浏览量。
-   不套胶囊 —— 这一行的上一行是「✓ 已核验」徽章、下一行是地址胶囊（可点复制），
-   再塞两个胶囊就变成三个胶囊各占一行居中堆着、宽窄不一。
-   改成一行浅灰细字：评分单独留暖色（正向数据，是卖点），浏览量跟字色走 */
-.fd-stats { display: flex; align-items: center; gap: 10rpx; margin-top: 12rpx; justify-content: center; }
-.fd-stat { font-size: 23rpx; color: #94a3b8; }
-.fd-stat-score { color: #b45309; }
-.fd-stat-dot { font-size: 20rpx; color: #cbd5e1; }
+/* 头部只留评分：正向强信号、是卖点，用暖色细字；没有评分整行不渲染。
+   （浏览量是弱数据，已降到「概况」的所在地区那一行，不再占信任区的位置） */
+.fd-score { margin-top: 12rpx; font-size: 23rpx; color: #b45309; text-align: center; }
 
 /* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶）
    这里的 top 只是兜底：实际吸顶位置由 wxml 的内联 style 设成状态栏高度，
@@ -158,7 +153,19 @@
 }
 .fd-metric-val { font-size: 30rpx; font-weight: 600; color: #0f172a; line-height: 1.3; }
 .fd-metric-lbl { font-size: 22rpx; color: #94a3b8; margin-top: 6rpx; }
-.fd-region { font-size: 24rpx; color: #475569; margin-top: 8rpx; }
+/* 所在地区 + 浏览量（一行放完）。浏览量压到更浅一档：它是纯元数据，不参与信任背书。
+   flex-wrap 兜长地名（"新疆维吾尔自治区阿克苏地区…"）：换行而不是把数字挤出去 */
+.fd-region {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  color: #475569;
+  margin-top: 8rpx;
+}
+.fd-region-sep { font-size: 20rpx; color: #cbd5e1; }
+.fd-views { color: #94a3b8; }
 .fd-metric-tip { font-size: 20rpx; color: #cbd5e1; margin-top: 12rpx; }
 
 /* 图集分组标题（设备/车间/样品/资质证书） */

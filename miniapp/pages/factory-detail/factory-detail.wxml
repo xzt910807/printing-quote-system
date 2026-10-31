@@ -28,15 +28,10 @@
         <text class="fd-cap fd-cap-{{capacity.status}}" wx:if="{{capacity}}">⚡ {{capacity.label}}</text>
       </view>
       <view class="fd-cap-note" wx:if="{{capacity && capacity.note}}">{{capacity.note}}</view>
-      <!-- 信任数据位：评分 + 浏览量。
-           不套胶囊：胶囊是「标签」的形态，这两个是「数据」；而且容器居中，没有评分时
-           只剩一颗「浏览 0」的橙胶囊孤零零悬在徽章和地址中间，像第三个标签。
-           改成一行无底色的浅灰细字，权重压到「已核验」徽章之下（浏览量 0 时 js 直接不给文案） -->
-      <view class="fd-stats" wx:if="{{ratingText || viewText}}">
-        <text class="fd-stat fd-stat-score" wx:if="{{ratingText}}">★ {{ratingText}}</text>
-        <text class="fd-stat-dot" wx:if="{{ratingText && viewText}}">·</text>
-        <text class="fd-stat" wx:if="{{viewText}}">浏览 {{viewText}}</text>
-      </view>
+      <!-- 评分：正向强信号，留在头部（和「已核验」同属信任区）；没有评分整行不渲染。
+           浏览量是弱数据——新厂常年个位数、0 更是负面提醒——已移到「概况」的所在地区那一行，
+           不再和评分挤在同一行抢位置 -->
+      <view class="fd-score" wx:if="{{ratingText}}">★ {{ratingText}}</view>
       <view class="fd-addr" bindtap="copyAddress" wx:if="{{info.address}}">
         <view class="ic-inline"><view class="ic ic-pin"><view class="ic-a"></view></view></view>{{info.address}} <text class="fd-copy">复制</text>
       </view>
@@ -66,7 +61,13 @@
             <text class="fd-metric-lbl">{{item.label}}</text>
           </view>
         </view>
-        <view class="fd-region" wx:if="{{info.province || info.city}}">所在地区：{{info.province}}{{info.city}}</view>
+        <!-- 所在地区 + 浏览量：都是「这家厂的元数据」，一行放完。
+             浏览量 0 时 js 不给文案，这里自然不出现；它不参与信任背书，所以放在数据区而不是头部 -->
+        <view class="fd-region" wx:if="{{info.province || info.city || viewText}}">
+          <text wx:if="{{info.province || info.city}}">所在地区：{{info.province}}{{info.city}}</text>
+          <text class="fd-region-sep" wx:if="{{(info.province || info.city) && viewText}}">·</text>
+          <text class="fd-views" wx:if="{{viewText}}">浏览 {{viewText}}</text>
+        </view>
         <view class="fd-metric-tip">数据由工厂自报，未填报的显示“—”</view>
       </view>
 
