@@ -208,7 +208,7 @@ Page({
     navBarHeight: 44,
     auth: null,
     factoryInfo: { name: '', code: '', username: '' },
-    profile: { contact: '', phone: '', address: '', intro: '' },
+    profile: { contact: '', phone: '', address: '', intro: '', acceptDirectCall: 1 },
     pricing: { marginPct: 15, taxRatePct: 10, wasteRatePct: 4 },
     overrides: [],
     overrideTypeNames: OVERRIDE_TYPES.map((t) => t.name),
@@ -452,7 +452,14 @@ Page({
       this.setData({
         wxBound: !!(wxStatus.data && wxStatus.data.bound),
         factoryInfo: { name: p.name, code: p.code, username: p.username },
-        profile: { contact: p.contact || '', phone: p.phone || '', address: p.address || '', intro: p.intro || '' },
+        profile: {
+          contact: p.contact || '',
+          phone: p.phone || '',
+          address: p.address || '',
+          intro: p.intro || '',
+          // 列是 tinyint NOT NULL DEFAULT 1：只有明确 0 才算关闭，老数据/异常值按默认开启
+          acceptDirectCall: Number(p.accept_direct_call) === 0 ? 0 : 1,
+        },
         pricing: {
           marginPct: toPct(pr.defaultMargin),
           taxRatePct: toPct(pr.defaultTaxRate),
@@ -511,6 +518,30 @@ Page({
       wx.showToast({ title: '资料已保存', icon: 'success' });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
+    }
+  },
+
+  // 是否接受客户直接拨打（0/1，默认开启）：点选即存，不等「保存资料」
+  // 它决定的是陌生客户能不能直接打进来，点完以为生效了却还要再按一次保存，是这类开关最容易出的坑
+  async pickDirectCall(e) {
+    const next = Number(e.currentTarget.dataset.code) === 0 ? 0 : 1;
+    const prev = Number(this.data.profile.acceptDirectCall) === 0 ? 0 : 1;
+    if (next === prev) return;
+    this.setData({ 'profile.acceptDirectCall': next });
+    try {
+      await api.request('/api/factory/me/profile', {
+        method: 'PUT',
+        data: { acceptDirectCall: next },
+        headers: this.authHeaders(),
+      });
+      wx.showToast({
+        title: next ? '已开启：客户登录后可直接拨打' : '已关闭：客户只能发起询价',
+        icon: 'none',
+      });
+    } catch (err) {
+      // 回滚到真实落库值，避免页面显示「已关闭」而服务端仍开着
+      this.setData({ 'profile.acceptDirectCall': prev });
+      wx.showToast({ title: err.message || '保存失败', icon: 'none' });
     }
   },
 

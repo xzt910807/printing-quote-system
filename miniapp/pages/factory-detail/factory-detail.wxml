@@ -74,8 +74,11 @@
         <view class="fd-row">
           <text class="fd-label">电话</text>
           <text class="fd-value">{{info.phone || '—'}}</text>
-          <view class="fd-call" wx:if="{{info.phone}}" bindtap="callFactory">拨打</view>
+          <view class="fd-call" wx:if="{{phoneUsable && acceptDirectCall}}" bindtap="callFactory">{{phoneVisible ? '拨打' : '查看号码'}}</view>
         </view>
+        <!-- 号码为什么是打码的 / 为什么没有拨打按钮：当场说清楚，别让客户以为是页面坏了 -->
+        <view class="fd-call-tip" wx:if="{{phoneUsable && !acceptDirectCall}}">该工厂暂不接受直接拨打，可发起询价，报价后会主动联系你</view>
+        <view class="fd-call-tip" wx:if="{{phoneUsable && acceptDirectCall && !phoneVisible}}">登录后即可查看完整号码并一键拨打</view>
       </view>
     </view>
 

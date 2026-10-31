@@ -94,16 +94,24 @@ function formatTime(dateStr) {
 }
 
 /**
- * 手机号脱敏（F-30）：11 位手机号 → 前三后四（137****5678）；
- * 其他长度数字（固话）保留前 2 后 2；空值/非数字原样返回
- * 用法：C 端列表态/公开浏览出参统一过一遍；详情态按角色（归属者）决定是否下发明文
+ * 号码脱敏（F-30）：先归一成纯数字再判断，不要求调用方保证格式统一。
+ *   11 位手机（含 +86 / 空格 / 横杠分隔）→ 137****5678
+ *   固话（区号+号码，≥9 位）→ 0577****8225（保留区号，客户仍能认出是哪里的厂）
+ *   7~8 位短号 → 前 2 后 2；更短或含不了数字的（「见微信」之类）原样返回
+ * 旧实现用 /^\d{7,}$/ 判固话，带区号横杠的「0577-64228225」一条都不匹配、
+ * 被原样返回——线上工厂电话大多是这个格式，等于对固话完全不脱敏。
  */
 function maskPhone(phone) {
   if (phone === null || phone === undefined) return phone;
   const s = String(phone).trim();
   if (!s) return s;
-  if (/^1\d{10}$/.test(s)) return s.slice(0, 3) + '****' + s.slice(7);
-  if (/^\d{7,}$/.test(s)) return s.slice(0, 2) + '****' + s.slice(-2);
+  let digits = s.replace(/\D/g, '');
+  if (!digits) return s;
+  // +86 开头（13 位）按手机处理前先剥掉国家码，否则会掉进固话分支出 8613****8000 这种怪串
+  if (digits.length === 13 && digits.indexOf('86') === 0) digits = digits.slice(2);
+  if (/^1\d{10}$/.test(digits)) return digits.slice(0, 3) + '****' + digits.slice(7);
+  if (digits.length >= 9) return digits.slice(0, 4) + '****' + digits.slice(-4);
+  if (digits.length >= 7) return digits.slice(0, 2) + '****' + digits.slice(-2);
   return s;
 }
 

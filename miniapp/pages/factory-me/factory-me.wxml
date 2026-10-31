@@ -112,6 +112,15 @@
         <text class="label">联系电话</text>
         <input class="input" type="number" data-field="phone" value="{{profile.phone}}" bindinput="onProfileInput" placeholder="选填" />
       </view>
+      <!-- 直拨开关：默认开启（点选即存，不用再按保存资料）。关掉后找厂详情页电话对登录客户也只显示脱敏号 -->
+      <view class="field">
+        <text class="label">是否接受客户直拨</text>
+        <view class="cap-list" style="margin-top:12rpx">
+          <view class="cap-item {{profile.acceptDirectCall === 1 ? 'on' : ''}}" data-code="1" bindtap="pickDirectCall">接受直拨</view>
+          <view class="cap-item {{profile.acceptDirectCall === 0 ? 'on' : ''}}" data-code="0" bindtap="pickDirectCall">只走询价</view>
+        </view>
+        <view class="trust-sub">开启后，登录客户在工厂详情页可直接看到上面的电话并一键拨打；关闭后只显示脱敏号码，客户只能发起询价等你报价。</view>
+      </view>
       <view class="field">
         <text class="label">工厂地址</text>
         <input class="input" data-field="address" value="{{profile.address}}" bindinput="onProfileInput" placeholder="选填" />

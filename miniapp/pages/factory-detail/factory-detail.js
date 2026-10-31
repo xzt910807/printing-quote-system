@@ -35,6 +35,15 @@ function fmtDuration(sec) {
   return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
 }
 
+// 当前 C 端登录用户 id；未登录或登录数据不完整一律返回空串
+// （与 loadFollowState 同一判据：userId 与 token 都在才算登录，避免半截 storage 被当成已登录）
+function currentUserId() {
+  try {
+    const u = wx.getStorageSync('userAuth');
+    return (u && u.userId && u.token) ? String(u.userId) : '';
+  } catch (e) { return ''; }
+}
+
 Page({
   data: {
     statusBarHeight: 20,
@@ -62,6 +71,11 @@ Page({
     // 033 供应商关注：头部卡右上角星标（底部只保留询价主操作）
     followed: false,
     followLoading: false,
+    // 电话可见性由后端判定（登录且工厂接受直拨才下发明文），端上只按结论渲染
+    phoneVisible: false,
+    acceptDirectCall: true,
+    // 有号码才给按钮：库里有 13 家填的是「待核实」这种占位文本，不能当成电话拨出去
+    phoneUsable: false,
   },
 
   onLoad(options) {
@@ -88,11 +102,17 @@ Page({
 
   onShow() {
     // 从「我的 → 供应商」里关注/取关后返回本页, 需要把状态同步回来（首屏 loading 中跳过）
-    if (this.data.factoryId && !this.data.loading) this.loadFollowState(this.data.factoryId);
+    if (!this.data.factoryId || this.data.loading) return;
+    this.loadFollowState(this.data.factoryId);
+    // 登录态变了要重拉详情：号码可见性取决于登录状态，用户去「我的」登录后返回本页，
+    // 不重拉就只能看到上次脱敏的号码（退出登录同理，得把明文换回脱敏）
+    if (currentUserId() !== this._uidAtLoad) this.loadDetail(this.data.factoryId);
   },
 
   async loadDetail(id) {
     this.setData({ loading: true });
+    // 记下这次请求带的登录身份：onShow 用它判断「期间是否登录/退出过」
+    this._uidAtLoad = currentUserId();
     try {
       const res = await api.request('/api/factory/public/' + id);
       const d = res.data || {};
@@ -129,6 +149,9 @@ Page({
           ? Number(d.rating).toFixed(1) + ' 分（' + d.rating_count + '人）'
           : '',
         viewText: fmtNum(d.view_count) || '',
+        phoneVisible: !!d.phoneVisible,
+        acceptDirectCall: d.acceptDirectCall !== false,
+        phoneUsable: /\d/.test(String(d.phone || '')),
         activeTab: 'overview',
         avatarText: avatar.text,
         avatarColor: avatar.color,
@@ -215,21 +238,42 @@ Page({
     if (active !== this.data.activeTab) this.setData({ activeTab: active });
   },
 
-  // 拨打工厂电话（F-30：找厂公开详情电话已脱敏，引导走询价看价流程获取全文）
+  // 拨打工厂电话：登录即可查看完整号码并一键拨打；工厂关掉「接受直拨」时退回询价流程
+  // （旧逻辑是 F-30：找厂详情电话一律脱敏，必须先询价看价才给号码，非标品客户连问一句都要先走一遍报价）
   callFactory() {
     const phone = this.data.info && this.data.info.phone;
-    if (!phone) {
-      wx.showToast({ title: '暂无联系电话', icon: 'none' });
+    // 「待核实」这类占位文本也走这里：不能交给拨号盘
+    if (!phone || !/\d/.test(String(phone))) {
+      wx.showToast({ title: '该工厂未留联系电话', icon: 'none' });
       return;
     }
-    if (String(phone).indexOf('*') >= 0) {
+    // 分支一：工厂不接受直拨 —— 号码对谁都不展开，只能发询价等报价单
+    if (!this.data.acceptDirectCall) {
       wx.showModal({
-        title: '联系方式已保护',
-        content: '向该工厂发起询价、查看报价后即可获取完整联系方式',
+        title: '该工厂暂不接受直接拨打',
+        content: '可以发一条询价，工厂报价后会通过报价单联系你',
         confirmText: '去询价',
         cancelText: '知道了',
         success: (r) => { if (r.confirm) this.quoteToFactory(); },
       });
+      return;
+    }
+    // 分支二：未登录 —— 登录后即下发明文号码（登录入口在「我的」）
+    if (!currentUserId()) {
+      wx.showModal({
+        title: '登录后查看完整号码',
+        content: '登录后可看到该工厂电话并一键拨打，也能关注工厂、保存报价记录',
+        confirmText: '去登录',
+        cancelText: '取消',
+        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
+      });
+      return;
+    }
+    // 分支三：已登录且接受直拨 —— 接口给的就该是明文；若仍是脱敏串（后端未更新/缓存旧响应），
+    // 重拉详情而不是把一串 **** 交给拨号盘
+    if (String(phone).indexOf('*') >= 0) {
+      wx.showToast({ title: '号码刷新中，请稍后再点', icon: 'none' });
+      this.loadDetail(this.data.factoryId);
       return;
     }
     wx.makePhoneCall({ phoneNumber: String(phone) });

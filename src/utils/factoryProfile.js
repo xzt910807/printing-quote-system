@@ -20,6 +20,8 @@ const FACTORY_C_COLS = [
   // 经营硬指标 + 浏览量（印查查式工厂画像）
   'factory_area', 'annual_volume', 'employee_count', 'equipment_count',
   'assembly_lines', 'outer_processing', 'view_count',
+  // 是否接受客户在详情页直接拨打（1=接受，默认）：工厂自己可关，关掉后电话不展开只走询价
+  'accept_direct_call',
 ].join(', ');
 
 // 后台可见列 = C 端列 + 运营需要看/需要改的内部字段（仍不含 password_hash / api_token）

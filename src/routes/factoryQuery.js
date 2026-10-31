@@ -191,10 +191,16 @@ function buildNames() {
 
 /**
  * GET /api/factory/public/:id
- * C端公开工厂详情：仅对外可见字段（无 api_token 等敏感字段），无需鉴权
+ * C端公开工厂详情：仅对外可见字段（无 api_token 等敏感字段）
  * 供找厂列表 → 工厂详情页使用
+ *
+ * 电话可见性（2026-10 调整，替代 F-30「必须询价看价后可见」）：
+ *   匿名 → 脱敏（137****5678）；C 端登录用户 → 明文，端上可直接拨号。
+ *   工厂侧 accept_direct_call=0 时对所有人（含登录用户）保持脱敏，只引导走询价——
+ *   电话归工厂所有，平台给出默认值但不替工厂做决定。
+ *   鉴权挂 optionalUser 而不是 requireUser：未登录也必须能看工厂页，只是看不到号码。
  */
-router.get('/public/:id', async (req, res) => {
+router.get('/public/:id', optionalUser, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) throw new Error('参数错误');
@@ -211,9 +217,15 @@ router.get('/public/:id', async (req, res) => {
     );
 
     const cap = capacityOf(rows[0]);
+    // 列是 tinyint NOT NULL DEFAULT 1：只有明确 0 才算关闭，NULL/异常值一律按默认开启（宁可让客户打进来）
+    const acceptDirectCall = Number(rows[0].accept_direct_call) === 0 ? false : true;
+    const phoneVisible = !!req.user && acceptDirectCall;
     res.json(ok({
       ...rows[0],
-      phone: maskPhone(rows[0].phone),
+      phone: phoneVisible ? (rows[0].phone || '') : maskPhone(rows[0].phone),
+      // 端上不再是「有没有 * 号」这种猜法：直接下发结论，按钮文案与拨号分支都靠它
+      phoneVisible,
+      acceptDirectCall,
       capabilities: capabilityService.getByFactory(id),
       capacityStatus: cap.status,
       capacityLabel: cap.label,

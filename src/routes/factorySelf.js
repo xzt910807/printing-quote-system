@@ -59,7 +59,7 @@ router.get('/me/profile', requireFactory, async (req, res) => {
               license_verified, verification_level, verification_note, verified_at,
               capacity_status, capacity_note, capacity_updated_at,
               province, city, factory_area, annual_volume, employee_count, equipment_count,
-              assembly_lines, outer_processing, view_count, lat, lng
+              assembly_lines, outer_processing, view_count, lat, lng, accept_direct_call
        FROM factory WHERE id = ?`,
       [req.factory.id]
     );
@@ -97,6 +97,17 @@ router.put('/me/profile', requireFactory, async (req, res) => {
     if (outer !== undefined) {
       sets.push('outer_processing = ?');
       vals.push(outer);
+    }
+    // 是否接受客户直接拨打：列是 tinyint NOT NULL DEFAULT 1，与 outer_processing 的三态不同，
+    // 不接受 NULL（「未表态」在这里等于把已关闭的开关悄悄打开，客户会突然打进工厂）。
+    // 值用白名单而不是 Number()：Number('') 和 Number(null) 都是 0，空值会被静默当成「关闭」
+    if (body.acceptDirectCall !== undefined) {
+      const raw = body.acceptDirectCall;
+      if (raw !== 0 && raw !== 1 && raw !== '0' && raw !== '1') {
+        throw new Error('是否接受直拨只能选「是」或「否」');
+      }
+      sets.push('accept_direct_call = ?');
+      vals.push(Number(raw));
     }
     // Batch D2 地图坐标：小程序「地图选址」提交，成对写入（距离排序用）
     const geo = normalizeGeoPair(body.lat, body.lng);
