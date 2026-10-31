@@ -40,8 +40,13 @@
         <text class="tag-x" wx:if="{{filter.province}}" catchtap="clearRegion">✕</text>
       </view>
       <!-- F-6：只看已验真（向后端传 verified=1）。默认不选：线上未验真工厂占多数，
-           默认开启会让人以为平台没几家厂 -->
-      <view class="tag {{verifiedOnly ? 'tag-active' : ''}}" bindtap="toggleVerified">✓ 只看已验真</view>
+           默认开启会让人以为平台没几家厂。
+           这是开关不是筛选项：靠右、去掉灰底、前面带勾选框；✓ 只在选中时出现
+           （原来和「全部地区」并排成两颗同样的灰块，未选中还写着 ✓，看着像"勾了但灰着"） -->
+      <view class="verify-toggle {{verifiedOnly ? 'verify-on' : ''}}" bindtap="toggleVerified">
+        <view class="verify-box">{{verifiedOnly ? '✓' : ''}}</view>
+        <text>只看已验真</text>
+      </view>
     </view>
 
     <view class="filter-row">

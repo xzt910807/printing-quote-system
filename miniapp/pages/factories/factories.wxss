@@ -73,6 +73,43 @@
   border-left: 1rpx solid rgba(255, 255, 255, 0.4);
 }
 
+/* 「只看已验真」是开关，不是筛选项：靠右、不套灰底 chip、前面一个小勾选框。
+   左边「全部地区」是"点开弹层"，右边这个是"就地切换"，两者的交互不一样，
+   长成同一个灰块就分不出来；勾也只在选中时出现（未选中还打勾＝看着像勾了但灰着） */
+.verify-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #64748b;
+  padding: 8rpx 4rpx 8rpx 12rpx;
+}
+
+.verify-box {
+  flex: none;
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 8rpx;
+  background: #fff;
+  text-align: center;
+  line-height: 26rpx;
+  font-size: 18rpx;
+  color: #fff;
+}
+
+.verify-on {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.verify-on .verify-box {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
 /* 筛选卡里的 chip 统一收一档（24rpx + 8/22 内边距），
    和地区弹层里的字号（正文 26rpx、辅助 24rpx）是同一档；
    地区 chip 与「只看已验真」原来一个 24rpx 一个 26rpx、内边距也不同，同一行看着一高一矮 */
