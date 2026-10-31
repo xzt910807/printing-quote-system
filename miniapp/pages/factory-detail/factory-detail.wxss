@@ -118,6 +118,19 @@
 .fd-tab:active { background: #f1f5f9; }
 .fd-tab-on { background: #eff6ff; color: #2563eb; font-weight: 500; }
 
+/* 吸顶后向上延伸的白色底：盖住状态栏下方那条缝，视觉上与 tab 条连成一体。
+   绝对定位 + z-index:-1，只画到父盒底部（覆盖条的圆角处），不参与布局——
+   条自身的盒高、吸顶位置都不受影响，所以 measureSegments 的段顶基准不用跟着改 */
+.fd-tabs-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background: #fff;
+  border-radius: 16rpx 16rpx 0 0;
+}
+
 /* 经营硬指标（Batch D1）：三列两行，未填报的格显示“—”而不是 0 */
 .fd-metrics { display: flex; flex-wrap: wrap; }
 .fd-metric {

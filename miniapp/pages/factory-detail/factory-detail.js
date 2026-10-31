@@ -66,6 +66,8 @@ Page({
     viewText: '',        // 浏览量文案
     tabs: SEGMENTS,
     activeTab: 'overview',
+    // 吸顶态：true 时 tab 条上方补一块白底盖住状态栏下方那条缝（未吸顶时补了会压住卡片）
+    tabsStuck: false,
     avatarText: '厂',
     avatarColor: '#94a3b8',
     // 033 供应商关注：头部卡右上角星标（底部只保留询价主操作）
@@ -217,6 +219,11 @@ Page({
         if (rect) tops[s.key] = rect.top + scroll.scrollTop - barTop - barH - 6;
       });
       this._segTops = tops;
+      // 吸顶临界点：条自己的绝对位置减去状态栏高度（条一过这条线就贴住状态栏下沿）。
+      // 只用来决定「要不要补那块白底」，不参与段顶计算——补丁是绝对定位、不占布局
+      if (barRect) this._stickAt = barRect.top + scroll.scrollTop - barTop;
+      // 回到本页时页面可能还停在滚过的位置，量完立刻按当前偏移校正一次吸顶态
+      this.updateStuck(scroll.scrollTop);
       // 末段不足一屏时，它自己的 top 永远滚不到（滚到底时还差一截），所以额外记一个「最大可滚距离」做兜底。
       // 量页面容器而不是最后一段：最后一段下面还有底部操作条 + page-tab 的留白，用段底会偏小
       try {
@@ -234,6 +241,15 @@ Page({
   // 不锁的话 onPageScroll 会把 activeTab 反算回上一段，看起来就像「点了没切」
   lockActive(ms) {
     this._activeLockedUntil = Date.now() + ms;
+  },
+
+  // 吸顶态：条滚到状态栏下沿之后才补那块向上延伸的白底。
+  // 注意它要在高亮锁判断之前跑——点击跳转途中也会越过临界点，锁住高亮不等于不补白底
+  updateStuck(scrollTop) {
+    const at = this._stickAt;
+    if (at === undefined) return;
+    const stuck = scrollTop >= at - 1;
+    if (stuck !== this.data.tabsStuck) this.setData({ tabsStuck: stuck });
   },
 
   onTabTap(e) {
@@ -259,6 +275,7 @@ Page({
   },
 
   onPageScroll(e) {
+    this.updateStuck(e.scrollTop);
     const tops = this._segTops;
     if (!tops) return;
     if (Date.now() < (this._activeLockedUntil || 0)) return;
