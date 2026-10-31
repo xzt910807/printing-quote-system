@@ -20,6 +20,11 @@
        否则最右边几段被胶囊盖住；未吸顶时条在头部卡片下方、那里没有胶囊，所以只在吸顶时让 -->
   <view class="sec-nav"
         style="top: {{statusBarHeight}}px;{{navStuck && capsuleGap ? ' padding-right:' + capsuleGap + 'px;' : ''}}">
+    <!-- 吸顶后才补的白色底：向上铺满状态栏下方那条缝，与条连成一体；
+         未吸顶不渲染，否则这块会盖住上方头部卡片底部。
+         top 用 fillTop（= -状态栏高度 - 2px）；左右比条多出 24rpx，正好盖掉 .container 的内边距，
+         不然缝的左右两侧各剩一条页面灰边 -->
+    <view class="sec-nav-fill" wx:if="{{navStuck}}" style="top: {{fillTop}}px;"></view>
     <view class="sec-nav-item {{section === 'dashboard' ? 'sec-on' : ''}}" data-section="dashboard" bindtap="switchSection">经营</view>
     <view class="sec-nav-item {{section === 'profile' ? 'sec-on' : ''}}" data-section="profile" bindtap="switchSection">资料</view>
     <view class="sec-nav-item {{section === 'price' ? 'sec-on' : ''}}" data-section="price" bindtap="switchSection">价格</view>

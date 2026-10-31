@@ -844,11 +844,23 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - `switchSection` 里显式 `updateNavStuck(0)`：回顶后如果 `scrollTop` 本来就是 0，滚动事件不会触发，
   条会留着那次让位的一大块空白。
 - `.sec-nav-item` 加 `white-space: nowrap`：7 段收窄后两字标签会被挤成两行。
+- **吸顶时补一块白底**（`.sec-nav-fill`，`wx:if="{{navStuck}}"`）：`top` 取 `fillTop`（`= -(statusBarHeight + 2)`）、
+  `bottom: 0`、`z-index: 0`、不留圆角，与详情页 14.15 同一套。**唯一不同的地方**：这里的条缩在
+  `.container` 的 24rpx 内边距里，所以 fill 要 `left/right: -24rpx` 向外扩，否则缝的左右两侧各剩一条灰边
+  （详情页的条是满宽的，不需要外扩）。`-24rpx` 是写死对齐 `.container` 的，改那边内边距要同步改这里。
+- **`.sec-nav-item` 必须同时抬到 `position: relative; z-index: 1`**：`z-index: 0` 的定位元素会压在非定位的
+  同级内容之上，除了挡住两字标签，**还会把点击吃掉**——点在 fill 上不会冒泡到段上，切换分区直接失灵。
+  这是这个白底补丁第二次踩到 z-index 的连带，两处改动是成对的。
 
 **自测**（临时脚本已删，假机型屏宽 390 / 状态栏 20 / 胶囊 left 296）：13/13 —— `capsuleGap` = 102；
 吸顶临界点 180（= 条绝对位 200 − 状态栏 20）；前 5px 不吸顶、到点吸顶、回顶撤掉；
 7 段时每段 ≈ 36px（两字 27px 放得下）、6 段 ≈ 42px；切分区后回顶并撤掉让位；
 380px 的连续滚动只 setData 一次。
+
+加白底后再跑一轮 12/12：`fillTop` = -22、`capsuleGap` 仍 102、吸顶临界点仍 180（白底绝对定位，不占布局）；
+切分区四项照旧——换 `section`、写 storage、回顶、白底收起；连点当前分区不产生多余 setData；
+连续切 cap/trust/account 三次行为一致。
+**点击能否落到段上（fill 会不会吃掉点击）仿真验不了**，只能靠真机或开发者工具点一下确认。
 
 **局限**：
 - 7 段已经到头：让出胶囊宽度后每段只剩两个字宽，再加一段就得改成横向滚动（`scroll-view`），不能再挤。

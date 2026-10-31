@@ -209,6 +209,8 @@ Page({
     // 吸顶后条右侧要让出的宽度（px）：胶囊固定在右上角，吸顶后条与它同一水平线，最右边几段会被盖住。
     // 0 表示拿不到胶囊信息，不做避让
     capsuleGap: 0,
+    // 吸顶白底的上沿（负数）：比状态栏再向上多顶 2px，兜 Android 状态栏高度的取整误差
+    fillTop: -22,
     // 吸顶态：只有吸顶时条才与胶囊同一水平线、才需要让位（未吸顶时条在头部卡片下方，那里没有胶囊）
     navStuck: false,
     auth: null,
@@ -292,9 +294,9 @@ Page({
       const capsuleGap = info.windowWidth && menu.left
         ? Math.round(info.windowWidth - menu.left) + 8
         : 0;
-      this.setData({ statusBarHeight: sbh, navBarHeight, capsuleGap });
+      this.setData({ statusBarHeight: sbh, navBarHeight, capsuleGap, fillTop: -(sbh + 2) });
     } catch (e) {
-      this.setData({ statusBarHeight: 20, navBarHeight: 44, capsuleGap: 0 });
+      this.setData({ statusBarHeight: 20, navBarHeight: 44, capsuleGap: 0, fillTop: -22 });
     }
 
     const auth = wx.getStorageSync('factoryAuth');
