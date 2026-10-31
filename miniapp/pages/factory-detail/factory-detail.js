@@ -164,8 +164,8 @@ Page({
           ? Number(d.rating).toFixed(1) + ' 分（' + d.rating_count + '人）'
           : '',
         // 浏览量 0 不给文案：新厂挂一句「浏览 0」＝当众提醒这儿没人看过，且 0 本身没有信息量。
-        // > 0 时放在「概况 · 所在地区」那行的末尾（纯元数据，不占头部信任区；所以不设 20/50 这种
-        // 营销阈值 —— 它在数据区里如实呈现，和经营硬指标允许「—」是同一套口径）
+        // > 0 时渲染在卡片左上角当角标（与右上角的「关注」两角对称），不进中心区、也不做 20/50
+        // 那类营销阈值 —— 角落里一个真实数字就够，不必凑到"看起来热闹"的量级
         viewText: Number(d.view_count) > 0 ? fmtNum(d.view_count) : '',
         phoneVisible: !!d.phoneVisible,
         acceptDirectCall: d.acceptDirectCall !== false,

@@ -20,6 +20,10 @@
         <text class="fd-fav-ic">{{followed ? '★' : '☆'}}</text>
         <text class="fd-fav-tx">{{followed ? '已关注' : '关注'}}</text>
       </view>
+      <!-- 浏览量：卡左上角，与右上角的「关注」形成两角对称。
+           它不强（0 时 js 直接不给文案），所以用 20rpx 浅灰字、与「关注」同字号，
+           压在角落不参与中心区的阅读顺序 -->
+      <view class="fd-views" wx:if="{{viewText}}">浏览 {{viewText}}</view>
       <view class="fd-avatar" style="background: {{avatarColor}}">{{avatarText}}</view>
       <view class="fd-title">{{info.name}}</view>
       <!-- 印查查式信任位：已核验徽章 + 闲置产能胶囊 -->
@@ -61,13 +65,7 @@
             <text class="fd-metric-lbl">{{item.label}}</text>
           </view>
         </view>
-        <!-- 所在地区 + 浏览量：都是「这家厂的元数据」，一行放完。
-             浏览量 0 时 js 不给文案，这里自然不出现；它不参与信任背书，所以放在数据区而不是头部 -->
-        <view class="fd-region" wx:if="{{info.province || info.city || viewText}}">
-          <text wx:if="{{info.province || info.city}}">所在地区：{{info.province}}{{info.city}}</text>
-          <text class="fd-region-sep" wx:if="{{(info.province || info.city) && viewText}}">·</text>
-          <text class="fd-views" wx:if="{{viewText}}">浏览 {{viewText}}</text>
-        </view>
+        <view class="fd-region" wx:if="{{info.province || info.city}}">所在地区：{{info.province}}{{info.city}}</view>
         <view class="fd-metric-tip">数据由工厂自报，未填报的显示“—”</view>
       </view>
 

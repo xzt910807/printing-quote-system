@@ -89,8 +89,20 @@
 .fd-cap-busy { color: #dc2626; background: #fef2f2; }
 .fd-cap-note { margin-top: 12rpx; font-size: 24rpx; color: #64748b; text-align: center; }
 
+/* 浏览量：卡片左上角（右上角是关注），两角对称、都不进中心阅读区。
+   20rpx 与 .fd-fav-tx（「关注」二字）同字号，浅灰，弱于厂名/徽章/评分；
+   绝对定位所以不影响卡片里居中头像的布局。0 时 wxml 不渲染这一块 */
+.fd-views {
+  position: absolute;
+  top: 26rpx;
+  left: 24rpx;
+  font-size: 20rpx;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
 /* 头部只留评分：正向强信号、是卖点，用暖色细字；没有评分整行不渲染。
-   （浏览量是弱数据，已降到「概况」的所在地区那一行，不再占信任区的位置） */
+   （浏览量是弱数据，放在卡片左上角当角标，不占中心区的行） */
 .fd-score { margin-top: 12rpx; font-size: 23rpx; color: #b45309; text-align: center; }
 
 /* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶）
@@ -153,19 +165,7 @@
 }
 .fd-metric-val { font-size: 30rpx; font-weight: 600; color: #0f172a; line-height: 1.3; }
 .fd-metric-lbl { font-size: 22rpx; color: #94a3b8; margin-top: 6rpx; }
-/* 所在地区 + 浏览量（一行放完）。浏览量压到更浅一档：它是纯元数据，不参与信任背书。
-   flex-wrap 兜长地名（"新疆维吾尔自治区阿克苏地区…"）：换行而不是把数字挤出去 */
-.fd-region {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 24rpx;
-  color: #475569;
-  margin-top: 8rpx;
-}
-.fd-region-sep { font-size: 20rpx; color: #cbd5e1; }
-.fd-views { color: #94a3b8; }
+.fd-region { font-size: 24rpx; color: #475569; margin-top: 8rpx; }
 .fd-metric-tip { font-size: 20rpx; color: #cbd5e1; margin-top: 12rpx; }
 
 /* 图集分组标题（设备/车间/样品/资质证书） */
