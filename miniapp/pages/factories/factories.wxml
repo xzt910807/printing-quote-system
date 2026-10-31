@@ -33,7 +33,7 @@
     <view class="quick-row">
       <!-- 030 地区筛选：省 + 市两级，选中后拼入 /api/factory/list?province=&city=
            弹层用自建的 region-picker（系统 picker 的字号/行高改不了，两级时还会有两列「全部」） -->
-      <view class="tag tag-picker {{filter.province ? 'tag-active' : ''}}" bindtap="openRegion">
+      <view class="tag {{filter.province ? 'tag-active' : ''}}" bindtap="openRegion">
         <text wx:if="{{filter.province}}">{{filter.province}} · {{filter.city}}</text>
         <text wx:else>全部地区 ›</text>
         <!-- 清除并进 chip 里当关闭按钮，不再单独占一颗 chip（单独一颗容易被当成「清除信任」） -->

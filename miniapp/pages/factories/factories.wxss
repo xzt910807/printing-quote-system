@@ -110,14 +110,23 @@
   border-color: #2563eb;
 }
 
-/* 筛选卡里的 chip 统一收一档（24rpx + 8/22 内边距），
-   和地区弹层里的字号（正文 26rpx、辅助 24rpx）是同一档；
-   地区 chip 与「只看已验真」原来一个 24rpx 一个 26rpx、内边距也不同，同一行看着一高一矮 */
+/* 筛选卡里的 chip（地区 / 产品 / 工艺）统一收一档：24rpx 字 + 8/22 内边距 + 1rpx 边框，
+   和地区弹层里的字号（正文 26rpx、辅助 24rpx）是同一档。
+   字色比全局 .tag（#64748b）压深一档，小字号下更实 */
 .filter-card .tag {
   padding: 8rpx 22rpx;
   font-size: 24rpx;
   line-height: 1.4;
   border-width: 1rpx;
+  color: #475569;
+}
+
+/* 选中态：蓝底 / 蓝边 / 加粗来自全局 .tag-active，但那边只是单类（0,1,0），
+   字色会被上面 .filter-card .tag（0,2,0）压回 #475569 —— 这里只把字色补回白。
+   （地区 chip 早先自带过一个单类选择器，和全局 .tag-active 打平、页面后加载，
+   把选中态整个盖成灰底；删掉那个单类后，这层冲突就不存在了） */
+.filter-card .tag-active {
+  color: #fff;
 }
 
 /* ---------- 工厂卡片 ---------- */
@@ -248,27 +257,10 @@
 .fi-cap-normal { color: #2563eb; background: #eff6ff; }
 .fi-cap-busy { color: #dc2626; background: #fef2f2; }
 
-/* F-97/98：加载态与空状态（空文案在 wxml） */
-.empty { text-align: center; padding: 80rpx 40rpx; color: #94a3b8; font-size: 27rpx; line-height: 1.7; }
+/* F-97/98：加载态与空状态（空文案在 wxml）。
+   覆盖全局 .empty（60rpx 0 / 26rpx）：这页的空状态是图标 + 一两行文案，要更松的留白和行高，
+   居中与字色沿用全局，这里不再重复声明 */
+.empty { padding: 80rpx 40rpx; font-size: 27rpx; line-height: 1.7; }
 
-.empty-icon { display: block; font-size: 70rpx; margin-bottom: 16rpx; }
-
-/* 030 地区筛选：入口是一个普通 chip，点开 components/region-picker 弹层。
-   字号/内边距必须与上面 .filter-card .tag 一致，否则和「只看已验真」并排时高低不齐 */
-.tag-picker {
-  font-size: 24rpx;
-  line-height: 1.4;
-  padding: 8rpx 22rpx;
-  border-radius: 999rpx;
-  background: #f1f5f9;
-  color: #475569;
-}
-
-/* .tag-picker 与全局 .tag-active 都是单个类，而页面样式在 app.wxss 之后加载，
-   会把「已选地区」本该有的蓝底盖回灰底（选中态等于没生效）。
-   这里用两个类把选中态显式补回来 */
-.filter-card .tag-picker.tag-active {
-  background: #2563eb;
-  color: #fff;
-  font-weight: 500;
-}
+/* 覆盖全局的 80rpx：加载中的 ⏳ 只是过场，压小一档不抢眼；display/margin 沿用全局 */
+.empty-icon { font-size: 70rpx; }
