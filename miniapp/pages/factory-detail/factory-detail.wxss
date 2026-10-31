@@ -89,9 +89,14 @@
 .fd-cap-busy { color: #dc2626; background: #fef2f2; }
 .fd-cap-note { margin-top: 12rpx; font-size: 24rpx; color: #64748b; text-align: center; }
 
-/* 信任数据位：评分 + 浏览量 */
-.fd-stats { display: flex; gap: 20rpx; margin-top: 14rpx; justify-content: center; }
-.fd-stat { font-size: 24rpx; color: #b45309; background: #fff7ed; border-radius: 999rpx; padding: 6rpx 20rpx; }
+/* 信任数据位：评分 + 浏览量。
+   不套胶囊 —— 这一行的上一行是「✓ 已核验」徽章、下一行是地址胶囊（可点复制），
+   再塞两个胶囊就变成三个胶囊各占一行居中堆着、宽窄不一。
+   改成一行浅灰细字：评分单独留暖色（正向数据，是卖点），浏览量跟字色走 */
+.fd-stats { display: flex; align-items: center; gap: 10rpx; margin-top: 12rpx; justify-content: center; }
+.fd-stat { font-size: 23rpx; color: #94a3b8; }
+.fd-stat-score { color: #b45309; }
+.fd-stat-dot { font-size: 20rpx; color: #cbd5e1; }
 
 /* 四段吸顶 tab（与 factory-me 的 .sec-nav 同一套视觉：页面滚动时贴顶）
    这里的 top 只是兜底：实际吸顶位置由 wxml 的内联 style 设成状态栏高度，

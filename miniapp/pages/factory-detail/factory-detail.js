@@ -163,7 +163,9 @@ Page({
         ratingText: Number(d.rating) && Number(d.rating_count)
           ? Number(d.rating).toFixed(1) + ' 分（' + d.rating_count + '人）'
           : '',
-        viewText: fmtNum(d.view_count) || '',
+        // 浏览量 0 不给文案：新厂挂一句「浏览 0」＝当众提醒这儿没人看过，且 0 本身没有信息量。
+        // 有真实浏览量时才在评分旁边以浅灰细字出现（见 wxml 的 .fd-stats）
+        viewText: Number(d.view_count) > 0 ? fmtNum(d.view_count) : '',
         phoneVisible: !!d.phoneVisible,
         acceptDirectCall: d.acceptDirectCall !== false,
         phoneUsable: /\d/.test(String(d.phone || '')),

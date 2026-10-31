@@ -28,9 +28,13 @@
         <text class="fd-cap fd-cap-{{capacity.status}}" wx:if="{{capacity}}">⚡ {{capacity.label}}</text>
       </view>
       <view class="fd-cap-note" wx:if="{{capacity && capacity.note}}">{{capacity.note}}</view>
-      <!-- 信任数据位：评分 + 浏览量（Batch D1 view_count） -->
+      <!-- 信任数据位：评分 + 浏览量。
+           不套胶囊：胶囊是「标签」的形态，这两个是「数据」；而且容器居中，没有评分时
+           只剩一颗「浏览 0」的橙胶囊孤零零悬在徽章和地址中间，像第三个标签。
+           改成一行无底色的浅灰细字，权重压到「已核验」徽章之下（浏览量 0 时 js 直接不给文案） -->
       <view class="fd-stats" wx:if="{{ratingText || viewText}}">
-        <text class="fd-stat" wx:if="{{ratingText}}">★ {{ratingText}}</text>
+        <text class="fd-stat fd-stat-score" wx:if="{{ratingText}}">★ {{ratingText}}</text>
+        <text class="fd-stat-dot" wx:if="{{ratingText && viewText}}">·</text>
         <text class="fd-stat" wx:if="{{viewText}}">浏览 {{viewText}}</text>
       </view>
       <view class="fd-addr" bindtap="copyAddress" wx:if="{{info.address}}">
