@@ -353,12 +353,7 @@ Page({
     const id = Number(ds.id);
     const u = wx.getStorageSync('userAuth');
     if (!u || !u.userId || !u.token) {
-      wx.showModal({
-        title: '请先登录',
-        content: '关注后可在「我的 → 供应商」里管理，询价时这家厂优先接单',
-        confirmText: '去登录',
-        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
-      });
+      this.askLogin('关注后可在「我的 → 供应商」里管理，询价时这家厂优先接单', '请先登录');
       return;
     }
     const idx = this.data.factories.findIndex((x) => Number(x.id) === id);
@@ -418,15 +413,8 @@ Page({
       });
       return;
     }
-    const u = wx.getStorageSync('userAuth');
-    if (!u || !u.userId || !u.token) {
-      wx.showModal({
-        title: '登录后查看完整号码',
-        content: '登录后可看到该工厂电话并一键拨打，也能关注工厂、保存报价记录',
-        confirmText: '去登录',
-        cancelText: '取消',
-        success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
-      });
+    if (!this.hasUserAuth()) {
+      this.askLogin('登录后可看到该工厂电话并一键拨打，也能关注工厂、保存报价记录');
       return;
     }
     if (String(item.phone).indexOf('*') >= 0) {
@@ -435,5 +423,22 @@ Page({
       return;
     }
     wx.makePhoneCall({ phoneNumber: String(item.phone) });
+  },
+
+  // 与 toggleFollow 同一判据：userId 与 token 都在才算登录（半截 storage 不算）
+  hasUserAuth() {
+    const u = wx.getStorageSync('userAuth');
+    return !!(u && u.userId && u.token);
+  },
+
+  // 未登录的统一引导（拨号 / 关注都走这一套，避免两处文案各自漂移）
+  askLogin(content, title) {
+    wx.showModal({
+      title: title || '登录后查看完整号码',
+      content,
+      confirmText: '去登录',
+      cancelText: '取消',
+      success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/mine/mine' }); },
+    });
   },
 });
