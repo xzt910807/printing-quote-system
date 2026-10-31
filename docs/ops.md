@@ -754,6 +754,8 @@ SELECT id, name, phone FROM factory WHERE status = 1 AND phone REGEXP '-';
 - 只让开位置还不够：状态栏下面那条（`0 ~ statusBarHeight`）露出的是页面底色（浅灰），看着像条缝。
   现在 tab 条里加了一块 `.fd-tabs-fill`，绝对定位 `top: -statusBarHeight`、`bottom: 0`、`z-index: -1`，
   白底既铺满那条缝、又盖到条自身的圆角处，视觉上和条连成一体。
+  这块白底**不留圆角**（直角铺满）：条的上两角是圆角，fill 若也圆角，两处圆角外侧会同时透明、露出页面灰底，
+  等于白补——直角才能把圆角缝隙一起封住，而顶部本来就是屏幕边缘。
 - **只在吸顶时才渲染**（`wx:if="{{tabsStuck}}"`）：未吸顶时它会被负的 top 顶到上方卡片底部、压掉一片。
   `tabsStuck` 由 `updateStuck(scrollTop)` 维护，临界点 `_stickAt = 条绝对位置 - statusBarHeight`（1px 容差，
   宁可早一像素补上，也不要晚一像素漏缝）。`updateStuck` 放在 `onPageScroll` 的**高亮锁判断之前**——
